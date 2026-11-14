@@ -9,7 +9,7 @@ const KINDS = new Set<Kind>(["video", "audio", "pdf", "epub", "zip-entry"]);
 const PAGE = 50;
 const DAY = 24 * 3600_000;
 
-export function libraryRoutes(opts: Omit<ScanOptions, "probe"> & { autoScan: boolean }, db: DatabaseSync): void {
+export function libraryRoutes(opts: Omit<ScanOptions, "probe"> & { autoScan: boolean; onScan?: () => void }, db: DatabaseSync): void {
   const cache = probeCache(db);
   let running: Promise<void> | null = null;
   let lastError: string | null = null;
@@ -51,7 +51,11 @@ export function libraryRoutes(opts: Omit<ScanOptions, "probe"> & { autoScan: boo
     send(res, 200, { ...r, scannedAt: scannedAt(db), scanning: Boolean(running), scanError: lastError });
   });
 
-  route("POST", "/api/library/scan", (_req, res) => send(res, 200, { started: startScan() }));
+  route("POST", "/api/library/scan", (_req, res) => {
+    const started = startScan();
+    if (started) opts.onScan?.();
+    send(res, 200, { started });
+  });
 
   if (opts.autoScan) {
     const at = scannedAt(db);

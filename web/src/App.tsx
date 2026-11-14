@@ -4,6 +4,7 @@ import { Chat } from "./chat/Chat.tsx";
 import { Icon, IconSprite } from "./icons.tsx";
 import { Library } from "./library/Library.tsx";
 import { Practice } from "./practice/Practice.tsx";
+import { Tabs } from "./tabs/Tabs.tsx";
 import { ToolsSheet } from "./tools/ToolsSheet.tsx";
 
 type Section = "practice" | "library" | "tabs";
@@ -59,7 +60,7 @@ export function App() {
             <Library active={section === "library"} />
           </section>
           <section className={`view${section === "tabs" && !tool ? " on" : ""}`} aria-label="Tabs">
-            <Empty title="Tabs" text="Coming soon: the Guitar Pro tab collection." />
+            <Tabs active={section === "tabs"} />
           </section>
           {tool && <ToolsSheet tool={tool} onSwitch={setTool} onClose={() => setTool(null)} />}
         </div>

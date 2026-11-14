@@ -3,3 +3,5 @@ dist/
 *.tsbuildinfo
 .superpowers/
 captures/
+web/public/font/
+web/public/soundfont/

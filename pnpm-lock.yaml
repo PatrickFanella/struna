@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@coderline/alphatab':
+        specifier: ^1.9.0
+        version: 1.9.0(@coderline/alphatab-vite@1.9.0(vite@8.3.8(@types/node@26.6.6)))
       epubjs:
         specifier: ^0.3.93
         version: 0.3.93
@@ -27,6 +30,9 @@ importers:
         specifier: ^4.0.1
         version: 4.0.1
     devDependencies:
+      '@coderline/alphatab-vite':
+        specifier: ^1.9.0
+        version: 1.9.0(vite@8.3.8(@types/node@26.6.6))
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
@@ -51,6 +57,24 @@ importers:
 
 packages:
 
+  '@coderline/alphatab-vite@1.9.0':
+    resolution: {integrity: sha512-6tgtoD14rk72yfeAtAwACNJsRQAF/Y13PU8yLPO9ggNlV/MYcY8L9pPfPqVDaR3dV3MDgmQ6s3oOaGXMobVglw==}
+    engines: {node: '>=20.19.0'}
+    peerDependencies:
+      vite: ^6 || ^7 || ^8
+
+  '@coderline/alphatab@1.9.0':
+    resolution: {integrity: sha512-pG/Um03DdiTW7i9KR+rPTRRnzIW5oJBWs67altBXtCkxGvUG1RuvkgRTZO3GIaOD2vATjcw+5OevMZl9I2/T+Q==}
+    engines: {node: '>=6.0.0'}
+    peerDependencies:
+      '@coderline/alphatab-vite': ^1.9.0
+      '@coderline/alphatab-webpack': ^1.9.0
+    peerDependenciesMeta:
+      '@coderline/alphatab-vite':
+        optional: true
+      '@coderline/alphatab-webpack':
+        optional: true
+
   '@emnapi/core@2.0.0-beta.2':
     resolution: {integrity: sha512-MzCVoWtcg4Pm2B3je5mMvYMvj3MmBKw+fU7vbsJc9/iT8ip6/eYIHo/Dsm/mr+wsHB6SEyJDuxB09Yy6r/8+4A==}
 
@@ -59,6 +83,9 @@ packages:
 
   '@emnapi/wasi-threads@2.2.0':
     resolution: {integrity: sha512-JP7OYH38Q7+pyTAe14raZHLQIK7BDKbdwji+Xi3pcd/6QkJYQH3SX4wu6EplGrGJWRepoNzedfm0G3B9Z4e9Rw==}
+
+  '@jridgewell/sourcemap-codec@1.6.0':
+    resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
 
   '@napi-rs/canvas-android-arm64@0.1.100':
     resolution: {integrity: sha512-hjhCKhntPv9+t4ckHymdx0phYNcVW+GKQR6Lzw2zE+pOVjOplSmtx9nNNknTjbEDLcuLZqA1y8ufKg1XfgftzQ==}
@@ -670,6 +697,9 @@ packages:
   longest-streak@3.1.0:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
 
+  magic-string@1.4.5:
+    resolution: {integrity: sha512-oLLC2+YvQUfAa+vxoufE/yc1icb87M9iXIRqAoR/2EhE/8cb3SF/+Gi0c2By1B+5Vz2e2vQtUvHiu1+63Znh+w==}
+
   markdown-table@3.1.0:
     resolution: {integrity: sha512-xpeSCdM+B+6P3ncfgaB7FoDbtJ30xAe6Z18TGT7AgXJsHqCElCICZovQqdRMm7kHgpTyYv36EupqewoFFSB8vw==}
 
@@ -1013,6 +1043,15 @@ packages:
 
 snapshots:
 
+  '@coderline/alphatab-vite@1.9.0(vite@8.3.8(@types/node@26.6.6))':
+    dependencies:
+      magic-string: 1.4.5
+      vite: 8.3.8(@types/node@26.6.6)
+
+  '@coderline/alphatab@1.9.0(@coderline/alphatab-vite@1.9.0(vite@8.3.8(@types/node@26.6.6)))':
+    optionalDependencies:
+      '@coderline/alphatab-vite': 1.9.0(vite@8.3.8(@types/node@26.6.6))
+
   '@emnapi/core@2.0.0-beta.2':
     dependencies:
       '@emnapi/wasi-threads': 2.2.0
@@ -1028,6 +1067,8 @@ snapshots:
     dependencies:
       tslib: 2.9.1
     optional: true
+
+  '@jridgewell/sourcemap-codec@1.6.0': {}
 
   '@napi-rs/canvas-android-arm64@0.1.100':
     optional: true
@@ -1473,6 +1514,10 @@ snapshots:
   lodash@4.18.1: {}
 
   longest-streak@3.1.0: {}
+
+  magic-string@1.4.5:
+    dependencies:
+      '@jridgewell/sourcemap-codec': 1.6.0
 
   markdown-table@3.1.0: {}
 

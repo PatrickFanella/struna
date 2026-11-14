@@ -191,3 +191,24 @@ textarea.input{resize:vertical;line-height:1.4}
 .epub{display:flex;flex-direction:column;flex:1;min-height:0}
 .epubpage{flex:1;min-height:65vh;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r);padding:8px}
 .viewer a{color:var(--ink)}
+
+/* Tabs */
+.chips.artists button .num{color:var(--graphite);margin-left:4px}
+.tabview{gap:8px}
+.tabplayer{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}
+.tabctl{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.tabctl .btn{height:48px;padding:0 18px;font-size:var(--fs-label)}
+.tabctl .btn.on{background:var(--wash);box-shadow:inset 0 0 0 2px var(--ink);font-weight:700}
+.tempoctl{display:flex;flex-direction:column;gap:2px;flex:1;min-width:160px}
+.tempoctl .grp{margin:0}
+.tempoctl input{width:100%;accent-color:var(--ink)}
+.trackpick{width:auto;min-width:160px;height:48px}
+.loopctl{display:flex;align-items:center;gap:6px}
+.loopctl .grp{margin:0 4px 0 0}
+.loopctl .input{width:64px;min-height:48px;text-align:center;padding:6px}
+.tabscroll{flex:none;height:62vh;overflow:auto;isolation:isolate;-webkit-overflow-scrolling:touch;background:var(--page);border:1px solid var(--rule);border-radius:var(--r);position:relative}
+.tabscroll .at-cursor-bar{background:color-mix(in srgb,var(--pencil) 12%,transparent)}
+.tabscroll .at-cursor-beat{background:var(--pencil);width:3px}
+.tabscroll .at-highlight *{fill:var(--pencil);stroke:var(--pencil)}
+
+.tabs{z-index:10}

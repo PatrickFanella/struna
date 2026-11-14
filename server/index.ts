@@ -11,6 +11,7 @@ import { practiceRoutes } from "./practice.ts";
 import { mediaRoutes } from "./library/media.ts";
 import { libraryRoutes } from "./library/routes.ts";
 import { recordingRoutes } from "./recordings.ts";
+import { tabsRoutes } from "./tabs.ts";
 
 export const db = openDb(config.stateDir);
 
@@ -18,7 +19,8 @@ route("GET", "/api/health", (_req, res) => send(res, 200, { ok: true }));
 practiceRoutes(config, db);
 recordingRoutes(config);
 chatRoutes(config, db, conversations(db));
-libraryRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN }, db);
+const tabs = tabsRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN }, db);
+libraryRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN, onScan: () => tabs.rescan() }, db);
 mediaRoutes(config, db);
 
 const TYPES: Record<string, string> = {
@@ -29,6 +31,8 @@ const TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".json": "application/json",
   ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".otf": "font/otf",
   ".png": "image/png",
   ".wasm": "application/wasm",
   ".sf2": "application/octet-stream",
