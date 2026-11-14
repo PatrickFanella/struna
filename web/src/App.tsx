@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { Icon, IconSprite } from "./icons.tsx";
 import { Practice } from "./practice/Practice.tsx";
+import { ToolsSheet } from "./tools/ToolsSheet.tsx";
 
 type Section = "practice" | "library" | "tabs";
 const SECTIONS: { id: Section; label: string; icon: "i-stand" | "i-books" | "i-tab" }[] = [
@@ -58,18 +59,7 @@ export function App() {
           <section className={`view${section === "tabs" && !tool ? " on" : ""}`} aria-label="Tabs">
             <Empty title="Tabs" text="Coming soon: the Guitar Pro tab collection." />
           </section>
-          {tool && (
-            <section className="view on" aria-label="Tools">
-              <div className="grab" aria-hidden="true" />
-              <div className="sheethd">
-                <div className="seg" role="tablist">
-                  <span className={tool === "tuner" ? "on" : ""}>Tuner</span>
-                  <span className={tool === "metronome" ? "on" : ""}>Metronome</span>
-                </div>
-                <button className="sheetdone" onClick={() => setTool(null)}>Done</button>
-              </div>
-            </section>
-          )}
+          {tool && <ToolsSheet tool={tool} onSwitch={setTool} onClose={() => setTool(null)} />}
         </div>
       </main>
 

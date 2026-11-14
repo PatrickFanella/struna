@@ -17,7 +17,7 @@ const root = join(import.meta.dirname, "..");
 const out = resolve(process.argv[2] ?? join(root, "captures"));
 const only = new Set(process.argv.slice(3));
 const env = join(out, "env");
-const port = 5199;
+const port = Number(process.env.CAPTURE_PORT ?? 5187);
 const base = `http://localhost:${port}`;
 
 rmSync(out, { recursive: true, force: true });

@@ -6,3 +6,15 @@ body{min-height:100dvh}
 .empty{padding-top:12px}
 .empty .instr{color:var(--graphite)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* The mockup's segments are spans; here they are buttons with the same look. */
+.seg button{display:flex;align-items:center;justify-content:center;height:42px;border-radius:var(--r);border:0;background:transparent;padding:0 6px;font-size:inherit}
+.seg button.on{background:var(--wash);box-shadow:inset 0 0 0 2px var(--ink);font-weight:700}
+.seg.mini button{font-family:var(--serif);font-weight:600;font-variant-numeric:lining-nums}
+.seg.mini.words button{font-family:var(--sans)}
+.seg.mini button.on{font-weight:700}
+.bpml span{font-size:18px;color:var(--pencil);font-weight:600}
+.beats.many{gap:12px}
+.beats.many i{width:calc(var(--beat) * .8);height:calc(var(--beat) * .8)}
+.click.many{gap:5px}
+.r3 button,.r4 button{color:var(--ink)}
