@@ -4,7 +4,7 @@ import { store } from "../api.ts";
 
 const MIN = 25;
 const MAX = 200;
-const PRESETS = [50, 70, 85];
+const PRESETS = [50, 70, 85, 100];
 
 function clock(s: number): string {
   const t = Math.max(0, Math.floor(s));
@@ -15,7 +15,7 @@ function clock(s: number): string {
  * A video or audio player for practice: speed from 25% to 200% in 5% steps (pitch kept),
  * an A–B loop, 5-second skips, and the position and speed remembered per item.
  */
-export function VideoView({ src, storageKey, audioOnly, className, poster }: { src: string; storageKey: string; audioOnly?: boolean; className?: string; poster?: string | undefined }) {
+export function VideoView({ src, storageKey, audioOnly, className, poster, children }: { src: string; storageKey: string; audioOnly?: boolean; className?: string; poster?: string | undefined; children?: React.ReactNode }) {
   const el = useRef<HTMLVideoElement & HTMLAudioElement>(null);
   const [speed, setSpeed] = useState(() => Number(store.get(`guitar-room.speed:${storageKey}`)) || 100);
   const [a, setA] = useState<number | null>(null);
@@ -82,6 +82,7 @@ export function VideoView({ src, storageKey, audioOnly, className, poster }: { s
   return (
     <div className={`av${className ? ` ${className}` : ""}`} onKeyDown={keys}>
       <Tag ref={el} src={src} controls playsInline preload="metadata" {...(poster && !audioOnly ? { poster } : {})} onError={() => setError(true)} />
+      {children}
       {error && <p className="matnote">This file could not be played. The first play of an .mkv lesson converts it, which can take up to half a minute; try again.</p>}
       <div className="avbar" role="toolbar" aria-label="Practice controls">
         <div className="speedctl">
@@ -94,9 +95,8 @@ export function VideoView({ src, storageKey, audioOnly, className, poster }: { s
           <button className="tool" onClick={() => setRate(speed + 5)} aria-label="5 percent faster">+5%</button>
           <span className="presets">
             {PRESETS.map((p) => (
-              <button key={p} className={`tool chip${speed === p ? " on" : ""}`} aria-pressed={speed === p} onClick={() => setRate(p)}>{p}</button>
+              <button key={p} className={`tool chip num${speed === p ? " on" : ""}`} aria-pressed={speed === p} onClick={() => setRate(p)}>{p}%</button>
             ))}
-            <button className="tool" disabled={speed === 100} onClick={() => setRate(100)}>Reset</button>
           </span>
         </div>
         <div className="avloop">

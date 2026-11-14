@@ -433,3 +433,60 @@ main .wrap:has(.session),main .wrap:has(.viewerws){max-width:1680px}
   .sessionbar .passes{flex:1;min-width:0}
   .wsbar .tool{height:36px}
 }
+
+/* ---- Round 2 ---- */
+/* Desktop: sections live in the header, so the bottom bar's height goes to the lesson. */
+.topnav{display:none}
+@media (min-width:700px) and (pointer:fine){
+  .topnav{display:flex;gap:4px;margin:0 auto 0 32px}
+  .topnav a{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:8px;color:var(--graphite);text-decoration:none;font-size:15px}
+  .topnav a svg{width:20px;height:20px}
+  .topnav a[aria-current]{color:var(--ink);font-weight:700;background:var(--wash);box-shadow:inset 0 0 0 2px var(--ink)}
+  .tabs{display:none}
+  .themepick .seg{flex:none;width:auto}
+  .themepick .seg button{height:34px;padding:0 14px}
+  .paneacts .tool{height:28px;min-width:28px;font-size:13px}
+}
+.top .wrap{gap:8px}
+/* Session header: the title wraps; the instruction shows two lines. */
+.stagetext h1{white-space:normal;overflow:visible}
+.stagetext .instr.clamp{-webkit-line-clamp:2;line-clamp:2}
+.sessionline{align-items:center}
+.addslot{margin-left:auto;flex:none;display:flex}
+.addslot .tool{height:30px;font-size:13px}
+.addslot .panemenu{right:0;top:calc(100% + 4px)}
+.wsbar:empty{display:none}
+/* Panes: stacked on a portrait iPad; the open sheet reads as a note, not a choice. */
+.panes.stacked{grid-template-columns:1fr}
+.chipopen{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--graphite)}
+.av .companions{margin:2px 0 4px}
+.speedctl{row-gap:6px}
+.speedctl .grp{margin:0}
+.presets{flex-basis:100%;flex-wrap:wrap}
+.presets .tool.num{font-family:var(--serif);font-weight:600}
+.zoom{display:inline-flex;align-items:center;gap:4px}
+.zoom .num{min-width:3em;text-align:center;font-size:14px}
+.pdfbar{flex-wrap:nowrap}
+.pdfbar .tool{font-size:14px}
+.pdfbar .tool[aria-label="Previous page"],.pdfbar .tool[aria-label="Next page"]{font-size:20px}
+@media (max-width:719px){
+  /* Phone: title and instruction on top, then timer and Next stage. */
+  .stagerow{flex-wrap:wrap}
+  .stagetext{flex-basis:100%}
+  .stagetext h1{font-size:20px}
+  .stagetext .instr{display:-webkit-box}
+  .stagetext .instr.clamp{-webkit-line-clamp:1;line-clamp:1}
+  .stagetext .linkbtn.more{display:inline}
+  .session button.clock{margin-right:auto;flex-direction:row;align-items:baseline;gap:8px}
+  .session .clock .s{display:inline}
+  .session .nextb small{display:block}
+  .sessionline span:nth-child(3){display:none}
+  /* Tempo and beats on one line, the clean-pass bar full width under it. */
+  .sessionbar .met{flex-direction:column;align-items:stretch;flex-basis:100%;gap:8px}
+  .sessionbar .tempocol{justify-content:flex-start}
+  .sessionbar .passrow{flex:none;width:100%}
+  .sessionbar .passes{flex:1;min-width:auto;justify-content:space-between}
+  .panetabs{flex:1}
+  .panetabs button{flex:1;max-width:none}
+  .wsbar .panetabs{display:flex}
+}

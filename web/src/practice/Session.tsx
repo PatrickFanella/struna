@@ -197,17 +197,19 @@ export function Session({ today, state, setState, items, onFinish, closeTools }:
     setState((s) => ({ ...s, suggestion: null, passes: 0 }));
   };
 
+  const [addSlot, setAddSlot] = useState<HTMLElement | null>(null);
   const left = total - elapsed;
   const nextStage = stages[state.stage + 1];
   const b = today.block!;
   return (
     <div className="session">
       <div className="sessiontop">
-        <p className="sessionline">
+        <div className="sessionline">
           <span>{blockName(b)}</span>
           <span>{state.cross ? "Cross-training day (not counted)" : todayLine(today)}</span>
           <span>{state.kind === "full" ? "45-minute session" : "15-minute session"}</span>
-        </p>
+          <span className="addslot" ref={setAddSlot} />
+        </div>
         <StageBar stages={stages} current={state.stage} progress={elapsed / total} />
         <div className="stagerow">
           <div className="stagetext">
@@ -225,7 +227,7 @@ export function Session({ today, state, setState, items, onFinish, closeTools }:
         </div>
       </div>
 
-      <Workspace panes={state.panes} setPanes={(fn) => setState((s) => ({ ...s, panes: fn(s.panes) }))} materials={items} />
+      <Workspace panes={state.panes} setPanes={(fn) => setState((s) => ({ ...s, panes: fn(s.panes) }))} materials={items} addSlot={addSlot} />
 
       <div className="sessionbar">
         <TempoRow passes={state.passes} suggestion={state.suggestion} onClean={() => log("clean")} onMiss={() => log("miss")} onApply={apply} />

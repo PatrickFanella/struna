@@ -38,6 +38,14 @@ export function App() {
       <header className="top">
         <div className="wrap">
           <span className="name">Guitar Room</span>
+          <nav className="topnav" aria-label="Sections">
+            {SECTIONS.map((s) => (
+              <a key={s.id} href={`#${s.id}`} {...(section === s.id ? { "aria-current": "page" as const } : {})}>
+                <Icon id={s.icon} />
+                {s.label}
+              </a>
+            ))}
+          </nav>
           <span className="acts">
             <button className="ib" aria-pressed={tool !== null} onClick={() => setTool("tuner")}>
               <Icon id="i-fork" />

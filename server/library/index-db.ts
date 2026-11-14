@@ -135,7 +135,7 @@ export function searchLibrary(db: DatabaseSync, o: { q?: string; source?: Item["
       FROM items i JOIN hits h ON h.g = COALESCE(i.grp, i.id)
     )
     SELECT b.*, COUNT(*) OVER () AS total,
-      (SELECT COUNT(DISTINCT lower(c.title)) FROM item_links l JOIN items v ON v.id = l.item_id JOIN items c ON c.id = l.companion_id
+      (SELECT COUNT(DISTINCT lower(trim(replace(replace(replace(c.title, '"', ''), '“', ''), '”', '')))) FROM item_links l JOIN items v ON v.id = l.item_id JOIN items c ON c.id = l.companion_id
         WHERE COALESCE(v.grp, v.id) = COALESCE(b.grp, b.id) AND c.kind IN ('pdf', 'zip-entry')) AS sheets
     FROM ranked b WHERE b.rn = 1 ${where ? `AND ${where}` : ""}
     ORDER BY ${match ? "b.score," : SOURCE_ORDER} b.title COLLATE NOCASE LIMIT :limit OFFSET :offset`;

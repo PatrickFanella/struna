@@ -107,5 +107,8 @@ test("a lesson's companions and thumbnail are served", async () => {
   assert.equal(t.status, 200);
   assert.equal(t.headers.get("content-type"), "image/jpeg");
   assert.equal((await fetch(`${base}/api/media/${bookId}/thumb`)).status, 404);
+  // A stream capture has no image of its own; it shows its lesson-folder copy's thumbnail.
+  const capture = db.prepare("SELECT id FROM items WHERE grp = 'vimeo:132673069' AND source = 'archive'").get() as { id: string };
+  assert.equal((await fetch(`${base}/api/media/${capture.id}/thumb`)).status, 200);
   assert.equal((await fetch(`${base}/api/library/nope/companions`)).status, 404);
 });

@@ -124,12 +124,16 @@ export function PdfView({ src, storageKey, defaultFit = "width" }: { src: string
         </label>
         <button className="tool" disabled={!pages || page >= pages} onClick={() => go(page + 1)} aria-label="Next page">›</button>
         <span className="barsp" />
-        <div className="seg mini words fitseg" role="radiogroup" aria-label="Fit">
-          <button role="radio" aria-checked={fit === "page"} className={fit === "page" ? "on" : ""} onClick={() => chooseFit("page")}>Page</button>
-          <button role="radio" aria-checked={fit === "width"} className={fit === "width" ? "on" : ""} onClick={() => chooseFit("width")}>Width</button>
-        </div>
-        <button className="tool" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} aria-label="Zoom out">−</button>
-        <button className="tool" onClick={() => setZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)))} aria-label="Zoom in">+</button>
+        <button className="tool" onClick={() => chooseFit(fit === "page" ? "width" : "page")} aria-label={fit === "page" ? "Fit to width" : "Fit whole page"} title={fit === "page" ? "Fit to width" : "Fit whole page"}>
+          {fit === "page" ? "Fit width" : "Whole page"}
+        </button>
+        {size.w >= 360 && (
+          <span className="zoom">
+            <button className="tool" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} aria-label="Zoom out">−</button>
+            <span className="num">{Math.round(zoom * 100)}%</span>
+            <button className="tool" onClick={() => setZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)))} aria-label="Zoom in">+</button>
+          </span>
+        )}
       </div>
       <div className={`pdfpage fit-${fit}${zoom !== 1 ? " zoomed" : ""}`} ref={box}>
         {error ? <p className="matnote">This PDF could not be opened: {error}</p> : <canvas ref={canvas} onClick={tap} aria-label={`Page ${page} of ${pages}`} />}

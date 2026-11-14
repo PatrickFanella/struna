@@ -83,8 +83,10 @@ export function mediaRoutes(opts: { mediaRoot: string; vaultRoot: string; cacheD
 
   route("GET", "/api/media/:id/thumb", async (req, res, { params }) => {
     const item = itemById(db, params.id!);
-    if (!item?.thumb) throw new HttpError(404, "not found");
-    await sendFile(req, res, await resolveInside(opts.mediaRoot, item.thumb));
+    // A copy without its own image uses any other copy's thumbnail.
+    const thumb = item?.thumb ?? (item?.group ? (db.prepare("SELECT thumb FROM items WHERE grp = ? AND thumb IS NOT NULL LIMIT 1").get(item.group) as { thumb: string } | undefined)?.thumb : undefined);
+    if (!thumb) throw new HttpError(404, "not found");
+    await sendFile(req, res, await resolveInside(opts.mediaRoot, thumb));
   });
 
   route("GET", "/api/media/:id/entry", async (req, res, { params }) => {
