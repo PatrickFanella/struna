@@ -14,7 +14,7 @@ import { type ChatEvent, type ChatRequest, subscriptionEnv } from "./providers/p
 import type { Block } from "./vault.ts";
 
 const run = promisify(execFile);
-const PROVIDERS: Record<Provider, (req: ChatRequest) => AsyncGenerator<ChatEvent>> = { claude: claudeChat, codex: codexChat };
+export const PROVIDERS: Record<Provider, (req: ChatRequest) => AsyncGenerator<ChatEvent>> = { claude: claudeChat, codex: codexChat };
 
 export type Screen = { view: string; stage?: string; fragment?: string; bpm?: number; subdivision?: string };
 type TodayLike = { block: Block | null; position: { week: number; sessionInWeek: number; type: string }; next: { text: string } };

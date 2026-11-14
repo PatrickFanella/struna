@@ -103,20 +103,28 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     });
   }, [phase, session, today, material, m.bpm, m.subdivision]);
 
-  // "Use in practice" during a session opens the item beside the others.
+  // "Use in practice" during a session asks first: replace the lesson's material, or add it beside.
+  const [offer, setOffer] = useState<PaneItem | null>(null);
   useEffect(() => {
     if (!extra || !session) return;
+    if (store.get("guitar-room.material-placed") === extra.key) return; // Already answered; it must stick across reloads.
     if (session.panes.some((p) => p.content.type === "file" && p.content.item.key === extra.key)) return;
-    const taken = store.get("guitar-room.material-placed");
-    if (taken === extra.key) return; // Already placed once; closing it must stick across reloads.
-    store.set("guitar-room.material-placed", extra.key);
-    void withCompanion({ type: "file", item: extra }).then((cs) =>
-      setSession((s) => {
-        const fresh = cs.filter((c) => !s.panes.some((p) => p.content.type === "file" && c.type === "file" && p.content.item.key === c.item.key));
-        return { ...s, panes: [...fresh.map(pane), ...s.panes].slice(0, MAX_PANES) };
-      }),
-    );
-  }, [extra]); // eslint-disable-line react-hooks/exhaustive-deps
+    setOffer(extra);
+  }, [extra, Boolean(session)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const answerOffer = async (how: "replace" | "beside" | "no") => {
+    const item = offer;
+    setOffer(null);
+    if (!item) return;
+    store.set("guitar-room.material-placed", item.key);
+    if (how === "no") return;
+    const cs = await withCompanion({ type: "file", item });
+    setSession((s) => {
+      // Replacing swaps the lesson's files; the coach and any tab stay.
+      const kept = how === "replace" ? s.panes.filter((p) => p.content.type !== "file") : s.panes;
+      const fresh = cs.filter((c) => !kept.some((p) => p.content.type === "file" && c.type === "file" && p.content.item.key === c.item.key));
+      return { ...s, panes: [...fresh.map(pane), ...kept].slice(0, MAX_PANES), ...(how === "replace" ? { guides: {} } : {}) };
+    });
+  };
 
   const start = async (kind: "full" | "floor", cross?: string) => {
     // An item sent from the library ("Use in practice") leads this session; otherwise the block's first PDF.
@@ -136,7 +144,8 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       cross: cross ?? null,
       stage: 0,
       elapsedBefore: 0,
-      resumedAt: Date.now(),
+      // The timer waits: tune, read the stage, then tap it to start.
+      resumedAt: null,
       startBpm: metronome.get().bpm,
       subdivision: metronome.get().subdivision,
       helper: { cleans: 0, misses: 0 },
@@ -198,7 +207,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
         bpm={m.bpm}
         material={material?.label ?? ""}
         onBack={() => {
-          setSession((s) => ({ ...s, pain: false, resumedAt: Date.now() }));
+          setSession((s) => ({ ...s, pain: false, resumedAt: null }));
           setPhase({ name: "session" });
         }}
         onDiscard={() => {
@@ -214,16 +223,33 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   }
 
   return (
+    <>
+    {offer && (
+      <div className="finderwrap" role="dialog" aria-modal="true" aria-label="Use in this lesson">
+        <div className="scrim" onClick={() => void answerOffer("no")} />
+        <div className="finder offer">
+          <h2>Use “{offer.label}” in this lesson?</h2>
+          <p className="srcnote">Replacing swaps the lesson's material and sheet music; the coach and any tab stay open. The practice block in your vault is not changed.</p>
+          <div className="offeracts">
+            <button className="btn primary" onClick={() => void answerOffer("replace")}>Replace the lesson material</button>
+            <button className="btn outline" onClick={() => void answerOffer("beside")}>Add it beside</button>
+            <button className="btn quiet" onClick={() => void answerOffer("no")}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    )}
     <Session
       today={today}
       state={session}
       setState={setSession}
       items={items}
+      material={material?.label ?? ""}
       onFinish={() => {
         setSession((s) => ({ ...s, elapsedBefore: s.elapsedBefore + (s.resumedAt ? Date.now() - s.resumedAt : 0), resumedAt: null }));
         setPhase({ name: "review" });
       }}
       closeTools={closeTools}
     />
+    </>
   );
 }

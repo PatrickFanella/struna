@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { extname, join, normalize, sep } from "node:path";
 
 import { chatRoutes } from "./chat.ts";
+import { coachOnceRoutes } from "./coach-once.ts";
 import { config } from "./config.ts";
 import { conversations } from "./conversations.ts";
 import { openDb } from "./db.ts";
@@ -20,6 +21,7 @@ route("GET", "/api/health", (_req, res) => send(res, 200, { ok: true }));
 practiceRoutes(config, db);
 recordingRoutes(config);
 chatRoutes(config, db, conversations(db));
+coachOnceRoutes(config, db);
 const tabs = tabsRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN }, db);
 libraryRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN, onScan: () => tabs.rescan() }, db);
 mediaRoutes(config, db);

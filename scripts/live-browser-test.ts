@@ -167,7 +167,38 @@ try {
     return { noPageScroll: document.documentElement.scrollHeight <= window.innerHeight + 1, barBottom: Math.round(bar.bottom), panesHeight: Math.round(panes.height), vh: window.innerHeight };
   });
   check("the whole session fits the screen, with the panes taking most of it", fits.noPageScroll && fits.barBottom <= fits.vh && fits.panesHeight > fits.vh * 0.55, JSON.stringify(fits));
+  // The timer waits to be started, the coach guides the stage, and Back returns to the earlier stage.
+  const clock = p.locator(".session button.clock");
+  const t0 = await clock.locator(".t").textContent();
+  await p.waitForTimeout(1500);
+  check("the stage timer waits until it is started", (await clock.locator(".t").textContent()) === t0 && /tap to start/.test((await clock.locator(".s").textContent()) ?? ""), `${t0}`);
+  const guided = await p.locator(".coachline span:not(.coachtag):not(.coachmuted)").first().waitFor({ timeout: 120000 }).then(() => true, () => false);
+  const guideText = guided ? ((await p.locator(".coachline span:not(.coachtag):not(.coachmuted)").first().textContent()) ?? "") : ((await p.locator(".coachline").textContent()) ?? "");
+  check("the coach gives a note for the stage", guided && guideText.length > 30, guideText.slice(0, 170));
+  await clock.click();
+  await p.waitForTimeout(1300);
+  check("tapping the timer starts it", (await clock.locator(".t").textContent()) !== t0);
+  await p.evaluate(() => localStorage.setItem("guitar-room.guide", "off")); // one real coach note is enough for the test
+  await p.getByRole("button", { name: "Turn off" }).click();
+  await p.getByRole("button", { name: /^Next stage/ }).click();
+  const title2 = await p.locator(".stagetext h1").textContent();
+  await p.getByRole("button", { name: "Back", exact: true }).click();
+  const title1 = await p.locator(".stagetext h1").textContent();
+  check("Back returns to the earlier stage with its timer waiting", title1 !== title2 && /^1\//.test(title1 ?? "") && /tap to start/.test((await clock.locator(".s").textContent()) ?? ""), `${title2} -> ${title1}`);
   await p.screenshot({ path: join(out, "4-session-three-panes.png") });
+
+  // "Use in practice" during the lesson asks before changing it.
+  await p.locator(".topnav a", { hasText: "Library" }).click();
+  await p.getByRole("button", { name: "Back to the library" }).click().catch(() => {});
+  await p.getByRole("searchbox").fill("12 Bar Bluegrass in G");
+  await p.waitForTimeout(900);
+  await p.locator(".item").filter({ hasText: "Video" }).first().getByRole("button", { name: "Use in practice" }).click();
+  const asked = await p.getByRole("dialog", { name: "Use in this lesson" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+  if (asked) await p.getByRole("button", { name: "Replace the lesson material" }).click();
+  await p.waitForTimeout(2000);
+  const replaced = await p.locator(".session .pane:not([hidden]) .panetitle").allTextContents();
+  check("Use in practice asks, then replaces the lesson material and keeps the coach", asked && replaced.some((t) => /12 Bar Bluegrass/i.test(t)) && replaced.includes("Coach") && !replaced.some((t) => /red river/i.test(t)), replaced.join(" | "));
+  await p.screenshot({ path: join(out, "4b-replaced.png") });
 
   // A loop on the session's video, to check later that hiding the view does not reset it.
   await p.evaluate(() => {
@@ -245,6 +276,13 @@ try {
   for (let i = 0; i < 3; i++) await p.getByRole("button", { name: /^Next stage/ }).click();
   await p.getByRole("button", { name: /^Finish/ }).click();
   await p.getByRole("heading", { name: "Session review" }).waitFor();
+  if (withChat) {
+    await p.getByRole("button", { name: "Ask the coach to fill this in" }).click();
+    await p.getByRole("button", { name: "Ask the coach to fill this in" }).waitFor({ timeout: 180000 });
+    const drafted = { target: await p.getByLabel("Target", { exact: true }).inputValue(), next: await p.locator(".review textarea").first().inputValue(), err: await p.locator(".review .notice").count() };
+    check("the coach drafts the review sheet", drafted.err === 0 && drafted.target.length > 10 && /Start at \d+ BPM/.test(drafted.next), `${drafted.target.slice(0, 80)} | ${drafted.next.slice(0, 90)}`);
+    await p.screenshot({ path: join(out, "8a-review-drafted.png") });
+  }
   const reviewScroll = await p.evaluate(() => {
     const before = window.scrollY;
     window.scrollTo(0, 99999);
@@ -261,10 +299,11 @@ try {
 
   // Tabs screen
   await p.locator(".topnav a", { hasText: "Tabs" }).click();
-  await p.getByRole("searchbox").fill("amber");
+  const tabsView = p.locator('section[aria-label="Tabs"]');
+  await tabsView.getByRole("searchbox").fill("amber");
   await p.waitForTimeout(900);
-  await p.locator(".itemopen").first().click();
-  const tabsOk = await p.waitForFunction(() => document.querySelectorAll(".tabscroll svg, .tabscroll canvas").length > 0, null, { timeout: 30000 }).then(() => true, () => false);
+  await tabsView.locator(".itemopen").first().click();
+  const tabsOk = await p.waitForFunction(() => document.querySelectorAll('section[aria-label="Tabs"] .tabscroll svg, section[aria-label="Tabs"] .tabscroll canvas').length > 0, null, { timeout: 30000 }).then(() => true, () => false);
   check("Tabs screen renders a tab", tabsOk);
   await p.screenshot({ path: join(out, "9-tabs.png") });
   await desk.close();
@@ -273,6 +312,7 @@ try {
   for (const [name, vp] of [["ipad-landscape", { width: 1180, height: 820 }], ["phone", { width: 390, height: 844 }]] as const) {
     const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: 2, isMobile: true, hasTouch: true, colorScheme: "light" });
     await wire(ctx);
+    await ctx.addInitScript(() => localStorage.setItem("guitar-room.guide", "off"));
     const q = await page(ctx);
     await q.goto(`${ORIGIN}/#library`);
     await q.getByRole("searchbox").fill("Red River Valley");

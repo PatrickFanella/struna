@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { api } from "../api.ts";
+import { api, store } from "../api.ts";
 import { audio } from "../audio/context.ts";
 import { MicDenied, micUsers } from "../audio/mic.ts";
 import { metronome, type Subdivision } from "../audio/metronome.ts";
@@ -32,6 +32,12 @@ export type SessionState = {
   pain: boolean;
   /** What the session shows, side by side: the lesson, its sheet music or a tab, the coach. */
   panes: PaneState[];
+  /** Totals for the review sheet. */
+  cleanTotal?: number;
+  missTotal?: number;
+  furthest?: number;
+  /** The coach's note for each stage, by stage index. */
+  guides?: Record<number, string>;
 };
 
 function fmt(ms: number): string {
@@ -101,11 +107,13 @@ function Instruction({ text }: { text: string }) {
 
 export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function Session({ today, state, setState, items, onFinish, closeTools }: {
+export function Session({ today, state, setState, items, material, onFinish, closeTools }: {
   today: Today;
   state: SessionState;
   setState: (fn: (s: SessionState) => SessionState) => void;
   items: PaneItem[];
+  /** The lesson material's name, for the coach. */
+  material: string;
   onFinish: () => void;
   closeTools: () => void;
 }) {
@@ -182,15 +190,17 @@ export function Session({ today, state, setState, items, onFinish, closeTools }:
 
   const next = () => {
     if (state.stage + 1 >= stages.length) return onFinish();
-    setState((s) => ({ ...s, stage: s.stage + 1, elapsedBefore: 0, resumedAt: Date.now() }));
+    setState((s) => ({ ...s, stage: s.stage + 1, furthest: Math.max(s.furthest ?? 0, s.stage + 1), elapsedBefore: 0, resumedAt: Date.now() }));
   };
+  // Going back shows the earlier stage with its timer reset and waiting.
+  const back = () => setState((s) => (s.stage > 0 ? { ...s, stage: s.stage - 1, elapsedBefore: 0, resumedAt: null } : s));
   const pause = () =>
     setState((s) => (s.resumedAt ? { ...s, elapsedBefore: s.elapsedBefore + Date.now() - s.resumedAt, resumedAt: null } : { ...s, resumedAt: Date.now() }));
   const log = (event: "clean" | "miss") =>
     setState((s) => {
       const r = tempoHelper(s.helper, event);
       const passes = event === "miss" ? 0 : s.passes >= 3 ? 1 : s.passes + 1;
-      return { ...s, helper: r.state, passes, suggestion: r.suggestion, metThree: s.metThree || r.suggestion?.kind === "raise" };
+      return { ...s, helper: r.state, passes, suggestion: r.suggestion, metThree: s.metThree || r.suggestion?.kind === "raise", cleanTotal: (s.cleanTotal ?? 0) + (event === "clean" ? 1 : 0), missTotal: (s.missTotal ?? 0) + (event === "miss" ? 1 : 0) };
     });
   const apply = (sg: Suggestion) => {
     metronome.set({ bpm: m.bpm + sg.delta });
@@ -198,6 +208,39 @@ export function Session({ today, state, setState, items, onFinish, closeTools }:
   };
 
   const [addSlot, setAddSlot] = useState<HTMLElement | null>(null);
+
+  // The coach's short note for the stage, asked once per stage and kept with the session.
+  const [guideOn, setGuideOn] = useState(() => store.get("guitar-room.guide") !== "off");
+  const [guideState, setGuideState] = useState<"idle" | "loading" | { error: string }>("idle");
+  const [guideTry, setGuideTry] = useState(0);
+  const stageText = instruction(stage, today, state.cross);
+  const guide = state.guides?.[state.stage];
+  useEffect(() => {
+    if (!guideOn || guide) return void setGuideState("idle");
+    const abort = new AbortController();
+    const at = state.stage;
+    setGuideState("loading");
+    fetch("/api/coach/guide", {
+      method: "POST",
+      headers: { "x-guitar-room": "1", "content-type": "application/json" },
+      body: JSON.stringify({ stage: { title: stage.title, output: stage.output, instruction: stageText }, bpm: metronome.get().bpm, ...(material ? { fragment: material } : {}) }),
+      signal: abort.signal,
+    })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? r.statusText);
+        setState((s) => ({ ...s, guides: { ...(s.guides ?? {}), [at]: d.text } }));
+        setGuideState("idle");
+      })
+      .catch((e) => {
+        if (!abort.signal.aborted) setGuideState({ error: String(e.message ?? e) });
+      });
+    return () => abort.abort();
+  }, [state.stage, guideOn, guideTry]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggleGuide = () => {
+    store.set("guitar-room.guide", guideOn ? "off" : null);
+    setGuideOn(!guideOn);
+  };
   const left = total - elapsed;
   const nextStage = stages[state.stage + 1];
   const b = today.block!;
@@ -214,12 +257,26 @@ export function Session({ today, state, setState, items, onFinish, closeTools }:
         <div className="stagerow">
           <div className="stagetext">
             <h1><span className="stagecount num">{state.stage + 1}/{stages.length}</span> {stage.title}</h1>
-            <Instruction key={state.stage} text={instruction(stage, today, state.cross)} />
+            <Instruction key={state.stage} text={stageText} />
+            <p className="coachline" aria-live="polite">
+              <span className="coachtag">Coach</span>
+              {!guideOn ? (
+                <span className="coachmuted">guidance is off</span>
+              ) : guide ? (
+                <span>{guide}</span>
+              ) : typeof guideState === "object" ? (
+                <span className="coachmuted">could not answer ({guideState.error.slice(0, 120)}) <button className="linkbtn" onClick={() => setGuideTry((n) => n + 1)}>Try again</button></span>
+              ) : (
+                <span className="coachmuted">is reading your plan</span>
+              )}
+              <button className="linkbtn" onClick={toggleGuide}>{guideOn ? "Turn off" : "Turn on"}</button>
+            </p>
           </div>
-          <button className="clock" onClick={pause} aria-label={state.resumedAt ? "Pause the stage timer" : "Resume the stage timer"}>
+          <button className={`clock${state.resumedAt ? "" : " waiting"}`} onClick={pause} aria-label={state.resumedAt ? "Pause the stage timer" : elapsed ? "Resume the stage timer" : "Start the stage timer"}>
             <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
-            <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} min` : `over ${stage.minutes} min`) : "paused, tap to resume"}</span>
+            <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} min` : `over ${stage.minutes} min`) : elapsed ? "paused, tap to resume" : "tap to start the timer"}</span>
           </button>
+          {state.stage > 0 && <button className="btn quiet backb" onClick={back} disabled={Boolean(take) || recording !== null}>Back</button>}
           <button className="btn primary nextb" onClick={next} disabled={Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
             <span>{nextStage ? "Next stage" : "Finish"}</span>
             <small>{nextStage ? `Up next: ${SHORT[nextStage.key]}` : "Write the log"}</small>

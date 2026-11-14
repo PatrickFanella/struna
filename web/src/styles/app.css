@@ -516,3 +516,20 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .btn.nextb:disabled{opacity:.45}
 .pane[hidden]{display:none}
 @media (max-height:900px){.pane .av video{max-height:34vh}}
+
+/* ---- Guided sessions ---- */
+.coachline{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:4px 0 0;font-size:14px;line-height:1.4;max-width:70em}
+.coachtag{font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--wash);color:var(--graphite)}
+.coachmuted{color:var(--graphite)}
+.coachline .linkbtn{padding:0;font-size:12px;color:var(--graphite)}
+.session button.clock.waiting .t{color:var(--graphite)}
+.session button.clock.waiting .s{color:var(--ink);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.session .backb{flex:none;height:46px;padding:0 14px;font-size:15px}
+.offer{padding:16px;gap:10px}
+.offer h2{margin:0;font-family:var(--serif);font-size:20px}
+.offeracts{display:flex;flex-wrap:wrap;gap:8px}
+.offeracts .btn{height:46px;padding:0 16px;font-size:15px}
+.draftrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.draftrow .btn{height:44px;padding:0 16px;font-size:15px}
+.draftrow .srcnote{margin:0;flex:1;min-width:220px}
+@media (max-width:719px){.coachline{font-size:13px}.session .backb{order:3}}

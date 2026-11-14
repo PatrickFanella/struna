@@ -60,6 +60,43 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
     observation: "",
   });
   const [busy, setBusy] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const defaultNext = `Start at ${bpm} BPM, ${subLog(session.subdivision)}, with ${material}; listen for `;
+  const askCoach = async () => {
+    setDrafting(true);
+    setError("");
+    try {
+      const stages = today.stages[session.kind].slice(0, Math.max(session.furthest ?? session.stage, session.stage) + 1).map((s) => s.title);
+      const { draft } = await api.post<{ draft: Partial<Record<"target" | "improvement" | "failure" | "next" | "observation", string>> }>("/api/coach/review", {
+        facts: {
+          material: f.material,
+          startTempo: Number(f.startTempo) || session.startBpm,
+          endTempo: Number(f.cleanTempo) || bpm,
+          subdivision: subLog(f.subdivision),
+          cleanPasses: session.cleanTotal ?? 0,
+          misses: session.missTotal ?? 0,
+          metThree: session.metThree,
+          stages,
+          recording: session.recording ? `${session.recording.path} (${session.recording.label})` : null,
+          pain: f.pain === "yes",
+          notes: [f.observation, f.improvement, f.failure].filter(Boolean).join(" / "),
+        },
+      });
+      // The coach fills what you left blank; anything you typed stays.
+      setF((x) => ({
+        ...x,
+        target: x.target || draft.target || "",
+        improvement: x.improvement || draft.improvement || "",
+        failure: x.failure || draft.failure || "",
+        observation: x.observation || draft.observation || "",
+        next: x.next && x.next !== defaultNext ? x.next : draft.next || x.next,
+      }));
+    } catch (err) {
+      setError(`The coach could not draft the sheet: ${(err as Error).message ?? err}`);
+    } finally {
+      setDrafting(false);
+    }
+  };
   const [error, setError] = useState("");
   const set = <K extends keyof typeof f>(k: K) => (v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
 
@@ -109,6 +146,10 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
     <form className="review" onSubmit={submit}>
       <h1>{session.pain ? "Stopped: pain or tension" : "Session review"}</h1>
       <p className="instr">{session.pain ? "Stop playing. Note what you felt; the log flags it and this session will not count." : "Mostly taps. Anything left blank is written as not recorded."}</p>
+      <div className="draftrow">
+        <button type="button" className="btn outline" disabled={drafting} onClick={() => void askCoach()}>{drafting ? "The coach is drafting" : "Ask the coach to fill this in"}</button>
+        <span className="srcnote">It fills the blank fields from this session's tempos, passes and notes. It did not hear you play, so check it.</span>
+      </div>
       <Text label="Material and exact fragment" value={f.material} onChange={set("material")} />
       <Text label="Target" value={f.target} onChange={set("target")} placeholder="One sentence: fragment, tempo, quality" />
       <div className="row2">
