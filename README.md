@@ -1,6 +1,5 @@
 # Guitar Room
 
-Private web app for guitar practice on Kvant: today's session from the Ars Malefica practice plan, a tuner and metronome, the lesson library, the Guitar Pro tab collection, and a coach chat that uses the Claude and ChatGPT subscriptions.
+A private web app on Kvant for guitar practice: the session from the Ars Malefica practice plan, a tuner, a metronome, a coach chat on the Claude and ChatGPT subscriptions, the lesson library and the Guitar Pro tab collection.
 
-- Design: `docs/design.md` (visual reference `docs/design-system.html`)
-- Plans: `docs/plans/`
+See `docs/design.md`. Setup and deployment notes are added as the app is built.
