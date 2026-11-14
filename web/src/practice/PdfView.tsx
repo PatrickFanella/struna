@@ -21,7 +21,7 @@ export function PdfView({ src, storageKey, defaultFit = "width" }: { src: string
   const [zoom, setZoom] = useState(1);
   const [error, setError] = useState("");
   const [size, setSize] = useState({ w: 0, h: 0 });
-  const [typed, setTyped] = useState("");
+  const [typed, setTyped] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +62,10 @@ export function PdfView({ src, storageKey, defaultFit = "width" }: { src: string
       const byWidth = (size.w - pad) / base.width;
       const byPage = Math.min(byWidth, size.h > 80 ? (size.h - pad) / base.height : byWidth);
       const scale = (fit === "page" ? byPage : byWidth) * zoom;
-      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      // Keep the backing store under about 16 million pixels, or iPad Safari shows a blank canvas.
+      const cssW = base.width * scale;
+      const cssH = base.height * scale;
+      const dpr = Math.min(window.devicePixelRatio || 1, 3, Math.sqrt(16e6 / Math.max(1, cssW * cssH)));
       const vp = p.getViewport({ scale: scale * dpr });
       const c = canvas.current;
       c.width = Math.floor(vp.width);
@@ -102,7 +105,7 @@ export function PdfView({ src, storageKey, defaultFit = "width" }: { src: string
   };
 
   return (
-    <div className="pdf" tabIndex={0} onKeyDown={keys}>
+    <div className="pdf" tabIndex={0} role="group" aria-label="Sheet, arrow keys turn the page" onKeyDown={keys}>
       <div className="pdfbar" role="toolbar" aria-label="Page controls">
         <button className="tool" disabled={page <= 1} onClick={() => go(page - 1)} aria-label="Previous page">‹</button>
         <label className="pagebox">
@@ -110,12 +113,15 @@ export function PdfView({ src, storageKey, defaultFit = "width" }: { src: string
           <input
             className="num"
             inputMode="numeric"
-            value={typed || String(page)}
-            onFocus={(e) => e.target.select()}
+            value={typed ?? String(page)}
+            onFocus={(e) => {
+              setTyped(String(page));
+              e.target.select();
+            }}
             onChange={(e) => setTyped(e.target.value.replace(/\D/g, ""))}
             onBlur={() => {
               if (typed) go(Number(typed));
-              setTyped("");
+              setTyped(null);
             }}
             onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             aria-label={`Page, of ${pages}`}

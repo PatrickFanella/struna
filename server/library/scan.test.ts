@@ -26,6 +26,11 @@ before(async () => {
   l.prepare("INSERT INTO streams (provider, external_id, source_page, status, relative_path, duration_seconds) VALUES (?, ?, ?, 'completed', ?, ?)").run("vimeo", "259880969", "https://countryguitaronline.com/12-bar-blues-country-twang-guitar-lesson/", "videos/vimeo/259880969.mp4", 81.4);
   l.exec("PRAGMA journal_mode = WAL");
   l.close();
+  // The media ledger, with one malformed upload URL that must not fail the scan.
+  const m = new DatabaseSync(join(ledgerDir, "media-archive.sqlite3"));
+  m.exec("CREATE TABLE media (media_id INTEGER PRIMARY KEY, source_url TEXT NOT NULL)");
+  m.prepare("INSERT INTO media (media_id, source_url) VALUES (?, ?), (?, ?)").run(16300, "https://example.test/uploads/bad-%E0%A4%A.pdf", 16265, "https://example.test/uploads/a0148-guitar-lesson-tablature.pdf");
+  m.close();
   items = await scanLibrary(opts());
 });
 after(() => rm(tmp, { recursive: true, force: true }));
@@ -43,7 +48,7 @@ test("CGO lesson copies share a group titled from the vault article note", () =>
 test("reading the archive's WAL-mode ledger leaves no -shm or -wal files", async () => {
   const { readdir } = await import("node:fs/promises");
   const files = await readdir(join(tmp, "media/Source Archives/Country Guitar Online Assessment Archive - 2026-08-07/00-Reports-and-Ledgers"));
-  assert.deepEqual(files, ["stream-archive.sqlite3"]);
+  assert.deepEqual(files.sort(), ["media-archive.sqlite3", "stream-archive.sqlite3"]);
 });
 
 test("an archive capture without an article is titled from its source page", () => {
@@ -99,6 +104,15 @@ test("titles with ｜, # and ⧸ round-trip and are searchable", () => {
 
 test("archive PDFs are titled from their first line", () => {
   assert.ok(items.some((i) => i.source === "archive" && i.kind === "pdf" && i.title === "12 Bar Blues with a Country Twang"), JSON.stringify(items.filter((i) => i.kind === "pdf" && i.source === "archive").map((i) => i.title)));
+});
+
+test("a copy without its own image lists with its lesson's thumbnail", async () => {
+  const db = openDb(join(tmp, "state5"));
+  // Make the archive capture the only copy that search would prefer, by filtering to the archive.
+  await writeIndex(db, items.map((i) => (i.source === "cgo" && i.group === "vimeo:132673069" ? { ...i, source: "archive" as const, path: i.path!.replace("Lesson Videos/", "X/") } : i)));
+  const rows = searchLibrary(db, { q: "strumming", kind: "video", limit: 5, offset: 0 }).items;
+  assert.ok(rows.length >= 1 && rows.every((r) => /\.jpg$/.test(r.thumb ?? "")), JSON.stringify(rows.map((r) => r.thumb)));
+  db.close();
 });
 
 test("videos carry their thumbnail", () => {

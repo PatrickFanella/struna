@@ -72,6 +72,6 @@ export function Finder({ mode, onPick, onClose }: { mode: "library" | "tabs"; on
 
 export function libraryContent(i: LibItem): PaneContent {
   const p = paneItem(i);
-  if (p) return { type: "file", item: { ...p, libId: i.id } };
+  if (p) return { type: "file", item: { ...p, libId: i.id, ...(i.thumb && i.kind === "video" ? { poster: `/api/media/${i.id}/thumb` } : {}) } };
   return { type: "file", item: { key: `lib:${i.id}`, label: i.title, kind: i.kind === "audio" ? "audio" : "other", src: `/api/media/${i.id}`, libId: i.id } };
 }

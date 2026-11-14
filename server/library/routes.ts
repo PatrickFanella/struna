@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import { HttpError, route, send } from "../http.ts";
-import { companions, itemById, pdfTitleCache, probeCache, scannedAt, searchLibrary, writeIndex } from "./index-db.ts";
+import { companions, indexIsCurrent, itemById, pdfTitleCache, probeCache, scannedAt, searchLibrary, writeIndex } from "./index-db.ts";
 import { ffprobeDuration, type Kind, pdftotextTitle, scanLibrary, type ScanOptions, type Source } from "./scan.ts";
 
 const SOURCES = new Set<Source>(["artistworks", "cgo", "archive", "vault", "books", "music-books", "sheets"]);
@@ -32,8 +32,8 @@ export function libraryRoutes(opts: Omit<ScanOptions, "probe" | "pdfTitle"> & { 
           const hit = titles.get(path, size, mtime);
           if (hit) return hit.title;
           const t = await pdftotextTitle(path);
-          titles.put(path, size, mtime, t);
-          return t;
+          if (t !== undefined) titles.put(path, size, mtime, t);
+          return t ?? null;
         },
       });
       await writeIndex(db, items, { batch: 200 });
@@ -72,6 +72,7 @@ export function libraryRoutes(opts: Omit<ScanOptions, "probe" | "pdfTitle"> & { 
 
   if (opts.autoScan) {
     const at = scannedAt(db);
-    if (!at || Date.now() - Date.parse(at) > DAY) startScan();
+    // Also rescan when this build's index has fields an older scan did not fill (thumbnails, companions).
+    if (!at || Date.now() - Date.parse(at) > DAY || !indexIsCurrent(db)) startScan();
   }
 }

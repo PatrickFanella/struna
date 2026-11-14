@@ -45,7 +45,7 @@ export type ScanOptions = {
   /** Duration in seconds for a video without one in its metadata (ffprobe, cached). */
   probe?: ((absPath: string, size: number, mtime: number) => Promise<number | null>) | undefined;
   /** The title printed on a PDF's first page (pdftotext, cached). */
-  pdfTitle?: ((absPath: string, size: number, mtime: number) => Promise<string | null>) | undefined;
+  pdfTitle?: ((absPath: string, size: number, mtime: number) => Promise<string | null | undefined>) | undefined;
 };
 
 export const ARCHIVE = "Source Archives/Country Guitar Online Assessment Archive - 2026-08-07";
@@ -122,7 +122,14 @@ function readStreamLedger(mediaRoot: string): Map<string, { page: string; durati
 function readMediaLedger(mediaRoot: string): Map<string, string> {
   const out = new Map<string, string>();
   for (const r of readLedger<{ media_id: number; source_url: string }>(mediaRoot, "media-archive.sqlite3", "SELECT media_id, source_url FROM media")) {
-    out.set(String(r.media_id), decodeURIComponent(r.source_url.split("/").pop() ?? ""));
+    const raw = String(r.source_url ?? "").split("/").pop() ?? "";
+    let name = raw;
+    try {
+      name = decodeURIComponent(raw);
+    } catch {
+      /* a malformed escape: keep the raw name */
+    }
+    out.set(String(r.media_id), name);
   }
   return out;
 }
@@ -338,18 +345,22 @@ export async function ffprobeDuration(path: string): Promise<number | null> {
   }
 }
 
-/** The first meaningful line on a PDF's first page, via pdftotext. */
-export async function pdftotextTitle(path: string): Promise<string | null> {
+/**
+ * The first meaningful line on a PDF's first page, via pdftotext: null when the page has none,
+ * undefined when pdftotext could not run (so the caller does not cache a failure as "no title").
+ */
+export async function pdftotextTitle(path: string): Promise<string | null | undefined> {
+  let stdout: string;
   try {
-    const { stdout } = await run("pdftotext", ["-l", "1", "-q", path, "-"], { timeout: 30_000, maxBuffer: 4 * 1024 * 1024 });
-    const line = stdout
-      .split("\n")
-      .map((l) => l.replace(/\s+/g, " ").trim())
-      .find((l) => /[\p{L}]{3}/u.test(l) && l.length <= 120 && !/^(=|page\b|www\.|https?:)/i.test(l));
-    return line ?? null;
+    ({ stdout } = await run("pdftotext", ["-l", "1", "-q", path, "-"], { timeout: 30_000, maxBuffer: 4 * 1024 * 1024 }));
   } catch {
-    return null;
+    return undefined;
   }
+  const line = stdout
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .find((l) => /[\p{L}]{3}/u.test(l) && l.length <= 120 && !/^(=|page\b|www\.|https?:)/i.test(l));
+  return line ?? null;
 }
 
 if (import.meta.main) {

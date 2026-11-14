@@ -62,11 +62,21 @@ export async function writeIndex(db: DatabaseSync, items: Item[], opts: { batch?
       DROP TABLE items_fts; ALTER TABLE items_fts_next RENAME TO items_fts;
       DROP TABLE item_links; ALTER TABLE item_links_next RENAME TO item_links;`);
     db.prepare("INSERT INTO library_meta (key, value) VALUES ('scannedAt', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(new Date().toISOString());
+    db.prepare("INSERT INTO library_meta (key, value) VALUES ('indexVersion', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(INDEX_VERSION));
     db.exec("COMMIT");
   } catch (e) {
     db.exec("ROLLBACK");
     throw e;
   }
+}
+
+/** Raised when a scan starts filling something new, so indexes built before it are rebuilt at startup. */
+export const INDEX_VERSION = 2;
+
+export function indexIsCurrent(db: DatabaseSync): boolean {
+  ensureLibrarySchema(db);
+  const v = (db.prepare("SELECT value FROM library_meta WHERE key = 'indexVersion'").get() as { value: string } | undefined)?.value;
+  return Number(v) >= INDEX_VERSION;
 }
 
 export function scannedAt(db: DatabaseSync): string | null {
@@ -134,7 +144,7 @@ export function searchLibrary(db: DatabaseSync, o: { q?: string; source?: Item["
         ROW_NUMBER() OVER (PARTITION BY COALESCE(i.grp, i.id) ORDER BY i.pref, i.title) AS rn
       FROM items i JOIN hits h ON h.g = COALESCE(i.grp, i.id)
     )
-    SELECT b.*, COUNT(*) OVER () AS total,
+    SELECT b.*, COALESCE(b.thumb, (SELECT t.thumb FROM items t WHERE t.grp = b.grp AND t.thumb IS NOT NULL LIMIT 1)) AS thumb, COUNT(*) OVER () AS total,
       (SELECT COUNT(DISTINCT lower(trim(replace(replace(replace(c.title, '"', ''), '“', ''), '”', '')))) FROM item_links l JOIN items v ON v.id = l.item_id JOIN items c ON c.id = l.companion_id
         WHERE COALESCE(v.grp, v.id) = COALESCE(b.grp, b.id) AND c.kind IN ('pdf', 'zip-entry')) AS sheets
     FROM ranked b WHERE b.rn = 1 ${where ? `AND ${where}` : ""}

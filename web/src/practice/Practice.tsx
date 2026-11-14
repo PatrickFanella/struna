@@ -107,8 +107,14 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   useEffect(() => {
     if (!extra || !session) return;
     if (session.panes.some((p) => p.content.type === "file" && p.content.item.key === extra.key)) return;
+    const taken = store.get("guitar-room.material-placed");
+    if (taken === extra.key) return; // Already placed once; closing it must stick across reloads.
+    store.set("guitar-room.material-placed", extra.key);
     void withCompanion({ type: "file", item: extra }).then((cs) =>
-      setSession((s) => ({ ...s, panes: [...cs.map(pane), ...s.panes].slice(0, MAX_PANES) })),
+      setSession((s) => {
+        const fresh = cs.filter((c) => !s.panes.some((p) => p.content.type === "file" && c.type === "file" && p.content.item.key === c.item.key));
+        return { ...s, panes: [...fresh.map(pane), ...s.panes].slice(0, MAX_PANES) };
+      }),
     );
   }, [extra]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -118,6 +124,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     const lead = first ? await withCompanion({ type: "file", item: first }) : [];
     // On a wide screen the coach opens beside the lesson.
     const panes = [...lead.map(pane), ...(window.innerWidth >= 1180 && lead.length < 3 ? [pane({ type: "coach" })] : [])];
+    if (extra) store.set("guitar-room.material-placed", extra.key);
     // Start from the last clean working tempo stored for this material, when there is one.
     if (first) {
       const tempos = await api.get<{ fragment: string; bpm: number }[]>("/api/tempos").catch(() => []);
@@ -156,6 +163,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       /* storage unavailable */
     }
     setExtra(null);
+    store.set("guitar-room.material-placed", null);
   };
 
   if (loadError) return <div className="notice" role="alert"><p><b>Could not load today's session.</b> {loadError}</p><button className="btn outline" onClick={load}>Try again</button></div>;

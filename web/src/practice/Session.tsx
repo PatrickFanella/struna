@@ -220,7 +220,7 @@ export function Session({ today, state, setState, items, onFinish, closeTools }:
             <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
             <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} min` : `over ${stage.minutes} min`) : "paused, tap to resume"}</span>
           </button>
-          <button className="btn primary nextb" onClick={next}>
+          <button className="btn primary nextb" onClick={next} disabled={Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
             <span>{nextStage ? "Next stage" : "Finish"}</span>
             <small>{nextStage ? `Up next: ${SHORT[nextStage.key]}` : "Write the log"}</small>
           </button>
@@ -240,6 +240,7 @@ export function Session({ today, state, setState, items, onFinish, closeTools }:
           <button className="btn quiet" onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
         )}
         <button className="linkbtn stoppain" onClick={() => {
+          if (take && !confirm("Discard the unsaved take and stop?")) return;
           rec.current?.cancel();
           setState((s) => ({ ...s, pain: true }));
           onFinish();

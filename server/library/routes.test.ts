@@ -49,3 +49,12 @@ test("one scan at a time, then search by text and source", async () => {
   assert.ok(all.total > 5);
   assert.equal((await fetch(`${base}/api/library?source=nope`)).status, 400);
 });
+
+test("an index built by an older version is rescanned at startup", async () => {
+  const { indexIsCurrent, INDEX_VERSION } = await import("./index-db.ts");
+  const { db } = await import("../index.ts");
+  assert.equal(indexIsCurrent(db), true);
+  db.prepare("UPDATE library_meta SET value = ? WHERE key = 'indexVersion'").run(String(INDEX_VERSION - 1));
+  assert.equal(indexIsCurrent(db), false);
+  db.prepare("UPDATE library_meta SET value = ? WHERE key = 'indexVersion'").run(String(INDEX_VERSION));
+});

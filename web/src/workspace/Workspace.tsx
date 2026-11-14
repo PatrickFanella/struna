@@ -43,7 +43,7 @@ function FileBody({ item, onOpen, open }: { item: PaneItem; onOpen: (c: PaneCont
   if ((item.kind === "video" || item.kind === "audio") && item.src) {
     return (
       <div className="panescroll">
-        <VideoView src={item.src} storageKey={item.libId ?? item.key} audioOnly={item.kind === "audio"} poster={item.libId ? `/api/media/${item.libId}/thumb` : undefined}>
+        <VideoView src={item.src} storageKey={item.libId ?? item.key} audioOnly={item.kind === "audio"} poster={item.poster}>
           {item.libId && <Companions libId={item.libId} onOpen={onOpen} open={open} />}
         </VideoView>
       </div>
@@ -122,6 +122,8 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
     const el = box.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
+      // A hidden view (tuner open, another section) measures 0: keep the panes mounted as they were.
+      if (!el.clientWidth) return;
       setSlots(slotsFor(el.clientWidth));
       // A portrait iPad stacks two panes, video above and sheet below, instead of two thin columns.
       setTall(el.clientWidth < 1000 && el.clientHeight > el.clientWidth * 1.1);
@@ -131,26 +133,59 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   }, []);
   useEffect(() => setFocus((f) => Math.min(f, Math.max(0, panes.length - 1))), [panes.length]);
 
-  const place = (contents: PaneContent[], at: number | "add") =>
+  const same = (x: PaneContent, y: PaneContent) =>
+    x.type === "coach" ? y.type === "coach" : x.type === "tab" ? y.type === "tab" && y.tabId === x.tabId : y.type === "file" && y.item.key === x.item.key;
+  const place = (contents: PaneContent[], at: number | "add") => {
+    const [first, ...rest] = contents;
+    if (!first) return;
+    let focusAt = 0;
     setPanes((ps) => {
       const next = [...ps];
-      const [first, ...rest] = contents;
-      if (!first) return ps;
-      if (at === "add") next.push(pane(first));
-      else next[at] = { id: next[at]?.id ?? newId(), content: first };
-      for (const r of rest) {
-        const dup = next.some((p) => p.content.type === "file" && r.type === "file" && p.content.item.key === r.item.key);
-        if (!dup && next.length < MAX_PANES) next.push(pane(r));
+      const existing = next.findIndex((p) => same(first, p.content));
+      if (existing >= 0 && existing !== at) {
+        // Already open: show that pane instead of a second copy.
+        focusAt = existing;
+      } else if (at === "add" && next.length >= MAX_PANES) {
+        // Full: the new item takes the last pane's place.
+        focusAt = next.length - 1;
+        next[focusAt] = pane(first);
+      } else if (at === "add") {
+        focusAt = next.length;
+        next.push(pane(first));
+      } else {
+        // A fresh pane, so the viewer starts from the new file's own page, zoom and speed.
+        focusAt = at;
+        next[at] = pane(first);
       }
-      setFocus(at === "add" ? next.length - 1 - rest.length : at);
-      return next.slice(0, MAX_PANES);
+      for (const r of rest) if (!next.some((p) => same(r, p.content)) && next.length < MAX_PANES) next.push(pane(r));
+      return next;
     });
+    setFocus(focusAt);
+  };
   const open = async (c: PaneContent, at: number | "add") => {
     setMenu(null);
     setFinder(null);
     place(await withCompanion(c), at);
   };
-  const close = (i: number) => setPanes((ps) => ps.filter((_, j) => j !== i));
+  const close = (i: number) => {
+    setMenu(null);
+    setPanes((ps) => ps.filter((_, j) => j !== i));
+  };
+  // Menus close on Escape or a press outside them.
+  useEffect(() => {
+    if (!menu) return;
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setMenu(null);
+    const down = (e: PointerEvent) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest(".panemenu") && !t.closest("[aria-haspopup='menu']")) setMenu(null);
+    };
+    addEventListener("keydown", key);
+    addEventListener("pointerdown", down);
+    return () => {
+      removeEventListener("keydown", key);
+      removeEventListener("pointerdown", down);
+    };
+  }, [menu]);
 
   const start = Math.max(0, Math.min(focus - slots + 1, panes.length - slots, focus));
   const shown = panes.slice(start, start + slots);
@@ -195,10 +230,11 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
       })()}
       <div className={`panes${stacked ? " stacked" : ""}`} style={stacked ? { gridTemplateRows: shown.map((p) => column(p.content)).join(" ") } : { gridTemplateColumns: shown.map((p) => column(p.content)).join(" ") || "1fr" }}>
         {shown.length === 0 && <div className="pane emptypane">{empty ?? <p className="matnote">Nothing open.</p>}</div>}
-        {shown.map((p, k) => {
-          const i = start + k;
+        {panes.map((p, i) => {
+          // Every open pane stays mounted, so a video keeps its place and loop while another pane has the room.
+          const visible = i >= start && i < start + slots;
           return (
-            <section key={p.id} className={`pane pane-${p.content.type}`} aria-label={paneTitle(p.content)}>
+            <section key={p.id} className={`pane pane-${p.content.type}`} aria-label={paneTitle(p.content)} hidden={!visible}>
               <header className="panehd">
                 <span className="panetitle">{paneTitle(p.content)}</span>
                 <span className="paneacts">
@@ -224,7 +260,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
       </div>
       {shown.length === 0 && (
         <div className="paneadd">
-          <button className="btn outline" onClick={() => setMenu({ at: "add" })}>Open a pane</button>
+          <button className="btn outline" aria-haspopup="menu" aria-expanded={menu?.at === "add"} onClick={() => setMenu(menu?.at === "add" ? null : { at: "add" })}>Open a pane</button>
           {menu?.at === "add" && panes.length === 0 && menuBody("add")}
         </div>
       )}

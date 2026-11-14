@@ -19,7 +19,7 @@ export function Viewer({ item, onClose, onPractice }: { item: LibItem; onClose: 
     if (item.kind !== "video") return;
     let live = true;
     setPanes([pane(libraryContent(item))]);
-    void withCompanion(libraryContent(item)).then((cs) => live && setPanes(cs.map(pane)));
+    void withCompanion(libraryContent(item)).then((cs) => live && cs.length > 1 && setPanes((ps) => (ps.length === 1 ? [...ps, ...cs.slice(1).map(pane)] : ps)));
     return () => {
       live = false;
     };
