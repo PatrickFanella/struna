@@ -71,6 +71,9 @@ export function ftsQuery(q: string): string | null {
   return words?.length ? words.map((w) => `"${w}"*`).join(" ") : null;
 }
 
+/** Browsing order: lessons first, the raw archive last. */
+const SOURCE_ORDER = "CASE b.source WHEN 'cgo' THEN 0 WHEN 'artistworks' THEN 1 WHEN 'vault' THEN 2 WHEN 'books' THEN 3 WHEN 'music-books' THEN 4 WHEN 'sheets' THEN 5 ELSE 6 END,";
+
 type Row = { id: string; source: Item["source"]; kind: Item["kind"]; title: string; description: string; path: string | null; url: string | null; entry: string | null; size: number | null; duration: number | null; grp: string | null; alt: string | null; calibre_id: number | null; copies: number };
 
 const toItem = (r: Row): Item & { copies: number } => ({
@@ -93,7 +96,7 @@ export function searchLibrary(db: DatabaseSync, o: { q?: string; source?: Item["
       FROM items i JOIN hits h ON h.g = COALESCE(i.grp, i.id)
     )
     SELECT b.*, COUNT(*) OVER () AS total FROM ranked b WHERE b.rn = 1 ${where ? `AND ${where}` : ""}
-    ORDER BY ${match ? "b.score," : ""} b.title COLLATE NOCASE LIMIT :limit OFFSET :offset`;
+    ORDER BY ${match ? "b.score," : SOURCE_ORDER} b.title COLLATE NOCASE LIMIT :limit OFFSET :offset`;
   const params: Record<string, string | number> = { limit: o.limit, offset: o.offset };
   if (match) params.match = match;
   if (o.source) params.source = o.source;

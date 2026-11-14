@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { Chat } from "./chat/Chat.tsx";
 import { Icon, IconSprite } from "./icons.tsx";
+import { Library } from "./library/Library.tsx";
 import { Practice } from "./practice/Practice.tsx";
 import { ToolsSheet } from "./tools/ToolsSheet.tsx";
 
@@ -55,7 +56,7 @@ export function App() {
             <Practice openTool={setTool} closeTools={() => setTool(null)} openChat={() => setChat(true)} />
           </section>
           <section className={`view${section === "library" && !tool ? " on" : ""}`} aria-label="Library">
-            <Empty title="Library" text="Coming soon: lesson videos, PDFs and books." />
+            <Library active={section === "library"} />
           </section>
           <section className={`view${section === "tabs" && !tool ? " on" : ""}`} aria-label="Tabs">
             <Empty title="Tabs" text="Coming soon: the Guitar Pro tab collection." />

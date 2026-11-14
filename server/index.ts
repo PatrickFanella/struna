@@ -8,6 +8,7 @@ import { conversations } from "./conversations.ts";
 import { openDb } from "./db.ts";
 import { fail, guard, HttpError, match, NOINDEX, route, send } from "./http.ts";
 import { practiceRoutes } from "./practice.ts";
+import { libraryRoutes } from "./library/routes.ts";
 import { recordingRoutes } from "./recordings.ts";
 
 export const db = openDb(config.stateDir);
@@ -16,6 +17,7 @@ route("GET", "/api/health", (_req, res) => send(res, 200, { ok: true }));
 practiceRoutes(config, db);
 recordingRoutes(config);
 chatRoutes(config, db, conversations(db));
+libraryRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN }, db);
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
