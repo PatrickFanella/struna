@@ -1,6 +1,7 @@
 import { chmodSync, rmSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { homedir } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 
 import { type Access, checkAccess, loadAccess, TOKEN_FILE } from "./access.ts";
@@ -12,6 +13,8 @@ import { openDb } from "./db.ts";
 import { fail, guard, HttpError, match, NOINDEX, route, send } from "./http.ts";
 import { genericCoach } from "./generic/coach.ts";
 import { chatImageRoutes } from "./generic/chat-images.ts";
+import { credentialStore, placementProblem } from "./generic/credentials.ts";
+import { coachPolicy, locallyHosted, providerRoutes } from "./generic/providers.ts";
 import { materialsRoutes } from "./generic/materials.ts";
 import { promptRoutes } from "./generic/prompts.ts";
 import { genericAppInfo, genericRoutes } from "./generic/routes.ts";
@@ -38,6 +41,9 @@ let appInfo: () => Promise<AppInfo>;
 if (config.mode === "generic") {
   // One studio folder instead of the vault: the profile, the plan, logs, materials and recordings.
   await ensureStudio(config.home);
+  // The coach reads the studio and the library folders: the saved keys and the coaches' own logins must be elsewhere.
+  const misplaced = placementProblem({ stateDir: config.stateDir, studio: config.home, libraryDirs: config.libraryDirs, home: homedir() });
+  if (misplaced) throw new Error(misplaced);
   const studio: Studio = { home: config.home, db, timeZone: config.timeZone, libraryDirs: config.libraryDirs, web: config.coachWeb, appName: config.appName };
   genericRoutes(studio, { tabs: Boolean(config.tabsDir) });
   appInfo = () => genericAppInfo(studio, { tabs: Boolean(config.tabsDir) });
@@ -46,8 +52,24 @@ if (config.mode === "generic") {
   recordingRoutes({ mediaRoot: config.home, timeZone: config.timeZone });
   // Codex's sandbox must read its own install folder; with it known, commands cannot read outside the studio.
   const codexInstall = await codexInstallDir(config.codexBin).catch(() => null);
-  if (!codexInstall) console.warn(`Could not find where ${config.codexBin} is installed, so Codex runs with the workspace-write sandbox, which lets it read any file this account can. Set CODEX_BIN to the Codex binary's full path.`);
-  chatRoutes(genericCoach(studio, {}, { codexInstall }), db, conversations(db));
+  if (!codexInstall) console.warn(`Could not find where ${config.codexBin} is installed, so Codex's sandbox could not keep it from reading the saved keys and logins: every Codex coach is turned off. Set CODEX_BIN to the Codex binary's full path.`);
+  const store = credentialStore(config.stateDir);
+  // Locally hosted: loopback TCP with the access token and no sign of a proxy in front, so the player is whoever runs the server.
+  const policy = coachPolicy({
+    local: locallyHosted({ access: access !== null, host: config.host, allowedHosts: config.allowedHosts, requireUser: config.requireUser }),
+    codexSandboxed: Boolean(codexInstall),
+    hostLogins: config.coachHostLogins,
+    deviceSignIn: config.coachDeviceSignIn,
+    requireUser: Boolean(config.requireUser),
+    privateEndpoints: config.coachPrivateEndpoints,
+    budgetUsd: config.coachMaxBudgetUsd,
+  });
+  const convs = conversations(db);
+  chatRoutes(genericCoach(studio, {}, { codexInstall, store, policy }), db, convs);
+  const coaches = providerRoutes({ store, policy, web: studio.web }, convs);
+  // A running ChatGPT sign-in must not outlive the server.
+  process.on("exit", coaches.stop);
+  for (const sig of ["SIGINT", "SIGTERM"] as const) process.once(sig, () => process.exit(sig === "SIGINT" ? 130 : 143));
   if (config.tabsDir) tabsRoutes({ root: config.tabsDir, autoScan: !process.env.GUITAR_NO_SCAN }, db);
 } else {
   const info: AppInfo = { mode: "personal", name: config.appName, sections: ["practice", "library", "tabs"], web: false, profile: true };

@@ -15,6 +15,16 @@ export type ClaudeOptions = {
   /** Settings JSON for `--settings` (the generic coach's WebFetch hook); loads even with no setting sources. */
   settings?: string | undefined;
   timeoutMs?: number | undefined;
+  /**
+   * A coach the app signs in itself (generic mode): the whole child environment (see `appEnv`). With it
+   * set, `CLAUDE_MODEL` no longer applies; `model` does, passed attached as `--model=<value>`.
+   */
+  env?: NodeJS.ProcessEnv | undefined;
+  model?: string | undefined;
+  /** The `apiKeySource` this run is meant to use; any other one gets a notice. Default "none" (the subscription). */
+  keySource?: string | undefined;
+  /** `--max-budget-usd` for one turn, for runs billed to a key. */
+  budgetUsd?: number | undefined;
 };
 
 /** The owner's vault: read the vault and the media folder, edit only the Guitar thread, run only the coach's validator. */
@@ -33,7 +43,7 @@ export function personalClaude(o: { vaultRoot: string; threadRel: string; mediaR
  * There are no Read/Glob/Grep allow rules: reads inside the working directory and --add-dir need no
  * permission, and in dontAsk mode a read anywhere else (the home folder, keys, tokens) is denied.
  */
-export function claudeCommand(o: { system: string; threadId?: string | undefined; model?: string | undefined; options: Pick<ClaudeOptions, "tools" | "allowed" | "addDirs" | "settings"> }): string[] {
+export function claudeCommand(o: { system: string; threadId?: string | undefined; model?: string | undefined; options: Pick<ClaudeOptions, "tools" | "allowed" | "addDirs" | "settings" | "model" | "budgetUsd"> }): string[] {
   const args = [
     "-p",
     "--output-format", "stream-json",
@@ -50,6 +60,9 @@ export function claudeCommand(o: { system: string; threadId?: string | undefined
   ];
   if (o.threadId) args.push("--resume", o.threadId);
   if (o.model) args.push("--model", o.model);
+  // Attached to its option, so a value can never be read as a flag of its own.
+  if (o.options.model) args.push(`--model=${o.options.model}`);
+  if (o.options.budgetUsd) args.push("--max-budget-usd", String(o.options.budgetUsd));
   return args;
 }
 
@@ -60,8 +73,8 @@ export function claudeArgs(o: { system: string; threadId?: string | undefined; m
 export async function* claudeChat(req: ChatRequest, options: ClaudeOptions): AsyncGenerator<ChatEvent> {
   const lines = jsonLines(
     config.claudeBin,
-    claudeCommand({ system: req.system, threadId: req.threadId, model: config.claudeModel, options }),
-    { cwd: options.cwd, input: req.prompt, signal: req.signal, timeoutMs: options.timeoutMs ?? config.chatTimeoutMs },
+    claudeCommand({ system: req.system, threadId: req.threadId, model: options.env ? undefined : config.claudeModel, options }),
+    { cwd: options.cwd, input: req.prompt, signal: req.signal, timeoutMs: options.timeoutMs ?? config.chatTimeoutMs, env: options.env },
   );
 
   let streamed = false;
@@ -71,7 +84,7 @@ export async function* claudeChat(req: ChatRequest, options: ClaudeOptions): Asy
     const msg = next.value;
     if (typeof msg.session_id === "string" && msg.type === "system" && msg.subtype === "init") {
       yield { type: "thread", id: msg.session_id };
-      if (msg.apiKeySource && msg.apiKeySource !== "none") {
+      if (msg.apiKeySource && msg.apiKeySource !== (options.keySource ?? "none")) {
         yield { type: "notice", message: `Claude is using an API key (${msg.apiKeySource}), not the subscription login.` };
       }
     } else if (msg.type === "stream_event" && msg.event?.type === "content_block_start" && msg.event.content_block?.type === "tool_use" && streamed) {

@@ -69,3 +69,39 @@ test("codex's install folder is the one above its bin/, never one holding the ho
   assert.equal(await codexInstallDir(join(home, "bin", "codex"), {}, home), null);
   assert.equal(await codexInstallDir("nothing-here", { PATH: join(root, "none") }, home), null);
 });
+
+// ---- Coaches the app signs in itself (generic mode). Without these options the arguments above are unchanged.
+
+test("codex: an endpoint gets the custom provider's -c list, with the key named, never given", () => {
+  const p = "model_providers.guitar_room";
+  const common = ['model_provider="guitar_room"', `${p}.name="Guitar Room endpoint"`, `${p}.base_url="https://openrouter.ai/api/v1"`, `${p}.wire_api="responses"`, `${p}.supports_websockets=false`, `${p}.request_max_retries=1`, `${p}.stream_max_retries=1`];
+  const tail = (a: string[]) => a.slice(a.indexOf("-c", a.findIndex((x) => x.startsWith("developer_instructions=")) + 1));
+  for (const threadId of [undefined, "t-1"]) {
+    const bearer = codexArgs({ system: "s", threadId, options: { search: false, endpoint: { baseUrl: "https://openrouter.ai/api/v1", header: "bearer", key: true }, model: "openai/gpt-5", hideEnv: true } });
+    assert.deepEqual(tail(bearer).filter((x) => x !== "-c" && x !== "-"), [...common, `${p}.env_key="GUITAR_ROOM_ENDPOINT_KEY"`, 'model="openai/gpt-5"', 'shell_environment_policy.inherit="core"', 'shell_environment_policy.exclude=["*KEY*","*TOKEN*","*SECRET*"]']);
+    assert.equal(bearer.at(-1), "-");
+    const azure = codexArgs({ system: "s", threadId, options: { search: false, endpoint: { baseUrl: "https://openrouter.ai/api/v1", header: "api-key", key: true }, model: "gpt-5", hideEnv: true } });
+    assert.ok(azure.includes(`${p}.env_http_headers={api-key="GUITAR_ROOM_ENDPOINT_KEY"}`));
+    assert.ok(!azure.some((x) => x.includes(".env_key=")));
+  }
+  // No key (a local server): neither header setting.
+  const local = codexArgs({ system: "s", options: { endpoint: { baseUrl: "http://127.0.0.1:11434/v1", header: "bearer", key: false } } });
+  assert.ok(!local.some((x) => /env_key|env_http_headers/.test(x)));
+});
+
+test("codex: the model is a JSON string in -c; the host form -m is unchanged", () => {
+  const a = codexArgs({ system: "s", options: { model: "--dangerous" } });
+  assert.ok(a.includes('model="--dangerous"'));
+  assert.ok(!a.includes("-m"));
+  assert.equal(after(codexArgs({ system: "s", model: "gpt-5" }), "-m"), "gpt-5");
+});
+
+test("claude: the model is attached to its option, the budget follows; the host form is unchanged", async () => {
+  const { claudeCommand } = await import("./claude.ts");
+  const options = { tools: ["Read"], allowed: [], addDirs: [] };
+  const plain = claudeCommand({ system: "s", options });
+  const keyed = claudeCommand({ system: "s", options: { ...options, model: "sonnet", budgetUsd: 2 } });
+  assert.deepEqual(keyed.slice(0, plain.length), plain);
+  assert.deepEqual(keyed.slice(plain.length), ["--model=sonnet", "--max-budget-usd", "2"]);
+  assert.deepEqual(claudeArgs({ ...base, model: "opus" }).slice(-2), ["--model", "opus"]);
+});

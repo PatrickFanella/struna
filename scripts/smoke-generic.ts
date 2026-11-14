@@ -10,17 +10,26 @@
  * Markdown file, add a YouTube link and a plain link, paste text, open each, delete one);
  * prompt chips; the coach settings; the toasts.
  *
+ * Before the browser walk, an API pass with the shared stand-in (scripts/fake-coach-cli.ts) saves a
+ * dummy Anthropic key and an Ollama endpoint, chats with each, runs the ChatGPT device sign-in, removes
+ * the key, and then searches the server's output, the database, every response and the stand-in's log
+ * for the dummy key: it may only be in coach-providers.json.
+ *
  * Needs `pnpm build`, Chromium at CHROMIUM (default /usr/bin/chromium) and, for the MP3,
  * ffmpeg (a WAV is used without it). SMOKE_PORT picks the port (default 5196).
  * Exits 1 when a check fails.
  */
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
 import { join, resolve } from "node:path";
 import { deflateSync } from "node:zlib";
 
-import { chromium, type Page } from "playwright-core";
+import { type Browser, chromium, type Page } from "playwright-core";
+
+import { starterPlan } from "../server/generic/starter.ts";
+import { normalizeProfile } from "../server/generic/studio.ts";
+import { sha256, writeFakeBin } from "./fake-coach-cli.ts";
 
 const root = join(import.meta.dirname, "..");
 const dir = resolve(process.argv[2] ?? "smoke-generic");
@@ -165,8 +174,10 @@ const portTaken = () =>
   });
 const running = (c: ChildProcess) => c.exitCode === null && c.signalCode === null;
 
-async function startServer(env: string): Promise<ChildProcess> {
+/** `codexBin` defaults to `bin`; a stand-in named `.../bin/codex` is recognised as a Codex install, so the Codex coaches are on. */
+async function startServer(env: string, o: { bin?: string; codexBin?: string; log?: string; env?: Record<string, string> } = {}): Promise<ChildProcess> {
   if (await portTaken()) throw new Error(`port ${port} is already in use; set SMOKE_PORT to a free one`);
+  const out = o.log ? openSync(o.log, "a") : null;
   const child = spawn("node", ["server/index.ts"], {
     cwd: root,
     env: {
@@ -179,11 +190,13 @@ async function startServer(env: string): Promise<ChildProcess> {
       GUITAR_CACHE_DIR: join(env, "cache"),
       GUITAR_LIBRARY_DIRS: "",
       GUITAR_TABS_DIR: "",
-      CLAUDE_BIN: fake,
-      CODEX_BIN: fake,
+      CLAUDE_BIN: o.bin ?? fake,
+      CODEX_BIN: o.codexBin ?? o.bin ?? fake,
+      ...o.env,
     },
-    stdio: ["ignore", "ignore", "inherit"],
+    stdio: out === null ? ["ignore", "ignore", "inherit"] : ["ignore", out, out],
   });
+  if (out !== null) closeSync(out);
   for (let i = 0; i < 50; i++) {
     // Our server exited (a port taken meanwhile, a crash): whatever answers now is not ours.
     if (!running(child)) throw new Error("the server exited before it was ready (port in use?)");
@@ -201,17 +214,20 @@ async function startServer(env: string): Promise<ChildProcess> {
 let token = "";
 const json = <T>(path: string) => fetch(`${base}${path}`, { headers: { "x-guitar-room-token": token } }).then((r) => r.json() as Promise<T>);
 
+/** What sticks out past the right edge of the screen: nothing may. */
+const tooWide = (page: Page) =>
+  page.evaluate(() => {
+    const w = document.documentElement.clientWidth;
+    const hidden = (e: Element | null): boolean => !!e && (e.getAttribute("aria-hidden") === "true" || hidden(e.parentElement));
+    const out = [...document.querySelectorAll("main *, .top *, .tabs *, .chatwrap.open *, .coachtoasts *")].filter((e) => !e.closest(".promptrow") && !hidden(e) && e.getClientRects().length && e.getBoundingClientRect().right > w + 1);
+    return out.slice(0, 3).map((e) => `${e.tagName.toLowerCase()}.${e.className} +${Math.round(e.getBoundingClientRect().right - w)}px`);
+  });
+
 async function walk(page: Page, env: string) {
   const home = join(env, "home");
   let n = 0;
   const shot = async (name: string, full = false) => {
-    // Nothing may stick out past the right edge of the screen.
-    const wide = await page.evaluate(() => {
-      const w = document.documentElement.clientWidth;
-      const hidden = (e: Element | null): boolean => !!e && (e.getAttribute("aria-hidden") === "true" || hidden(e.parentElement));
-      const out = [...document.querySelectorAll("main *, .top *, .tabs *, .chatwrap.open *, .coachtoasts *")].filter((e) => !e.closest(".promptrow") && !hidden(e) && e.getClientRects().length && e.getBoundingClientRect().right > w + 1);
-      return out.slice(0, 3).map((e) => `${e.tagName.toLowerCase()}.${e.className} +${Math.round(e.getBoundingClientRect().right - w)}px`);
-    });
+    const wide = await tooWide(page);
     check(wide.length === 0, `${name}: nothing is wider than the screen${wide.length ? ` (${wide.join("; ")})` : ""}`);
     if (shots) await page.screenshot({ path: join(shots, `${size}-${String(++n).padStart(2, "0")}-${name}.png`), fullPage: full });
   };
@@ -410,6 +426,340 @@ async function walk(page: Page, env: string) {
   await shot("session-with-material", true);
 }
 
+/** The coach list over the API, with the shared stand-in: keys, an endpoint, the device sign-in, and no leaked key. */
+async function apiPass() {
+  size = "api";
+  const env = join(dir, "api");
+  const fakeDir = join(env, "fake");
+  mkdirSync(fakeDir, { recursive: true });
+  const bin = writeFakeBin(fakeDir);
+  const codexBin = writeFakeBin(fakeDir, "codex-install/bin/codex");
+  writeFileSync(join(fakeDir, "good-plan.json"), JSON.stringify(starterPlan(normalizeProfile({ level: "beginner" }, new Date().toISOString()), new Date().toISOString().slice(0, 10))));
+  const KEY = "sk-ant-api03-SMOKE-DUMMY-0000-1111-2222-zzzz";
+  const serverLog = join(env, "server.log");
+  const transcripts: string[] = [];
+  const srv = await startServer(env, { bin, codexBin, log: serverLog });
+  try {
+    token = readFileSync(join(env, "state", "access-token"), "utf8").trim();
+    const api = async (method: string, path: string, body?: unknown) => {
+      const res = await fetch(`${base}${path}`, { method, headers: { "x-guitar-room-token": token, "x-guitar-room": "1", "content-type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+      const text = await res.text();
+      transcripts.push(text);
+      return { status: res.status, text, json: (() => { try { return JSON.parse(text); } catch { return null; } })() };
+    };
+    const events = (text: string) => [...text.matchAll(/^event: (.+)$/gm)].map((m) => m[1]!);
+    const log = () => readFileSync(join(fakeDir, "calls.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as { argv: string[]; CLAUDE_CONFIG_DIR: string | null; CODEX_HOME: string | null; sha256: Record<string, string>; envNames: string[] });
+    const state = join(env, "state");
+
+    const list = (await api("GET", "/api/providers")).json;
+    check(list?.list?.map((r: { id: string }) => r.id).join(",") === "claude,codex,chatgpt,anthropic,openai,bedrock,endpoint", "a locally hosted instance offers every coach");
+    const put = await api("PUT", "/api/coach/providers/anthropic", { key: KEY });
+    check(put.status === 200 && put.json.ok && put.json.hint === "…zzzz", "an Anthropic key is saved and shown only as its last four characters");
+    const ep = await api("PUT", "/api/coach/providers/endpoint", { preset: "ollama", baseUrl: "http://127.0.0.1:11434/v1", model: "gpt-oss:20b" });
+    check(ep.status === 200 && ep.json.ok, "an Ollama endpoint is saved");
+
+    const a = await api("POST", "/api/chat", { provider: "anthropic", message: "Hello. BREAK THE PLAN", screen: { view: "start" } });
+    check(events(a.text).join(",") === "conversation,thread,delta,changed,delta,thread,delta,changed,done", `the Anthropic coach answers, with the plan repair turn (${events(a.text).join(",")})`);
+    const claudeCalls = log().filter((c) => c.argv[0] === "-p");
+    check(claudeCalls.length === 2 && claudeCalls.every((c) => c.CLAUDE_CONFIG_DIR === join(state, "cli", "anthropic") && c.sha256.ANTHROPIC_API_KEY === sha256(KEY) && !c.envNames.includes("CLAUDE_CODE_OAUTH_TOKEN")), "it ran in its own config folder with the key in its environment only");
+    const e = await api("POST", "/api/chat", { provider: "endpoint", message: "Hello", screen: { view: "start" } });
+    check(events(e.text).join(",").startsWith("conversation,thread,delta") && !events(e.text).includes("error"), "the endpoint coach answers");
+    const codexCall = log().find((c) => c.argv[0] === "exec")!;
+    check(codexCall.CODEX_HOME === join(state, "cli", "endpoint") && codexCall.argv.includes('model_providers.guitar_room.base_url="http://127.0.0.1:11434/v1"') && codexCall.argv.includes('web_search="disabled"'), "it ran as a custom provider with web search off");
+
+    const login = await api("POST", "/api/coach/providers/chatgpt/login");
+    check(login.status === 200 && login.json.state === "waiting" && login.json.url === "https://auth.openai.com/codex/device" && /^[A-Z0-9]{4}-[A-Z0-9]{4,6}$/.test(login.json.code), "the ChatGPT sign-in shows the link and the code");
+    writeFileSync(join(fakeDir, "device-ok"), "ok");
+    let done = false;
+    for (let i = 0; i < 50 && !done; i++) {
+      done = (await api("GET", "/api/coach/providers/chatgpt/login")).json?.state === "done";
+      if (!done) await new Promise((r) => setTimeout(r, 100));
+    }
+    check(done, "the sign-in finishes when Codex does");
+    const c = await api("POST", "/api/chat", { provider: "chatgpt", message: "Hello", screen: { view: "start" } });
+    check(!events(c.text).includes("error"), "the ChatGPT coach signed in here answers");
+
+    const del = await api("DELETE", "/api/coach/providers/anthropic");
+    check(del.status === 200 && del.json.ok === false, "removing the key leaves the row not ready");
+  } finally {
+    if (running(srv)) {
+      srv.kill();
+      await new Promise((r) => srv.once("exit", r));
+    }
+  }
+  const places: [string, string][] = [
+    ["the server's output", readFileSync(serverLog, "utf8")],
+    ["the database", readFileSync(join(env, "state", "guitar-room.sqlite")).toString("latin1")],
+    ["the responses", transcripts.join("\n")],
+    ["the stand-in's log", readFileSync(join(fakeDir, "calls.jsonl"), "utf8")],
+  ];
+  for (const [where, text] of places) check(!text.includes(KEY), `the dummy key is not in ${where}`);
+}
+
+await apiPass().catch((e) => check(false, `the API pass stopped: ${String((e as Error).message ?? e).split("\n")[0]}`));
+
+/**
+ * Coach settings in the browser, with the shared stand-in: every row, a key, an Ollama endpoint, the ChatGPT
+ * sign-in with its code, the coach picker, removing it all; then with host logins turned off, "No coach is
+ * set up" and an old conversation that can only be replaced. Shots at 390 px and on a desktop, light and dark.
+ */
+async function coachWalk(browser: Browser) {
+  const env = join(dir, "coach");
+  const fakeDir = join(env, "fake");
+  mkdirSync(fakeDir, { recursive: true });
+  const bin = writeFakeBin(fakeDir);
+  const codexBin = writeFakeBin(fakeDir, "codex-install/bin/codex");
+  const KEY = "sk-ant-api03-WALK-DUMMY-3333-4444-5555-yyyy";
+  const serverLog = join(env, "server.log");
+  const bodies: string[] = [];
+  const doms: string[] = [];
+  let srv = await startServer(env, { bin, codexBin, log: serverLog });
+  const stop = async () => {
+    if (running(srv)) {
+      srv.kill();
+      await new Promise((r) => srv.once("exit", r));
+    }
+  };
+  type Ctx = { page: Page; close: () => Promise<void>; errors: string[]; label: string; n: number };
+  const contexts: Ctx[] = [];
+  try {
+    token = readFileSync(join(env, "state", "access-token"), "utf8").trim();
+    const headers = { "x-guitar-room-token": token, "x-guitar-room": "1", "content-type": "application/json" };
+    await fetch(`${base}/api/profile`, { method: "PUT", headers, body: JSON.stringify({ level: "beginner" }) });
+
+    const open = async (label: string, width: number, height: number, scheme: "light" | "dark"): Promise<Ctx> => {
+      size = `coach-${label}`;
+      const phone = width < 500;
+      const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: phone ? 2 : 1, hasTouch: phone, isMobile: phone, colorScheme: scheme, permissions: ["clipboard-read", "clipboard-write"] });
+      const page = await ctx.newPage();
+      await page.route(/^https?:\/\/(?!localhost)/, (r) => (direct.push(r.request().url()), r.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>blocked in the smoke test</title>" })));
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(e.message));
+      page.on("console", (m) => m.type() === "error" && !/favicon/.test(m.location().url) && !/the server responded with a status of 4\d\d/.test(m.text()) && errors.push(`${m.text()} ${m.location().url}`));
+      page.on("response", (r) => void (r.url().includes("/api/") && r.text().then((t) => bodies.push(t), () => {})));
+      await page.goto(`${base}/?token=${token}`);
+      await page.waitForURL(`${base}/`);
+      const c: Ctx = { page, close: () => ctx.close(), errors, label, n: 0 };
+      contexts.push(c);
+      return c;
+    };
+    const shot = async (c: Ctx, name: string, el?: string) => {
+      size = `coach-${c.label}`;
+      const wide = await tooWide(c.page);
+      check(wide.length === 0, `${name}: nothing is wider than the screen${wide.length ? ` (${wide.join("; ")})` : ""}`);
+      doms.push(await c.page.content());
+      if (!shots) return;
+      const path = join(shots, `coach-${c.label}-${String(++c.n).padStart(2, "0")}-${name}.png`);
+      if (el) await c.page.locator(el).first().screenshot({ path });
+      else await c.page.screenshot({ path });
+    };
+    const settings = async (c: Ctx) => {
+      await c.page.getByRole("button", { name: "Coach settings" }).click();
+      await c.page.locator(".coachprov .provrow").first().waitFor();
+    };
+    const rowOf = (c: Ctx, label: string) => c.page.locator(".provrow").filter({ has: c.page.locator(".provname", { hasText: new RegExp(`^${label.replace(/[()]/g, "\\$&")}$`) }) });
+    const stateOf = async (c: Ctx, label: string, re: RegExp) => {
+      const ok = await rowOf(c, label).locator(".provstate").filter({ hasText: re }).waitFor({ timeout: 15_000 }).then(() => true, () => false);
+      check(ok, `${label} reads ${re} (${await rowOf(c, label).locator(".provstate").textContent().catch(() => "?")})`);
+    };
+    const openChat = async (c: Ctx) => {
+      await c.page.locator(".top").getByRole("button", { name: /^Coach/ }).click();
+      await c.page.getByRole("dialog", { name: "Coach" }).waitFor();
+      await c.page.waitForTimeout(400); // the panel slides in
+    };
+    const deviceCode = async (c: Ctx) => {
+      const row = rowOf(c, "ChatGPT plan (signed in here)");
+      await row.getByRole("button", { name: "Sign in with a code" }).click();
+      const box = row.locator(".devicebox");
+      await box.waitFor();
+      const link = box.getByRole("link");
+      check((await link.getAttribute("href")) === "https://auth.openai.com/codex/device" && (await link.getAttribute("target")) === "_blank" && /noopener/.test((await link.getAttribute("rel")) ?? ""), "the sign-in link opens OpenAI's page in a new tab");
+      check((await box.locator(".devcode code").textContent()) === "FAKE-1A2B3", "the one-time code is shown");
+      check(/expires in 1[45]:\d\d/.test((await box.textContent()) ?? ""), `a countdown shows (${(await box.locator(".srcnote").last().textContent()) ?? ""})`);
+      check(/Settings → Security/.test((await row.textContent()) ?? ""), "the row says to turn on device code sign-in first");
+      await box.getByRole("button", { name: "Copy" }).click();
+      const copied = await box.getByRole("button", { name: "Copied" }).waitFor({ timeout: 3000 }).then(() => true, () => false);
+      const selected = !copied && /code is selected/.test((await box.textContent()) ?? "");
+      check(copied || selected, `Copy puts the code on the clipboard, or selects it (${copied ? "copied" : "selected"})`);
+      if (copied) check((await c.page.evaluate(() => navigator.clipboard.readText())) === "FAKE-1A2B3", "the clipboard holds the code");
+      await shot(c, "device-code", ".coachprov");
+      return { row, box };
+    };
+
+    // ---- Phone, light: every row, then a key and an endpoint saved through the form.
+    const p1 = await open("phone-light", 390, 844, "light");
+    await settings(p1);
+    const names = (await p1.page.locator(".provname").allTextContents()).join(",");
+    check(names === "Claude plan (this computer),ChatGPT plan (this computer),ChatGPT plan (signed in here),Anthropic API key,OpenAI API key,Amazon Bedrock (Claude),Other provider (Responses API)", `Coach settings lists every coach this instance offers (${names})`);
+    const text = (await p1.page.locator(".coachprov").textContent()) ?? "";
+    check(/Anthropic does not let apps sign you in to a Claude plan\. Run claude auth login yourself on \S+, or add an Anthropic API key\./.test(text), "the Claude plan row says Anthropic does not let apps sign in, with the host");
+    check(text.includes("If your Claude plan includes API credits, create the key in the Console organisation linked to that plan."), "the Anthropic key row has the Console note");
+    check((await rowOf(p1, "Other provider (Responses API)").locator(".provtag").textContent()) === "Experimental", "the endpoint row is marked experimental");
+    check(/Responses API\. DeepSeek \(https:\/\/api\.deepseek\.com\) and Together \(https:\/\/api\.together\.ai\/v1\) work under Other\. Gemini, Mistral and others: use OpenRouter\./.test((await rowOf(p1, "Other provider (Responses API)").textContent()) ?? ""), "and says which providers it needs");
+    check((await rowOf(p1, "Claude plan (this computer)").locator("code").first().textContent()) === "claude auth logout", "a signed-in host row says how to sign out in a terminal");
+    await rowOf(p1, "Claude plan (this computer)").getByRole("button", { name: "Check again" }).click();
+    await stateOf(p1, "Claude plan (this computer)", /^Ready: Signed in on .+ \(claude\.ai max\)$/);
+    await shot(p1, "rows-empty", ".coachprov");
+
+    const anth = rowOf(p1, "Anthropic API key");
+    /** What has keyboard focus: a button's or field's name, or "BODY" when it fell out of the settings. */
+    const focused = () => p1.page.evaluate(() => {
+      const e = document.activeElement as HTMLElement | null;
+      return !e || e === document.body ? "BODY" : `${e.tagName.toLowerCase()}:${e.getAttribute("name") ?? e.textContent?.trim() ?? ""}`;
+    });
+    await anth.getByRole("button", { name: "Add a key" }).focus();
+    await p1.page.keyboard.press("Enter");
+    check((await focused()) === "input:key-anthropic", `Add a key puts focus in the key field (${await focused()})`);
+    await anth.getByRole("button", { name: "Cancel" }).focus();
+    await p1.page.keyboard.press("Enter");
+    check((await focused()) === "button:Add a key", `Cancel puts focus back on Add a key (${await focused()})`);
+    await anth.getByRole("button", { name: "Add a key" }).click();
+    await anth.locator('input[type="password"]').fill(KEY);
+    check((await anth.locator('input[type="password"]').getAttribute("autocomplete")) === "off", "the key field is a password field with autocomplete off");
+    await shot(p1, "anthropic-form", ".coachprov");
+    await anth.getByRole("button", { name: "Save" }).click();
+    await stateOf(p1, "Anthropic API key", /Key ending …yyyy · sonnet/);
+    check((await focused()) === "button:Change", `after Save, focus is on the row's Change button (${await focused()})`);
+    check((await anth.locator('input[type="password"]').count()) === 0 && !(await p1.page.content()).includes(KEY), "after saving, the page holds only the key's last four characters");
+
+    const oai = rowOf(p1, "OpenAI API key");
+    await oai.getByRole("button", { name: "Add a key" }).click();
+    await oai.locator('input[type="password"]').fill("short");
+    await oai.getByRole("button", { name: "Save" }).click();
+    const refused = await oai.getByRole("alert").filter({ hasText: /8 to 4096 characters/ }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+    check(refused, "a key that is too short is refused with the server's reason");
+    await shot(p1, "openai-refused", ".coachprov");
+    await oai.getByRole("button", { name: "Cancel" }).click();
+    check((await oai.getByRole("alert").count()) === 0, "Cancel clears the refusal");
+
+    const ep = rowOf(p1, "Other provider (Responses API)");
+    await ep.getByRole("button", { name: "Set up a provider" }).click();
+    check((await ep.locator('select[name="preset"] option').allTextContents()).length === 7, "the endpoint offers seven presets");
+    await ep.locator('select[name="preset"]').selectOption("azure");
+    check((await ep.locator('input[name="baseUrl"]').inputValue()) === "https://RESOURCE.openai.azure.com/openai/v1" && (await ep.locator('input[type="password"]').count()) === 1, "the Azure preset fills its address and asks for a key");
+    await ep.locator('select[name="preset"]').selectOption("ollama");
+    check((await ep.locator('input[name="baseUrl"]').inputValue()) === "http://127.0.0.1:11434/v1" && /^API key \(optional\)/.test((await ep.locator(".field").filter({ has: p1.page.locator('input[type="password"]') }).textContent()) ?? ""), "the Ollama preset fills its address and makes the key optional (for Ollama's cloud)");
+    await ep.locator('input[name="model-endpoint"]').fill("gpt-oss:20b");
+    await shot(p1, "endpoint-form", ".coachprov");
+    await ep.getByRole("button", { name: "Save" }).click();
+    await stateOf(p1, "Other provider (Responses API)", /Ollama · 127\.0\.0\.1:11434 · gpt-oss:20b · no key/);
+
+    // The device sign-in: start, show the code, cancel.
+    const { box } = await deviceCode(p1);
+    await box.getByRole("button", { name: "Cancel" }).click();
+    await box.waitFor({ state: "detached" });
+    const idle = await fetch(`${base}/api/coach/providers/chatgpt/login`, { headers }).then((r) => r.json());
+    check(idle.state === "idle", "Cancel stops the sign-in");
+    await shot(p1, "rows-set-up", ".coachprov");
+
+    // ---- The same rows, and the sign-in panel, in dark and on a desktop.
+    for (const [label, w, h, scheme] of [["phone-dark", 390, 844, "dark"], ["desktop-light", 1280, 900, "light"], ["desktop-dark", 1280, 900, "dark"]] as const) {
+      const c = await open(label, w, h, scheme);
+      await settings(c);
+      await shot(c, "rows-set-up", ".coachprov");
+      const d = await deviceCode(c);
+      await d.box.getByRole("button", { name: "Cancel" }).click();
+      await d.box.waitFor({ state: "detached" });
+      await openChat(c);
+      await shot(c, "chat-picker");
+      await c.page.getByRole("dialog", { name: "Coach" }).getByRole("button", { name: "Coach settings" }).click();
+      await c.page.locator(".chatsettings .provrow").first().waitFor();
+      await shot(c, "chat-settings");
+    }
+
+    // ---- Back on the phone: finish the sign-in, then chat through the picker.
+    size = "coach-phone-light";
+    const again = rowOf(p1, "ChatGPT plan (signed in here)");
+    await again.getByRole("button", { name: "Sign in with a code" }).click();
+    await again.locator(".devicebox").waitFor();
+    writeFileSync(join(fakeDir, "device-ok"), "ok");
+    await stateOf(p1, "ChatGPT plan (signed in here)", /^Ready: Signed in here$/);
+    check((await again.locator(".devicebox").count()) === 0 && (await again.getByRole("button", { name: "Sign out" }).count()) === 1, "the panel closes and the row offers Sign out");
+    await shot(p1, "chatgpt-signed-in", ".coachprov");
+
+    await openChat(p1);
+    const dlg = p1.page.getByRole("dialog", { name: "Coach" });
+    const picker = dlg.locator("select.coachpick");
+    const options = (await picker.locator("option").allTextContents()).join(",");
+    check(options === "Claude plan (this computer),ChatGPT plan (this computer),ChatGPT plan (signed in here),Anthropic API key,Other provider (Responses API)", `the coach picker lists the ready coaches (${options})`);
+    await shot(p1, "chat-picker");
+    const say = async (provider: string, message: string) => {
+      await picker.selectOption(provider);
+      await dlg.locator(".composer textarea").fill(message);
+      await dlg.getByRole("button", { name: "Send" }).click();
+      await p1.page.waitForFunction(() => !document.querySelector(".thinking") && document.querySelectorAll(".chat .msg.assistant").length > 0, null, { timeout: 20_000 });
+      const calls = readFileSync(join(fakeDir, "calls.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as { argv: string[]; input?: string; CLAUDE_CONFIG_DIR: string | null });
+      return { errors: await dlg.locator(".msg.error").count(), last: calls.filter((x) => x.input?.includes(message)).at(-1) };
+    };
+    const a = await say("anthropic", "Hello from the Anthropic coach");
+    check(a.errors === 0 && a.last?.CLAUDE_CONFIG_DIR === join(env, "state", "cli", "anthropic"), "a chat on the Anthropic key answers, in its own config folder");
+    await shot(p1, "chat-anthropic");
+    const h = await say("claude", "Hello from the host login");
+    check(h.errors === 0 && h.last?.CLAUDE_CONFIG_DIR === null, "a chat on this computer's Claude login answers");
+    await dlg.getByRole("button", { name: "Done" }).click();
+
+    // ---- Remove everything: the key, the endpoint, the ChatGPT sign-in.
+    for (const [label, button, after] of [["Anthropic API key", "Remove", /^Not ready: No key saved$/], ["Other provider (Responses API)", "Remove", /^Not ready: Not set up$/], ["ChatGPT plan (signed in here)", "Sign out", /^Not ready: Not signed in$/]] as const) {
+      p1.page.once("dialog", (d) => void d.accept());
+      await rowOf(p1, label).getByRole("button", { name: button }).click();
+      await stateOf(p1, label, after);
+    }
+    check(!existsSync(join(env, "state", "cli", "chatgpt", "auth.json")), "signing out removes Codex's auth.json");
+    await shot(p1, "rows-removed", ".coachprov");
+    for (const c of contexts.splice(0)) {
+      size = `coach-${c.label}`;
+      check(c.errors.length === 0, `no page or console errors${c.errors.length ? `: ${c.errors.join(" | ")}` : ""}`);
+      await c.close();
+    }
+
+    // ---- Host logins turned off: no coach is set up, and the old host-login conversation can only be replaced.
+    await stop();
+    srv = await startServer(env, { bin, codexBin, log: serverLog, env: { GUITAR_COACH_HOST_LOGINS: "0" } });
+    const refusedChat = await fetch(`${base}/api/chat`, { method: "POST", headers, body: JSON.stringify({ provider: "claude", message: "Hi" }) });
+    size = "coach-off";
+    check(refusedChat.status === 400, "with host logins off, a chat on the host login is refused");
+    for (const [label, w, h2, scheme] of [["off-phone-light", 390, 844, "light"], ["off-desktop-dark", 1280, 900, "dark"]] as const) {
+      const c = await open(label, w, h2, scheme);
+      await openChat(c);
+      const d = c.page.getByRole("dialog", { name: "Coach" });
+      const none = await d.locator(".notice").filter({ hasText: "No coach is set up." }).waitFor({ timeout: 10_000 }).then(() => true, () => false);
+      check(none, "the empty conversation says no coach is set up");
+      check((await d.locator("select.coachpick").count()) === 0, "and offers no coach to pick");
+      await shot(c, "no-coach");
+      await d.locator(".notice").getByRole("button", { name: "Coach settings" }).click();
+      await d.locator(".chatsettings .provrow").first().waitFor();
+      const offeredNow = (await d.locator(".chatsettings .provname").allTextContents()).join(",");
+      check(offeredNow === "ChatGPT plan (signed in here),Anthropic API key,OpenAI API key,Amazon Bedrock (Claude),Other provider (Responses API)", `the panel's settings leave out the host logins (${offeredNow})`);
+      await shot(c, "no-coach-settings");
+      await d.getByRole("button", { name: "Back to the conversation" }).click();
+      await d.getByRole("button", { name: "Conversations" }).click();
+      await d.locator(".convopen").filter({ hasText: "Hello from the host login" }).click();
+      const off = await d.locator(".notice").filter({ hasText: "which is turned off here. Start a new conversation with another coach." }).waitFor({ timeout: 10_000 }).then(() => true, () => false);
+      check(off && (await d.locator(".composer textarea").count()) === 0 && (await d.locator(".promptrow").count()) === 0, "an old host-login conversation asks for a new conversation instead of offering Send or prompts");
+      await shot(c, "old-conversation");
+      await d.getByRole("button", { name: "New conversation" }).click();
+      const noneNow = await d.locator(".composer.nocoach .notice").filter({ hasText: "No coach is set up." }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+      check(noneNow && (await d.locator(".composer textarea").count()) === 0, "with no coach set up, New conversation offers Coach settings instead of a Send that would fail");
+      size = `coach-${label}`;
+      check(c.errors.length === 0, `no page or console errors${c.errors.length ? `: ${c.errors.join(" | ")}` : ""}`);
+      await c.close();
+    }
+  } finally {
+    for (const c of contexts) await c.close().catch(() => {});
+    await stop();
+  }
+  size = "coach";
+  const places: [string, string][] = [
+    ["the server's output", readFileSync(serverLog, "utf8")],
+    ["the database", readFileSync(join(env, "state", "guitar-room.sqlite")).toString("latin1")],
+    ["the responses the pages got", bodies.join("\n")],
+    ["the pages", doms.join("\n")],
+    ["the stand-in's log", readFileSync(join(fakeDir, "calls.jsonl"), "utf8")],
+  ];
+  for (const [where, t] of places) check(!t.includes(KEY), `the dummy key is not in ${where}`);
+}
+
+
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
 try {
   for (const [name, viewport, scale] of [["phone", { width: 390, height: 844 }, 2], ["ipad", { width: 820, height: 1180 }, 1]] as const) {
@@ -441,6 +791,7 @@ try {
       }
     }
   }
+  await coachWalk(browser).catch((e) => check(false, `the coach walk stopped: ${String((e as Error).message ?? e).split("\n")[0]}`));
 } finally {
   await browser.close();
 }

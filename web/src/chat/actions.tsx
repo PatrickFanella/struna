@@ -2,7 +2,9 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { api } from "../api.ts";
 import type { ActionId, ActionMode, AutoAction, Prompt } from "../generic.ts";
+import { useApp } from "../mode.ts";
 import { askCoach, coachReady, openCoach } from "./Chat.tsx";
+import { CoachProviders } from "./CoachProviders.tsx";
 import { unavailable } from "./providers.ts";
 import { fillAction, loadPrompts, setPrompts, usePrompts } from "./prompts.ts";
 
@@ -116,6 +118,7 @@ export function CoachSettings() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const custom = prompts.filter((p) => p.custom);
+  const generic = useApp().mode === "generic";
 
   // Another tab or a restart may have changed them.
   useEffect(() => {
@@ -139,6 +142,7 @@ export function CoachSettings() {
 
   return (
     <div className="coachsettings">
+      {generic && <CoachProviders />}
       <p className="grp">What the coach does by itself</p>
       <ul className="actionlist">
         {actions.map((a) => (

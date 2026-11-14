@@ -5,7 +5,7 @@
  *
  *   node scripts/smoke-practice.ts <scratch-dir> [tone.wav]
  *
- * Needs `pnpm build` and Chromium. Prints the log file and the recording path.
+ * Needs `pnpm build` and Chromium. Prints the log file and the recording path. SMOKE_PORT picks the port (default 5188).
  */
 import { spawn } from "node:child_process";
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -19,7 +19,7 @@ const tone = process.argv[3];
 rmSync(dir, { recursive: true, force: true });
 mkdirSync(join(dir, "media"), { recursive: true });
 cpSync(join(root, "server/fixtures/vault"), join(dir, "vault"), { recursive: true });
-const port = 5188;
+const port = Number(process.env.SMOKE_PORT ?? 5188);
 const srv = spawn("node", ["server/index.ts"], {
   cwd: root,
   env: { ...process.env, NODE_ENV: "production", PORT: String(port), GUITAR_VAULT_ROOT: join(dir, "vault"), GUITAR_MEDIA_ROOT: join(dir, "media"), GUITAR_STATE_DIR: join(dir, "state"), GUITAR_NO_SCAN: "1" },

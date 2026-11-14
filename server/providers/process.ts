@@ -31,15 +31,30 @@ export function subscriptionEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
+/** The variables a run the app manages keeps from the server's own environment; nothing else gets through. */
+const ALLOW = /^(PATH|HOME|USER|LOGNAME|SHELL|LANG|LC_[A-Z_]+|TZ|TMPDIR|HTTPS?_PROXY|https?_proxy|NO_PROXY|no_proxy|SSL_CERT_FILE|SSL_CERT_DIR|NODE_EXTRA_CA_CERTS)$/;
+
+/**
+ * Child environment for a coach the app signs in itself (an API key, an endpoint, its own Codex login):
+ * an allowlist of the server's variables plus exactly `add`. Unlike `subscriptionEnv`, a stray host token
+ * (`CLAUDE_CODE_OAUTH_TOKEN`, `CODEX_ACCESS_TOKEN`, `AWS_*`) or config folder never reaches the CLI.
+ */
+export function appEnv(add: Record<string, string>): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const [k, v] of Object.entries(process.env)) if (ALLOW.test(k)) env[k] = v;
+  env.NO_COLOR = "1";
+  return { ...env, ...add };
+}
+
 /** Spawn a CLI, write `input` to stdin and yield each stdout line parsed as JSON. */
 export async function* jsonLines(
   bin: string,
   args: string[],
-  opts: { cwd: string; input: string; signal: AbortSignal; timeoutMs: number },
+  opts: { cwd: string; input: string; signal: AbortSignal; timeoutMs: number; env?: NodeJS.ProcessEnv | undefined },
 ): AsyncGenerator<Record<string, any>, { code: number | null; stderr: string }> {
   // An abort that already happened never fires its event again: do not start a CLI nothing could stop.
   if (opts.signal.aborted) return { code: null, stderr: "aborted" };
-  const child = spawn(bin, args, { cwd: opts.cwd, env: subscriptionEnv(), stdio: ["pipe", "pipe", "pipe"] });
+  const child = spawn(bin, args, { cwd: opts.cwd, env: opts.env ?? subscriptionEnv(), stdio: ["pipe", "pipe", "pipe"] });
   let stderr = "";
   child.stderr.on("data", (b: Buffer) => {
     stderr = (stderr + b.toString()).slice(-4000);

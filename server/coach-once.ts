@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import { buildContext, type CoachProfile, personalCoach, PROVIDERS, type Screen, SYSTEM } from "./chat.ts";
-import type { Provider } from "./conversations.ts";
+import type { HostProvider as Provider } from "./conversations.ts";
 import { getSetting } from "./db.ts";
 import { HttpError, readJson, route, send } from "./http.ts";
 import { type Paths, today } from "./practice.ts";

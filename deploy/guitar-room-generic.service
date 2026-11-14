@@ -12,8 +12,8 @@
 # or any container on the host network can connect to 127.0.0.1. So it answers only browsers that
 # have opened its access link once: `http://localhost:5184/?token=` followed by the contents of
 # GUITAR_STATE_DIR/access-token (mode 600, created at first start; the journal shows the command).
-# Anyone with the link can use the coach on this account's Claude and ChatGPT subscriptions and
-# change the studio folder.
+# Anyone with the link can use the coach (this account's Claude and ChatGPT logins, and any keys
+# saved under Coach settings) and change the studio folder.
 #
 # Behind a reverse proxy with its own login, use a Unix socket instead of TCP: uncomment the three
 # socket lines below (the runtime directory is owner-only), add the public name to ALLOWED_HOSTS,
@@ -22,11 +22,18 @@
 # What the coach can read: Claude reads only the studio and GUITAR_LIBRARY_DIRS. Codex runs with a
 # permission profile that hides the rest of the disk from its commands, but only when the server
 # finds Codex's install folder (set CODEX_BIN to the real binary's full path if the log warns); if it
-# cannot, Codex can read every file this account can, including CLI logins and SSH keys. Either way,
+# cannot, every Codex coach is turned off, since Codex could then read the saved keys. Either way,
 # a dedicated account with no other secrets is the safest place to run this.
 #
-# The `claude` and `codex` CLIs must be signed in for this account and on PATH (or set CLAUDE_BIN
-# and CODEX_BIN). ffmpeg is needed only to play videos that are not MP4.
+# The coach: the `claude` and `codex` CLIs must be on PATH (or set CLAUDE_BIN and CODEX_BIN). On this
+# loopback instance the player can use this account's own logins (`claude auth login`, `codex login
+# --device-auth`), sign in to ChatGPT from the app, or save an API key or a provider endpoint under
+# Coach settings; keys go in GUITAR_STATE_DIR/coach-providers.json (mode 600). Behind a reverse proxy
+# (a socket, an edge secret, REQUIRE_USER, or a public name in ALLOWED_HOSTS) this account's logins
+# are off unless GUITAR_COACH_HOST_LOGINS=1 ("1" or "0"; anything else stops the server), which
+# is for the operator's own use only: both vendors forbid making an account available to others. Keys
+# and endpoints there need REQUIRE_USER, since anyone who can open the instance spends them. See the
+# README, "Coach sign-in and keys". ffmpeg is needed only to play videos that are not MP4.
 
 [Unit]
 Description=Guitar Room, generic mode (practice app with a coach)
@@ -53,6 +60,11 @@ Environment=PORT=5184
 #Environment="GUITAR_APP_NAME=Guitar Room"
 #Environment=ALLOWED_HOSTS=guitar.example.org
 #Environment=CODEX_BIN=/full/path/to/codex
+# The coach list (README, "Coach sign-in and keys").
+#Environment=GUITAR_COACH_HOST_LOGINS=0
+#Environment=GUITAR_COACH_DEVICE_SIGNIN=1
+#Environment=GUITAR_COACH_PRIVATE_ENDPOINTS=1
+#Environment=GUITAR_COACH_MAX_BUDGET_USD=2
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=NODE server/index.ts
 Restart=on-failure

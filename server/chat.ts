@@ -5,7 +5,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { promisify } from "node:util";
 
 import { config } from "./config.ts";
-import type { Conversations, MessageMeta, Provider } from "./conversations.ts";
+import type { Conversations, HostProvider, MessageMeta, Provider } from "./conversations.ts";
 import { getSetting, setSetting } from "./db.ts";
 import { HttpError, readJson, route, send } from "./http.ts";
 import { type Paths, today } from "./practice.ts";
@@ -16,7 +16,7 @@ import type { Block } from "./vault.ts";
 
 const run = promisify(execFile);
 export type Run = (req: ChatRequest) => AsyncGenerator<ChatEvent>;
-export const PROVIDERS: Record<Provider, (coach: CoachProfile) => Run> = {
+export const PROVIDERS: Record<HostProvider, (coach: CoachProfile) => Run> = {
   claude: (coach) => (req) => claudeChat(req, coach.claude),
   codex: (coach) => (req) => codexChat(req, coach.codex),
 };
@@ -44,7 +44,20 @@ export type CoachProfile = {
    * anything still wrong must come back as a notice.
    */
   afterTurn?: (before: unknown, pass?: { final: boolean }) => Promise<AfterTurn>;
+  /**
+   * Generic mode with its coach list: the profile and run for one coach id, built for each request so a
+   * new key applies at once. Null for an id it does not know; throws an HttpError for one turned off here.
+   * Without it, the two host providers in `PROVIDERS` are the only coaches.
+   */
+  forProvider?: (id: Provider) => { profile: CoachProfile; run: Run } | null;
+  /** Generic mode with its coach list: what `/api/providers` adds to the host statuses. */
+  providerList?: () => Promise<ProviderList>;
 };
+
+export type HostStatus = { ok: boolean; detail: string };
+export type ProviderList = { claude: HostStatus; codex: HostStatus; deviceSignIn: boolean; list: object[] };
+/** Said once when a conversation's coach lost its session because its setup changed. */
+export const FRESH_NOTICE = "The coach setup changed, so the coach starts fresh and does not see the earlier messages.";
 
 const ACTIONS = new Set(["onboarding", "material-added", "session-logged", "plan-complete", "pain", "back-after-break", "profile-changed"]);
 type TodayLike = { block: Block | null; position: { week: number; sessionInWeek: number; type: string }; next: { text: string } };
@@ -81,20 +94,44 @@ function screenOf(v: any): Screen {
   return out;
 }
 
-async function providerStatus() {
+/** Why a status command failed, in words for the player: never the command line itself. */
+function whyFailed(e: any): string {
+  if (e?.code === "ENOENT") return "not installed";
+  if (e?.killed || e?.signal) return "did not answer";
+  return "could not check";
+}
+
+/**
+ * Whether the host's own `claude` and `codex` CLIs are signed in to a subscription. Both exit 1 when
+ * signed out; `plain` (the generic mode) then reads what they printed instead of the error, whose text
+ * names the binary's path. The personal mode keeps the text it always had.
+ */
+export async function providerStatus(o: { plain?: boolean } = {}): Promise<{ claude: HostStatus; codex: HostStatus }> {
   const env = subscriptionEnv();
+  const fromClaude = (stdout: string): HostStatus => {
+    const s = JSON.parse(stdout);
+    return { ok: Boolean(s.loggedIn), detail: s.loggedIn ? `${s.authMethod} ${s.subscriptionType ?? ""}`.trim() : "not signed in" };
+  };
   const claude = await run(config.claudeBin, ["auth", "status"], { env, timeout: 15_000 })
-    .then(({ stdout }) => {
-      const s = JSON.parse(stdout);
-      return { ok: Boolean(s.loggedIn), detail: s.loggedIn ? `${s.authMethod} ${s.subscriptionType ?? ""}`.trim() : "not signed in" };
-    })
-    .catch((e) => ({ ok: false, detail: String(e.message ?? e).slice(0, 200) }));
+    .then(({ stdout }) => fromClaude(stdout))
+    .catch((e): HostStatus => {
+      if (!o.plain) return { ok: false, detail: String(e.message ?? e).slice(0, 200) };
+      try {
+        return fromClaude(String(e.stdout ?? ""));
+      } catch {
+        return { ok: false, detail: whyFailed(e) };
+      }
+    });
   const codex = await run(config.codexBin, ["login", "status"], { env, timeout: 15_000 })
     .then(({ stdout, stderr }) => {
       const text = `${stdout}${stderr}`.trim().split("\n").pop() ?? "";
       return { ok: /ChatGPT/i.test(text), detail: text.slice(0, 200) };
     })
-    .catch((e) => ({ ok: false, detail: String(e.message ?? e).slice(0, 200) }));
+    .catch((e): HostStatus => {
+      if (!o.plain) return { ok: false, detail: String(e.message ?? e).slice(0, 200) };
+      const last = `${e.stdout ?? ""}${e.stderr ?? ""}`.trim().split("\n").pop()?.trim() ?? "";
+      return { ok: false, detail: last && e.code !== "ENOENT" && !e.killed ? last.slice(0, 200) : whyFailed(e) };
+    });
   return { claude, codex };
 }
 
@@ -115,7 +152,11 @@ type Emit = (event: string, data: unknown) => void;
  * One exchange with the coach: the provider's turn, then the profile's `afterTurn`, then at most
  * one follow-up turn on the same thread (streamed into the same reply after a blank line).
  */
-export async function coachTurn(o: { coach: CoachProfile; run: Run; prompt: string; threadId?: string | undefined; signal: AbortSignal; emit: Emit; onThread?: (id: string) => void }): Promise<{ reply: string; errors: string[] }> {
+/**
+ * `stale` says the coach's setup changed during this exchange (a new model, address or sign-in): then no
+ * follow-up turn resumes the old session with the new setup, and the check's problems become notices.
+ */
+export async function coachTurn(o: { coach: CoachProfile; run: Run; prompt: string; threadId?: string | undefined; signal: AbortSignal; emit: Emit; onThread?: (id: string) => void; stale?: () => boolean }): Promise<{ reply: string; errors: string[] }> {
   const { coach, emit, signal } = o;
   let reply = "";
   let threadId = o.threadId;
@@ -126,6 +167,8 @@ export async function coachTurn(o: { coach: CoachProfile; run: Run; prompt: stri
     emit("error", { message: m });
   };
   const turn = async (system: string, prompt: string) => {
+    // A reset that landed after the conversation was read: the old session must not run with the new setup.
+    if (o.stale?.()) threadId = undefined;
     for await (const ev of o.run({ system, prompt, ...(threadId ? { threadId } : {}), signal })) {
       if (ev.type === "delta") {
         reply += ev.text;
@@ -156,7 +199,7 @@ export async function coachTurn(o: { coach: CoachProfile; run: Run; prompt: stri
   }
   if (!coach.afterTurn) return { reply, errors };
   try {
-    const canFollowUp = Boolean(threadId) && !signal.aborted && errors.length === 0;
+    const canFollowUp = Boolean(threadId) && !signal.aborted && errors.length === 0 && !o.stale?.();
     const followUp = await after(before, !canFollowUp);
     // The post-turn check can take a while; a Stop during it must not start the repair turn.
     if (followUp && !signal.aborted) {
@@ -179,8 +222,10 @@ export async function coachTurn(o: { coach: CoachProfile; run: Run; prompt: stri
 
 async function chat(req: IncomingMessage, res: ServerResponse, store: Conversations, db: DatabaseSync, coach: CoachProfile) {
   const input = await readJson(req);
-  const provider = input.provider as Provider;
-  if (!(provider in PROVIDERS)) throw new HttpError(400, "unknown provider");
+  const provider = String(input.provider ?? "") as Provider;
+  // The coach list (generic mode) refuses an id that is turned off here before anything is stored.
+  const picked = coach.forProvider ? coach.forProvider(provider) : Object.hasOwn(PROVIDERS, provider) ? { profile: coach, run: PROVIDERS[provider as HostProvider](coach) } : null;
+  if (!picked) throw new HttpError(400, "unknown provider");
   const message = String(input.message ?? "").trim();
   if (!message) throw new HttpError(400, "empty message");
   if (message.length > 20_000) throw new HttpError(413, "message too long");
@@ -188,11 +233,17 @@ async function chat(req: IncomingMessage, res: ServerResponse, store: Conversati
   const meta: MessageMeta | undefined = input.auto ? { auto: input.auto } : undefined;
   const conv = typeof input.conversation === "string" ? store.get(input.conversation) : undefined;
   if (input.conversation && !conv) throw new HttpError(404, "conversation not found");
-  if (conv && conv.provider !== provider) throw new HttpError(400, "this conversation uses the other provider");
+  // A setup change during the turn clears this coach's sessions: counted from the moment the conversation
+  // was read, so a reset during any await below cannot let the old session run or be saved again.
+  const gen = store.generation(provider);
+  const stale = () => store.generation(provider) !== gen;
+  if (conv && conv.provider !== provider) throw new HttpError(400, coach.forProvider ? "this conversation uses another coach: start a new conversation to switch" : "this conversation uses the other provider");
   const id = conv?.id ?? store.create(provider, message).id;
   setSetting(db, "provider", provider);
 
-  const prompt = `${await coach.context(screenOf(input.screen))}\n\n${message}`;
+  const prompt = `${await picked.profile.context(screenOf(input.screen))}\n\n${message}`;
+  // A conversation the coach answered before but whose session was cleared (its setup changed).
+  const fresh = Boolean(coach.forProvider && conv && !conv.thread_id && store.hasReply(conv.id));
   store.append(id, "user", message, meta);
 
   res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive", "x-robots-tag": "noindex, nofollow", "x-accel-buffering": "no" });
@@ -200,6 +251,7 @@ async function chat(req: IncomingMessage, res: ServerResponse, store: Conversati
     if (!res.writableEnded && !res.destroyed) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
   emit("conversation", { id });
+  if (fresh) emit("notice", { message: FRESH_NOTICE });
 
   const abort = new AbortController();
   // Proxies drop idle responses; Codex sends nothing until its reply is complete.
@@ -209,7 +261,10 @@ async function chat(req: IncomingMessage, res: ServerResponse, store: Conversati
     abort.abort();
   });
 
-  const { reply, errors } = await coachTurn({ coach, run: PROVIDERS[provider](coach), prompt, threadId: conv?.thread_id ?? undefined, signal: abort.signal, emit, onThread: (thread) => store.setThread(id, thread) });
+  const onThread = (thread: string) => {
+    if (!stale()) store.setThread(id, thread);
+  };
+  const { reply, errors } = await coachTurn({ coach: picked.profile, run: picked.run, prompt, threadId: conv?.thread_id ?? undefined, signal: abort.signal, emit, onThread, stale });
   clearInterval(keepalive);
   if (reply) store.append(id, "assistant", reply);
   if (abort.signal.aborted && !res.writableEnded) store.append(id, "error", "Stopped.");
@@ -224,7 +279,13 @@ async function chat(req: IncomingMessage, res: ServerResponse, store: Conversati
 export function chatRoutes(coach: CoachProfile | (Paths & { mediaRoot: string }), db: DatabaseSync, store: Conversations): void {
   const profile = "context" in coach ? coach : personalCoach(coach, db);
   route("POST", "/api/chat", (req, res) => chat(req, res, store, db, profile));
-  route("GET", "/api/providers", async (_req, res) => send(res, 200, { ...(await providerStatus()), last: getSetting(db, "provider") ?? "claude", host: profile.host ?? "this computer" }));
+  route("GET", "/api/providers", async (_req, res) => {
+    const last = getSetting(db, "provider") ?? "claude";
+    const host = profile.host ?? "this computer";
+    if (!profile.providerList) return send(res, 200, { ...(await providerStatus()), last, host });
+    const { claude, codex, deviceSignIn, list } = await profile.providerList();
+    send(res, 200, { claude, codex, last, host, deviceSignIn, list });
+  });
   route("GET", "/api/conversations", (_req, res) => send(res, 200, store.list()));
   route("GET", "/api/conversations/:id", (_req, res, { params }) => {
     const c = store.get(params.id!);

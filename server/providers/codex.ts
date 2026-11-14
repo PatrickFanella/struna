@@ -27,14 +27,53 @@ export type CodexOptions = {
    */
   permissions?: string | undefined;
   timeoutMs?: number | undefined;
+  /**
+   * A coach the app signs in itself (generic mode): the whole child environment (see `appEnv`). With it
+   * set, `CODEX_MODEL` no longer applies; `model` does, passed as `-c model=<JSON string>`.
+   */
+  env?: NodeJS.ProcessEnv | undefined;
+  model?: string | undefined;
+  /**
+   * Keep the credentials in Codex's own environment out of the commands it runs: only the core variables
+   * are inherited, and any name with KEY, TOKEN or SECRET in it is dropped. Set for every run with `env`.
+   */
+  hideEnv?: boolean | undefined;
+  /** A custom model provider that speaks the Responses API; the key, if any, is in `env` as ENDPOINT_KEY_ENV. */
+  endpoint?: CodexEndpoint | undefined;
 };
+
+export type CodexEndpoint = { baseUrl: string; header: "bearer" | "api-key"; key: boolean };
+/** The variable the endpoint's key travels in; it keeps KEY in its name, so `hideEnv` drops it. */
+export const ENDPOINT_KEY_ENV = "GUITAR_ROOM_ENDPOINT_KEY";
+
+/** The `-c` arguments for a run the app manages: its endpoint, its model and the shell's environment. */
+function appArgs(o: Pick<CodexOptions, "model" | "hideEnv" | "endpoint">): string[] {
+  const c = (kv: string) => ["-c", kv];
+  const out: string[] = [];
+  if (o.endpoint) {
+    const p = "model_providers.guitar_room";
+    out.push(
+      ...c('model_provider="guitar_room"'),
+      ...c(`${p}.name="Guitar Room endpoint"`),
+      ...c(`${p}.base_url=${JSON.stringify(o.endpoint.baseUrl)}`),
+      ...c(`${p}.wire_api="responses"`),
+      ...c(`${p}.supports_websockets=false`),
+      ...c(`${p}.request_max_retries=1`),
+      ...c(`${p}.stream_max_retries=1`),
+    );
+    if (o.endpoint.key) out.push(...c(o.endpoint.header === "api-key" ? `${p}.env_http_headers={api-key="${ENDPOINT_KEY_ENV}"}` : `${p}.env_key="${ENDPOINT_KEY_ENV}"`));
+  }
+  if (o.model) out.push(...c(`model=${JSON.stringify(o.model)}`));
+  if (o.hideEnv) out.push(...c('shell_environment_policy.inherit="core"'), ...c('shell_environment_policy.exclude=["*KEY*","*TOKEN*","*SECRET*"]'));
+  return out;
+}
 
 /**
  * Codex CLI `exec`, signed in with a ChatGPT subscription: a workspace-write sandbox makes the
  * working directory (and temp) the only writable place, with the network off. The user's
  * config (MCP servers, profiles) and command rules are ignored.
  */
-export function codexArgs(o: { system: string; threadId?: string | undefined; model?: string | undefined; options?: Pick<CodexOptions, "search" | "skipGitCheck" | "permissions"> }): string[] {
+export function codexArgs(o: { system: string; threadId?: string | undefined; model?: string | undefined; options?: Pick<CodexOptions, "search" | "skipGitCheck" | "permissions" | "model" | "hideEnv" | "endpoint"> }): string[] {
   const sandbox = o.options?.permissions
     ? ["-c", 'default_permissions="guitar"', "-c", `permissions={guitar=${o.options.permissions}}`]
     : ["-c", 'sandbox_mode="workspace-write"', "-c", "sandbox_workspace_write.network_access=false"];
@@ -50,15 +89,22 @@ export function codexArgs(o: { system: string; threadId?: string | undefined; mo
     "-c", `developer_instructions=${JSON.stringify(o.system)}`,
   ];
   if (o.model) shared.push("-m", o.model);
+  if (o.options) shared.push(...appArgs(o.options));
   return o.threadId ? ["exec", "resume", o.threadId, ...shared, "-"] : ["exec", ...shared, "-"];
 }
 
 export async function* codexChat(req: ChatRequest, options: CodexOptions): AsyncGenerator<ChatEvent> {
-  const lines = jsonLines(config.codexBin, codexArgs({ system: req.system, threadId: req.threadId, model: config.codexModel, options }), {
+  // A coach the app signs in itself sits next to the saved keys: never under a sandbox that lets it read them.
+  if (options.env && !options.permissions) {
+    yield { type: "error", message: "This Codex coach needs its permission profile, which keeps it out of the saved keys, and has none." };
+    return;
+  }
+  const lines = jsonLines(config.codexBin, codexArgs({ system: req.system, threadId: req.threadId, model: options.env ? undefined : config.codexModel, options }), {
     cwd: options.cwd,
     input: req.prompt,
     signal: req.signal,
     timeoutMs: options.timeoutMs ?? config.chatTimeoutMs,
+    env: options.env,
   });
 
   let messages = 0;

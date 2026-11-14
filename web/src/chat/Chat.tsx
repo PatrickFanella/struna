@@ -5,18 +5,22 @@ import { api } from "../api.ts";
 import type { ActionId, Prompt } from "../generic.ts";
 import { useApp } from "../mode.ts";
 import { screenContext } from "../screen.ts";
+import { CoachProviders, PROVIDERS_CHANGED } from "./CoachProviders.tsx";
 import { fillPrompt, GROUPS, promptsFor, screenId, usePrompts } from "./prompts.ts";
 import { pickProvider, type ProviderId, type ProviderStatus, readiness } from "./providers.ts";
 import { GENERIC_REPLY_MARKDOWN, REPLY_MARKDOWN } from "./reply.ts";
+import { applyEvent, type Msg } from "./stream.ts";
 
 type Provider = ProviderId;
-/** `auto` names the automatic action that sent a user message. */
-type Msg = { role: "user" | "assistant" | "error" | "notice"; text: string; streaming?: boolean; auto?: string };
 type Conv = { id: string; provider: Provider; title: string; updated: string };
 type Status = ProviderStatus;
 /** `done` hears whether the turn ran to its end; a message dropped from the queue hears false. */
 type Queued = { text: string; auto?: ActionId; done?: (ok: boolean) => void };
-const NAMES: Record<Provider, string> = { claude: "Claude", codex: "ChatGPT" };
+const NAMES: Record<string, string> = { claude: "Claude", codex: "ChatGPT" };
+/** The generic mode's names for the host logins, also when they are turned off and not in the list (as in server/generic/providers.ts CATALOG). */
+const HOST_LABELS: Record<string, string> = { claude: "Claude plan (this computer)", codex: "ChatGPT plan (this computer)" };
+/** A coach's name: the personal mode's short names, or its label in the generic mode's list. */
+const nameOf = (id: string, status: Status | null) => (status?.list ? (status.list.find((r) => r.id === id)?.label ?? HOST_LABELS[id] ?? id) : (NAMES[id] ?? id));
 
 /**
  * Chat state lives outside the panel, so a reply keeps streaming while the panel
@@ -33,6 +37,8 @@ const state = {
   draft: null as string | null,
   /** The prompt list is showing instead of the conversation. */
   more: false,
+  /** Generic mode: the coach settings are showing instead of the conversation. */
+  settings: false,
   version: 0,
 };
 const listeners = new Set<() => void>();
@@ -58,7 +64,12 @@ let loadedLast = false;
 function loadProviders(fresh = false): Promise<Status | null> {
   if (fresh || !providers) {
     providers = api.get<Status>("/api/providers").then((p) => {
-      if (!loadedLast && !state.conversation && !state.messages.length && !state.busy) {
+      const fresh = !state.conversation && !state.messages.length && !state.busy;
+      if (!loadedLast && fresh) {
+        state.provider = pickProvider(p);
+        emit();
+      } else if (p.list && fresh && !p.list.find((r) => r.id === state.provider)?.ok) {
+        // Generic mode: a coach was set up (or the one in use removed) before anything was said.
         state.provider = pickProvider(p);
         emit();
       }
@@ -68,6 +79,9 @@ function loadProviders(fresh = false): Promise<Status | null> {
   }
   return providers;
 }
+
+// A coach was set up, changed or removed in the settings: ask again next time.
+if (typeof addEventListener === "function") addEventListener(PROVIDERS_CHANGED, () => void loadProviders(true));
 
 /** Whether a coach can answer at all; asked before the app sends a message by itself. */
 export async function coachReady(): Promise<{ ok: boolean; detail: string }> {
@@ -87,7 +101,6 @@ async function send(text: string, auto?: ActionId): Promise<boolean> {
   state.busy = abort;
   let ok = true;
   update((m) => [...m, { role: "user", text, ...(auto ? { auto } : {}) }, { role: "assistant", text: "", streaming: true }]);
-  const append = (t: string) => update((m) => m.map((x, i) => (i === m.length - 1 ? { ...x, text: x.text + t } : x)));
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -114,11 +127,10 @@ async function send(text: string, auto?: ActionId): Promise<boolean> {
         if (!ev || !data) continue;
         const d = JSON.parse(data);
         if (ev === "conversation") state.conversation = d.id;
-        else if (ev === "delta") append(d.text);
-        else if (ev === "error") {
-          ok = false;
-          update((m) => [...m.slice(0, -1), m.at(-1)!, { role: "error", text: d.message }]);
-        } else if (ev === "notice") update((m) => [...m, { role: "notice", text: d.message }]);
+        else if (ev === "delta" || ev === "notice" || ev === "error") {
+          if (ev === "error") ok = false;
+          update((m) => applyEvent(m, ev, d));
+        }
         // The coach changed the plan, the materials or the profile: the screens showing them reload.
         else if (ev === "changed") dispatchEvent(new CustomEvent("guitar-room:changed", { detail: d }));
       }
@@ -290,11 +302,19 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     if (!open) return;
     void loadProviders(true).then((p) => p && setStatus(p));
   }, [open]);
-
-  // The slide-over closes on the prompt list: it opens next time on the conversation.
+  // The settings changed a coach: the module already asked again; show its answer.
   useEffect(() => {
-    if (open || !onClose || !state.more) return;
+    if (!generic) return;
+    const on = () => void loadProviders().then((p) => p && setStatus(p));
+    addEventListener(PROVIDERS_CHANGED, on);
+    return () => removeEventListener(PROVIDERS_CHANGED, on);
+  }, [generic]);
+
+  // The slide-over closes on the prompt list or the settings: it opens next time on the conversation.
+  useEffect(() => {
+    if (open || !onClose || !(state.more || state.settings)) return;
     state.more = false;
+    state.settings = false;
     emit();
   }, [open]);
 
@@ -340,14 +360,34 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     setText("");
     void askCoach(t);
   };
-  const st = status?.[state.provider];
+  const st = status?.[state.provider as "claude" | "codex"];
   const screen = screenId(screenContext.get().view);
   const offered = prompts.length ? promptsFor(prompts, screen, screenContext.get()) : [];
-  const showMore = state.more && prompts.length > 0 && !list;
+  const showSettings = generic && state.settings && !list;
+  const showMore = state.more && prompts.length > 0 && !list && !showSettings;
   const setMore = (on: boolean) => {
     state.more = on;
     emit();
   };
+  const setSettings = (on: boolean) => {
+    state.settings = on;
+    state.more = false;
+    emit();
+  };
+  // Generic mode: the coaches this instance offers, the one in use, and whether it can still answer here.
+  const coaches = generic ? (status?.list ?? null) : null;
+  const current = coaches?.find((r) => r.id === state.provider);
+  const ready = coaches?.filter((r) => r.ok) ?? [];
+  /** A conversation started with a coach this instance no longer offers (host logins turned off): only a new one helps. */
+  const retired = Boolean(coaches && state.conversation && !current);
+  /** The coach a new conversation starts with when the current one cannot answer. */
+  const fallback = ready[0]?.id ?? coaches?.[0]?.id ?? state.provider;
+  /** Generic mode: no coach can answer at all, so there is nothing to send to. */
+  const noCoach = Boolean(coaches && ready.length === 0);
+  /** Generic mode: this conversation's coach cannot answer, but another one can. */
+  const notReady = current && !current.ok && ready.length > 0 ? current : null;
+  const name = generic ? "the coach" : NAMES[state.provider];
+  const settingsLink = <button className="linkbtn" onClick={() => setSettings(true)}>Coach settings</button>;
 
   // Focus goes to what is showing: the prompt list's first button, or the message box. A workspace
   // pane that appears by itself does not take focus; one the player is using does (More unmounts the box).
@@ -370,19 +410,38 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     <div className="chatbody">
         <div className="chathd">
           <h2>Coach</h2>
-          <div className="seg mini words" role="radiogroup" aria-label="Provider">
-            {(["claude", "codex"] as Provider[]).map((p) => (
-              <button key={p} role="radio" aria-checked={state.provider === p} className={state.provider === p ? "on" : ""} disabled={Boolean(state.busy)} onClick={() => p !== state.provider && newConversation(p)}>{NAMES[p]}</button>
-            ))}
-          </div>
+          {generic ? (
+            ready.length > 0 && (
+              <select className="input coachpick" aria-label="Coach" value={state.provider} disabled={Boolean(state.busy)} onChange={(e) => {
+                newConversation(e.target.value);
+                setList(null);
+                setSettings(false);
+              }}>
+                {current && !current.ok && <option value={current.id}>{current.label} (not ready)</option>}
+                {!current && state.conversation && <option value={state.provider}>{nameOf(state.provider, status)} (turned off)</option>}
+                {ready.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+              </select>
+            )
+          ) : (
+            <div className="seg mini words" role="radiogroup" aria-label="Provider">
+              {(["claude", "codex"] as Provider[]).map((p) => (
+                <button key={p} role="radio" aria-checked={state.provider === p} className={state.provider === p ? "on" : ""} disabled={Boolean(state.busy)} onClick={() => p !== state.provider && newConversation(p)}>{NAMES[p]}</button>
+              ))}
+            </div>
+          )}
           {onClose && <button className="sheetdone" onClick={onClose}>Done</button>}
         </div>
         <div className="chatbar">
-          <button className="linkbtn" onClick={() => (showMore ? setMore(false) : list ? setList(null) : void showList())} aria-expanded={Boolean(list)}>{list || showMore ? "Back to the conversation" : "Conversations"}</button>
+          <button className="linkbtn" onClick={() => (showSettings ? setSettings(false) : showMore ? setMore(false) : list ? setList(null) : void showList())} aria-expanded={Boolean(list)}>{list || showMore || showSettings ? "Back to the conversation" : "Conversations"}</button>
+          {generic && !showSettings && <button className="linkbtn" onClick={() => {
+            setList(null);
+            setSettings(true);
+          }}>Coach settings</button>}
           <button className="linkbtn" disabled={Boolean(state.busy)} onClick={() => {
-            newConversation();
+            newConversation(coaches && !current?.ok ? fallback : state.provider);
             setList(null);
             setMore(false);
+            setSettings(false);
           }}>New</button>
         </div>
         {list ? (
@@ -395,7 +454,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
                   setList(null);
                 }}>
                   <span>{c.title}</span>
-                  <small>{NAMES[c.provider]}, {new Date(c.updated).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</small>
+                  <small>{nameOf(c.provider, status)}, {new Date(c.updated).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</small>
                 </button>
                 <span className="convacts">
                   <button className="linkbtn" onClick={async () => {
@@ -414,6 +473,10 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
               </li>
             ))}
           </ul>
+        ) : showSettings ? (
+          <div className="chatsettings">
+            <CoachProviders />
+          </div>
         ) : showMore ? (
           <PromptSheet prompts={prompts} screen={screen} sheetRef={sheet} />
         ) : (
@@ -423,8 +486,8 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
                 <p>{generic
                   ? "Ask about today's session, a song, a chord, or what to practise next. The coach sees your plan, the stage you are on and the tempo, and can change the plan for you."
                   : "Ask about today's session, a passage, or a block review. The coach sees the current block, stage and tempo."}</p>
-                {st && !st.ok && <p className="notice">{NAMES[state.provider]} is not signed in on {status?.host ?? "Kvant"}: {st.detail}</p>}
-                {offered.length > 0 && <Chips prompts={offered.slice(0, 6)} more={() => setMore(true)} />}
+                {!coaches && st && !st.ok && <p className="notice">{NAMES[state.provider]} is not signed in on {status?.host ?? "Kvant"}: {st.detail}</p>}
+                {offered.length > 0 && !noCoach && <Chips prompts={offered.slice(0, 6)} more={() => setMore(true)} />}
               </div>
             )}
             {state.messages.map((m, i) => (
@@ -437,27 +500,45 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
                   <>
                     {m.auto && <small className="automark">Automatic</small>}
                     <p>{m.text}</p>
+                    {generic && m.role === "error" && /Coach settings/.test(m.text) && settingsLink}
                   </>
                 )}
               </div>
             ))}
-            {state.busy && <p className="srcnote thinking">{NAMES[state.provider]} is working</p>}
+            {state.busy && <p className="srcnote thinking">{generic ? "The coach is working" : `${NAMES[state.provider]} is working`}</p>}
+            {retired && (
+              <div className="notice">
+                <p>This conversation used {nameOf(state.provider, status)}, which is turned off here. Start a new conversation with another coach.</p>
+                <button className="btn outline" disabled={Boolean(state.busy)} onClick={() => newConversation(fallback)}>New conversation</button>
+              </div>
+            )}
             {state.queue.length > 0 && <p className="srcnote thinking">{state.queue.length === 1 ? "1 more message is waiting" : `${state.queue.length} more messages are waiting`}</p>}
           </div>
         )}
-        {!list && !showMore && offered.length > 0 && state.messages.length > 0 && (
+        {!list && !showMore && !showSettings && !retired && !noCoach && !notReady && offered.length > 0 && state.messages.length > 0 && (
           <div className="promptrow">
             <Chips prompts={offered.slice(0, 4)} more={() => setMore(true)} />
           </div>
         )}
-        {!list && !showMore && (
+        {!list && !showMore && !showSettings && !retired && noCoach && (
+          <div className="composer nocoach">
+            <p className="notice">No coach is set up. {settingsLink}</p>
+          </div>
+        )}
+        {!list && !showMore && !showSettings && !retired && notReady && (
+          <div className="notice notready">
+            <p>{notReady.label} is not ready: {notReady.detail}. {settingsLink}</p>
+            <button className="btn outline" disabled={Boolean(state.busy)} onClick={() => newConversation(fallback)}>New conversation with {nameOf(fallback, status)}</button>
+          </div>
+        )}
+        {!list && !showMore && !showSettings && !retired && !noCoach && (
           <form className="composer" onSubmit={submit}>
             <textarea
               ref={input}
               className="input"
               rows={2}
               value={text}
-              placeholder={`Message ${NAMES[state.provider]}`}
+              placeholder={`Message ${name}`}
               aria-label="Message"
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {

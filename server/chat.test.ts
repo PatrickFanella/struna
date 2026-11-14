@@ -187,6 +187,24 @@ test("a Stop while the post-turn check runs starts no follow-up", async () => {
   assert.deepEqual(r, { reply: "ok", errors: [] });
 });
 
+test("a reset before the coach starts: the old session is not resumed with the new setup", async () => {
+  // The setup changed while the context was read or the files were fingerprinted, after the conversation was loaded.
+  let reset = false;
+  const p = script([{ type: "thread", id: "new" }, { type: "delta", text: "hi" }], [{ type: "delta", text: "never" }]);
+  const r = await coachTurn({
+    coach: profile({ beforeTurn: async () => ((reset = true), undefined), afterTurn: async () => ({ followUp: "fix it" }) }),
+    run: p.run,
+    prompt: "x",
+    threadId: "old",
+    signal: signal(),
+    emit: collect().emit,
+    stale: () => reset,
+  });
+  assert.equal(p.seen.length, 1);
+  assert.equal(p.seen[0]!.threadId, undefined);
+  assert.deepEqual(r, { reply: "hi", errors: [] });
+});
+
 test("a CLI is never started on a signal that has already aborted", async () => {
   const { jsonLines } = await import("./providers/process.ts");
   const marker = join(dir, "spawned");

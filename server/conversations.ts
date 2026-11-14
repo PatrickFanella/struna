@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 
-export type Provider = "claude" | "codex";
+/** The coaches on this computer's own logins: the only ones the personal mode has. */
+export type HostProvider = "claude" | "codex";
+/** A coach id: a host provider, or (generic mode) one the app signs in itself, such as "anthropic". */
+export type Provider = string;
 export type Conversation = { id: string; provider: Provider; title: string; thread_id: string | null; created: string; updated: string };
 /** `meta.auto` names the automatic action that sent a user message (generic mode). */
 export type MessageMeta = { auto?: string };
@@ -17,6 +20,8 @@ export function conversations(db: DatabaseSync) {
   const cols = (db.prepare("PRAGMA table_info(messages)").all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("meta")) db.exec("ALTER TABLE messages ADD COLUMN meta TEXT");
   const now = () => new Date().toISOString();
+  /** How many times each coach's sessions were cleared since the server started (see `generation`). */
+  const resets = new Map<Provider, number>();
   const titleOf = (message: string) => {
     const t = message.replace(/\s+/g, " ").trim();
     return t.length > 60 ? `${t.slice(0, 57).trimEnd()}…` : t || "New conversation";
@@ -48,6 +53,19 @@ export function conversations(db: DatabaseSync) {
     },
     setThread(id: string, threadId: string): void {
       db.prepare("UPDATE conversations SET thread_id = ? WHERE id = ?").run(threadId, id);
+    },
+    /** Forget every CLI session of one coach (its setup changed): those conversations start fresh. */
+    resetThreads(provider: Provider): void {
+      db.prepare("UPDATE conversations SET thread_id = NULL WHERE provider = ?").run(provider);
+      resets.set(provider, (resets.get(provider) ?? 0) + 1);
+    },
+    /** Changes whenever `resetThreads` runs for this coach: a turn that started before must not save its session. */
+    generation(provider: Provider): number {
+      return resets.get(provider) ?? 0;
+    },
+    /** Whether the coach has answered in this conversation: a reply with no session left means it was reset. */
+    hasReply(id: string): boolean {
+      return db.prepare("SELECT 1 FROM messages WHERE conversation = ? AND role = 'assistant' LIMIT 1").get(id) !== undefined;
     },
     rename(id: string, title: string): boolean {
       return Number(db.prepare("UPDATE conversations SET title = ? WHERE id = ?").run(title.trim().slice(0, 200) || "Untitled", id).changes) > 0;

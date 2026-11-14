@@ -5,7 +5,9 @@ import { join, sep } from "node:path";
 
 import type { AfterTurn, Changed, CoachProfile, Screen } from "../chat.ts";
 import { localDate } from "../logs.ts";
+import type { CredentialStore } from "./credentials.ts";
 import { materialsFingerprint, pendingSaves, reconcileLinks } from "./materials.ts";
+import { type CoachPolicy, providerFor, providerRows } from "./providers.ts";
 import { genericToday, PLAN_REL, PLAN_SCHEMA, readPlan, type Studio } from "./studio.ts";
 import { webFetchSettings } from "./webfetch-guard.ts";
 
@@ -182,9 +184,11 @@ export function codexProfile(o: { libraryDirs: string[]; codexInstall: string })
 /**
  * The generic mode's coach: works in the studio folder, may search the web, and has its plan checked
  * after each turn. `codexInstall` is the folder of the real Codex binary; without it Codex falls back
- * to the `workspace-write` sandbox, which cannot limit reads.
+ * to the `workspace-write` sandbox, which cannot limit reads. With `store` and `policy` the profile also
+ * carries the coach list (keys, endpoints, the app's own ChatGPT sign-in); without them the two host
+ * logins are the only coaches, as before.
  */
-export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { codexInstall?: string | null } = {}): CoachProfile {
+export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { codexInstall?: string | null; store?: CredentialStore; policy?: CoachPolicy } = {}): CoachProfile {
   const d: CoachDeps = { readPlan, genericToday, reconcileLinks: (st, _save, signal) => reconcileLinks(st, undefined, signal), pendingSaves, prints, now: () => new Date(), linkWaitMs: LINK_WAIT_MS, ...deps };
   /** Failures from link downloads that finished after their reply; told on the next turn. */
   const late: string[] = [];
@@ -211,7 +215,8 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { c
     for (const f of r.failed) notices.push(`Could not save a copy: ${f}`);
   };
 
-  const afterTurn = async (before: unknown, pass?: { final: boolean }): Promise<AfterTurn> => {
+  /** `web` is the coach's own: a coach without the web gets its links counted, not downloaded. */
+  const afterTurnFor = (web: boolean) => async (before: unknown, pass?: { final: boolean }): Promise<AfterTurn> => {
     const was = before as Prints | undefined;
     const notices: string[] = late.splice(0);
     const now = await d.prints(s);
@@ -236,7 +241,7 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { c
 
     // Saving copies only makes sense once links.json can be read, and it changes materials/ itself.
     if (!problems.some((p) => p.startsWith("materials/links.json"))) {
-      if (!s.web) {
+      if (!web) {
         // Without web access the app does not fetch what the coach asks for: a coach misled by a page or a
         // file could put what it read into an address. The player can still save each copy by hand.
         const n = changed.materials ? await d.pendingSaves(s).catch(() => 0) : 0;
@@ -256,16 +261,32 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { c
     return { changed, notices, followUp: `${problems.join("\n")}\nFix the file${problems.length > 1 ? "s" : ""} now, then say in one line what you corrected.` };
   };
 
+  const context = async (screen: Screen) => {
+    try {
+      return genericContext(screen, await d.genericToday(s), s.timeZone);
+    } catch {
+      return `[Guitar Room]\nScreen: ${screen.view}\n[/Guitar Room]`;
+    }
+  };
+  /** The profile for a coach with or without the web; the studio rules are the same for every coach. */
+  const build = (web: boolean): CoachProfile => buildProfile({ ...s, web }, opts.codexInstall ?? null, context, afterTurnFor(web), () => d.prints(s));
+
+  const profile = build(s.web);
+  if (opts.store && opts.policy) {
+    const ctx = { build, store: opts.store, policy: opts.policy, web: s.web };
+    profile.forProvider = (id) => providerFor(id, ctx);
+    profile.providerList = () => providerRows(ctx);
+    // The settings name the computer whose own logins the host rows use, as their notes do.
+    profile.host = opts.policy.hostName;
+  }
+  return profile;
+}
+
+function buildProfile(s: Studio, codexInstall: string | null, context: CoachProfile["context"], afterTurn: NonNullable<CoachProfile["afterTurn"]>, beforeTurn: () => Promise<unknown>): CoachProfile {
   const tools = ["Read", "Glob", "Grep", "Edit", "Write", ...(s.web ? WEB_TOOLS : [])];
   return {
     system: genericSystem(s),
-    context: async (screen) => {
-      try {
-        return genericContext(screen, await d.genericToday(s), s.timeZone);
-      } catch {
-        return `[Guitar Room]\nScreen: ${screen.view}\n[/Guitar Room]`;
-      }
-    },
+    context,
     claude: {
       cwd: s.home,
       tools,
@@ -281,10 +302,10 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { c
       cwd: s.home,
       search: s.web,
       skipGitCheck: true,
-      permissions: opts.codexInstall ? codexProfile({ libraryDirs: s.libraryDirs, codexInstall: opts.codexInstall }) : undefined,
+      permissions: codexInstall ? codexProfile({ libraryDirs: s.libraryDirs, codexInstall }) : undefined,
       timeoutMs: TURN_MS,
     },
-    beforeTurn: () => d.prints(s),
+    beforeTurn,
     afterTurn,
   };
 }

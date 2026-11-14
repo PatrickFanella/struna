@@ -58,6 +58,36 @@ export const config = {
   claudeModel: env.CLAUDE_MODEL || undefined,
   codexModel: env.CODEX_MODEL || undefined,
   chatTimeoutMs: 300_000,
+  /**
+   * Generic mode: coaching on this computer's own `claude` and `codex` logins. Unset, they are offered only
+   * when the instance is locally hosted (loopback TCP with the access token); "1" offers them anywhere
+   * (the operator's own use), "0" nowhere.
+   */
+  coachHostLogins: triState("GUITAR_COACH_HOST_LOGINS", env.GUITAR_COACH_HOST_LOGINS),
+  /** Generic mode: offer the ChatGPT device-code sign-in on an instance that is not locally hosted. */
+  coachDeviceSignIn: env.GUITAR_COACH_DEVICE_SIGNIN === "1",
+  /** Generic mode: allow endpoint addresses on loopback and private networks on an instance that is not locally hosted. */
+  coachPrivateEndpoints: env.GUITAR_COACH_PRIVATE_ENDPOINTS === "1",
+  /** Generic mode: `--max-budget-usd` for one turn on an Anthropic key or Bedrock. */
+  coachMaxBudgetUsd: budget(env.GUITAR_COACH_MAX_BUDGET_USD),
 };
+
+/**
+ * "1" on, "0" off, unset or empty the default. Anything else stops the server: for a switch that keeps the
+ * operator's own subscriptions from others, a typo such as "false" must not leave them on.
+ */
+export function triState(name: string, raw: string | undefined): boolean | undefined {
+  if (raw === undefined || raw === "") return undefined;
+  if (raw === "1") return true;
+  if (raw === "0") return false;
+  throw new Error(`${name} must be "1" or "0", not "${raw}"`);
+}
+
+function budget(raw: string | undefined): number {
+  if (!raw) return 2;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0 || n > 1000) throw new Error(`GUITAR_COACH_MAX_BUDGET_USD must be a positive number of dollars, not "${raw}"`);
+  return n;
+}
 
 export type Config = typeof config;
