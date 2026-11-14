@@ -425,3 +425,11 @@ main .wrap:has(.session),main .wrap:has(.viewerws){max-width:1680px}
   .workspace{min-height:60vh}
 }
 @media (max-width:719px){.session{min-height:0}.workspace{min-height:0}}
+.pdfbar{flex-wrap:wrap;row-gap:4px}
+.panetabs button{max-width:min(220px,46vw)}
+@media (max-width:719px){
+  .sessionbar .met{flex-wrap:wrap;gap:6px 10px}
+  .sessionbar .passrow{flex:1;min-width:0}
+  .sessionbar .passes{flex:1;min-width:0}
+  .wsbar .tool{height:36px}
+}
