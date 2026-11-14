@@ -1,0 +1,8 @@
+/* App styles beyond the mockup, built only from the round 10 tokens. */
+body{min-height:100dvh}
+.app{min-height:100dvh}
+.tabs .wrap{padding-bottom:max(18px, env(safe-area-inset-bottom))}
+.ib:focus-visible,.btn:focus-visible,.tabs a:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--pencil);outline-offset:2px}
+.empty{padding-top:12px}
+.empty .instr{color:var(--graphite)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
