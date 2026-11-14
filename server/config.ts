@@ -23,6 +23,7 @@ export const config = {
   mediaRoot: resolve(env.GUITAR_MEDIA_ROOT ?? join(home, "Documents/Reference Library/Ars Malefica/Guitar")),
   stateDir: resolve(env.GUITAR_STATE_DIR ?? join(env.XDG_STATE_HOME ?? join(home, ".local/state"), "guitar-room")),
   cacheDir: resolve(env.GUITAR_CACHE_DIR ?? join(env.XDG_CACHE_HOME ?? join(home, ".cache"), "guitar-room")),
+  calibreReceipt: env.GUITAR_CALIBRE_RECEIPT ?? join(home, ".local/state/guitar-books-from-calibre-20261114.json"),
   timeZone: "America/Chicago" as const,
   claudeBin: env.CLAUDE_BIN ?? "claude",
   codexBin: env.CODEX_BIN ?? "codex",

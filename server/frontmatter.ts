@@ -17,14 +17,19 @@ export function parseFrontMatter(text: string): { data: FrontMatter; body: strin
     if (kv) {
       key = kv[1]!;
       data[key] = unquote(kv[2]!);
+      continue;
     }
+    // A folded continuation line of the previous scalar.
+    const prev = key ? data[key] : undefined;
+    if (key && /^\s+\S/.test(line) && typeof prev === "string") data[key] = unquote(`${prev} ${line.trim()}`);
   }
   return { data, body: text.slice(m[0].length) };
 }
 
 function unquote(v: string): string {
   const s = v.trim();
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) return s.slice(1, -1);
+  if (s.length > 1 && s.startsWith('"') && s.endsWith('"')) return s.slice(1, -1);
+  if (s.length > 1 && s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1).replace(/''/g, "'");
   return s;
 }
 
