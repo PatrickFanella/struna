@@ -208,3 +208,142 @@ textarea.input{resize:vertical;line-height:1.4}
 .tabscroll .at-highlight *{fill:var(--pencil);stroke:var(--pencil)}
 
 .tabs{z-index:10}
+
+/* ---- Workspace redesign (November 14): the lesson leads ---- */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.chatbody{display:flex;flex-direction:column;flex:1;min-height:0}
+.tool{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:36px;height:36px;padding:0 10px;border:0;border-radius:8px;background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--edge);color:var(--ink);font-size:14px;font-weight:600;white-space:nowrap}
+.tool:disabled{opacity:.4;cursor:default}
+.tool.chip.on{background:var(--wash);box-shadow:inset 0 0 0 2px var(--ink)}
+.tool.loopon{box-shadow:inset 0 0 0 2px var(--pencil);color:var(--pencil)}
+.barsp{flex:1}
+.kindbadge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.02em;padding:2px 6px;border-radius:4px;background:var(--wash);color:var(--graphite)}
+
+/* Desktop and laptop: a mouse means the screen is close, so the stand-sized type is too big. */
+@media (min-width:700px) and (pointer:fine){
+  :root{--gap:24px;--fs-meta:14px;--fs-h1:26px;--fs-instr:17px;--fs-label:15px;--fs-clock:44px;--fs-bpm:40px;--sp:14px;
+    --btn-h:48px;--fs-btn:16px;--dot:22px;--ib-h:40px;--fs-nav:13px;--icon-nav:22px;--fs-unit:15px;--fs-cap:14px;--fs-ib:15px;--fs-name:20px;--bar:14px;--beat:44px}
+  .tabs .wrap{padding-top:6px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
+  .tabs a{font-size:13px;padding:3px 0}
+  .tabs a[aria-current]::before{top:-7px}
+  .click i{width:22px;height:22px}.click i.acc::before{top:-12px;width:12px;height:7px}
+  .passes,.miss{min-height:44px;font-size:15px}
+  .tempo .u{font-size:14px}
+  .btn.nextb small{font-size:12px}
+  .stagelabels{font-size:12px}
+  .r3 button{height:48px}.r4 button{height:46px}
+  .strings button{height:56px}
+}
+
+/* Wide pages for the session and the lesson viewer. */
+main .wrap:has(.session),main .wrap:has(.viewerws){max-width:1680px}
+.app:has(.view.on .session) .top .wrap,.app:has(.view.on .viewerws) .top .wrap,.app:has(.view.on .session) .tabs .wrap,.app:has(.view.on .viewerws) .tabs .wrap{max-width:1680px}
+.app:has(.session.on),.app:has(.view.on .session),.app:has(.view.on .viewerws){height:100dvh;min-height:0}
+.app:has(.view.on .session) main,.app:has(.view.on .viewerws) main{min-height:0}
+.app:has(.view.on .session) main .wrap,.app:has(.view.on .viewerws) main .wrap{min-height:0;padding-bottom:8px}
+.view.on:has(.session),.view.on:has(.viewerws){min-height:0}
+
+.session{display:flex;flex-direction:column;flex:1;min-height:0;gap:8px}
+.sessiontop{display:flex;flex-direction:column;gap:6px}
+.sessionline{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0;font-size:var(--fs-meta);color:var(--graphite)}
+.sessionline span:first-child{color:var(--ink)}
+.session .stages{margin:0}
+.session .stagelabels{margin:-2px 0 0}
+.stagerow{display:flex;align-items:center;gap:16px}
+.stagetext{flex:1;min-width:0}
+.stagetext h1{font-size:var(--fs-h1);margin:0 0 2px}
+.stagecount{font-size:.6em;color:var(--graphite);vertical-align:middle;margin-right:4px}
+.stagetext .instr{font-size:var(--fs-instr);margin:0;max-width:60em}
+.stagetext .instr.clamp{-webkit-line-clamp:2;line-clamp:2}
+.stagetext .linkbtn.more{margin:0}
+.session button.clock{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin:0;flex:none}
+.session .clock .t{font-size:var(--fs-clock);line-height:.9}
+.session .clock .s{font-size:13px}
+.session .nextb{flex:none;padding:0 22px;height:var(--btn-h)}
+.sessionbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-top:8px;border-top:1px solid var(--rule)}
+.sessionbar .met{margin:0;flex-direction:row;align-items:center;gap:14px}
+.sessionbar .suggest{margin:0;flex-basis:100%;order:5}
+.sessionbar .btn{height:44px;padding:0 16px;font-size:15px}
+.sessionbar .stoppain{margin:0;font-size:14px}
+.takesaved{margin:0}
+.takebox{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);width:min(92vw,460px);z-index:35;box-shadow:0 0 0 1px var(--rule)}
+
+/* Panes */
+.workspace{position:relative;display:flex;flex-direction:column;flex:1;min-height:0;gap:6px}
+.panes{display:grid;gap:10px;flex:1;min-height:0}
+.pane{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.panehd{position:relative;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;border-bottom:1px solid var(--rule)}
+.panetitle{flex:1;min-width:0;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paneacts{display:flex;gap:6px}
+.paneacts .tool{height:30px;min-width:30px;font-size:13px;padding:0 8px}
+.panebody{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.panescroll{flex:1;min-height:0;overflow:auto;padding:10px}
+.pane-coach .panebody{padding:4px 12px 10px}
+.pane-coach .chathd h2,.pane-coach .chathd .sheetdone{display:none}
+.pane .matnote{padding:12px}
+.emptypane{align-items:center;justify-content:center}
+.panemenu{position:absolute;top:100%;right:8px;z-index:20;display:flex;flex-direction:column;min-width:240px;max-width:min(90vw,360px);max-height:60vh;overflow:auto;padding:6px;background:var(--page);border:1px solid var(--edge);border-radius:var(--r)}
+.panemenu button{text-align:left;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:var(--ink);font-size:14px}
+.panemenu button:hover,.panemenu button:focus-visible{background:var(--wash)}
+.panemenu .grp{margin:8px 10px 2px;font-size:12px}
+.panetabs{display:flex;gap:6px;overflow-x:auto}
+.panetabs button{flex:none;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:32px;padding:0 10px;border:0;border-radius:8px;background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--edge);color:var(--ink);font-size:13px}
+.panetabs button.on{background:var(--wash);box-shadow:inset 0 0 0 2px var(--ink);font-weight:700}
+.paneadd{position:relative;align-self:center;margin:auto}
+.companions{margin-top:12px}
+.companions .grp{margin:0 0 6px;font-size:13px}
+.companions .chips button{display:inline-flex;align-items:center;gap:6px;height:auto;min-height:36px;padding:4px 10px;text-align:left}
+@media (max-width:719px){
+  .session{min-height:auto}
+  .workspace{min-height:72vh}
+  .stagerow{flex-wrap:wrap}
+  .stagetext{flex-basis:100%}
+  .session button.clock{align-items:flex-start;margin-right:auto}
+}
+
+/* PDF: the page turner sits on top, the page fills the pane. */
+.pdf{display:flex;flex-direction:column;flex:1;min-height:0;outline:none}
+.pdfbar{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--rule);background:var(--panel)}
+.pdfbar .tool{height:32px;min-width:32px;font-size:18px;padding:0 8px}
+.pagebox{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--graphite)}
+.pagebox input{width:44px;height:32px;text-align:center;border:0;border-radius:8px;box-shadow:inset 0 0 0 1.5px var(--edge);background:var(--page);color:var(--ink);font-size:16px}
+.fitseg{margin:0;width:auto;display:flex;gap:2px}
+.fitseg button{height:28px;padding:0 10px;font-size:13px}
+.pdf .pdfpage{flex:1;min-height:0;max-height:none;overflow:auto;background:var(--wash);display:flex;justify-content:center;align-items:flex-start;padding:8px;border-radius:0}
+.pdf .pdfpage.fit-page:not(.zoomed){align-items:center;overflow:hidden}
+.pdf canvas{display:block;background:#fff;box-shadow:0 0 0 1px var(--rule)}
+.mat .pdf .pdfpage,.viewer .pdf .pdfpage{max-height:none}
+.viewer:not(.viewerws) .pdf{min-height:70vh;border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+
+/* Video and audio practice controls */
+.av{display:flex;flex-direction:column;gap:8px}
+.av video{width:100%;max-height:none;aspect-ratio:16/9;border-radius:6px;background:#000}
+.avbar{display:flex;flex-direction:column;gap:8px}
+.speedctl,.avloop{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.speedval{display:flex;align-items:center;gap:8px;flex:1;min-width:160px}
+.speedval .num{min-width:3.4em;font-size:18px}
+.speedval input{flex:1;accent-color:var(--ink)}
+.presets{display:flex;gap:6px}
+.avloop .num{font-size:13px;font-weight:600}
+
+/* Finder */
+.finderwrap{position:fixed;inset:0;z-index:45;display:flex;align-items:flex-start;justify-content:center;padding:8vh 16px 16px}
+.finderwrap .scrim{position:absolute;inset:0;background:rgba(0,0,0,.28)}
+.finder{position:relative;display:flex;flex-direction:column;width:min(640px,100%);max-height:80vh;background:var(--page);border:1px solid var(--edge);border-radius:var(--r);overflow:hidden}
+.finderhd{display:flex;gap:8px;padding:10px;border-bottom:1px solid var(--rule)}
+.finderhd .input{flex:1}
+.finderlist{list-style:none;margin:0;padding:4px;overflow:auto}
+.finderlist button{display:flex;align-items:center;gap:12px;width:100%;padding:8px;border:0;border-radius:8px;background:transparent;color:var(--ink);text-align:left}
+.finderlist button:hover,.finderlist button:focus-visible{background:var(--wash)}
+.finderlist img{width:72px;height:40px;object-fit:cover;border-radius:4px;background:var(--wash)}
+.finderlist .kindbadge{width:72px;text-align:center}
+.fitem{display:flex;flex-direction:column;gap:2px;min-width:0}
+
+/* Library rows with thumbnails */
+.itemopen{flex-direction:row;align-items:center;gap:12px}
+.itemtext{display:flex;flex-direction:column;gap:3px;min-width:0}
+.thumb{flex:none;width:88px;height:50px;border-radius:6px;object-fit:cover;background:var(--wash);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--graphite)}
+@media (max-width:699px){.thumb{width:64px;height:36px}}
+@media (min-width:700px) and (pointer:fine){.itemopen{padding:8px 0}.library .itemtitle{font-size:15px}}
+.viewerws{flex:1;min-height:0}
+.viewerws .vbody{flex:1;min-height:0}

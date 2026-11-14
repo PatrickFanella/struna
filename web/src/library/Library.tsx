@@ -5,6 +5,7 @@ import { LIBRARY_MATERIAL_KEY } from "../practice/Practice.tsx";
 import { ItemRow } from "./ItemRow.tsx";
 import { type Kind, KIND_LABEL, type LibItem, paneItem, type Source, SOURCE_LABEL } from "./item.ts";
 import { Viewer } from "./Viewer.tsx";
+import { libraryContent } from "../workspace/Finder.tsx";
 
 type Result = { items: LibItem[]; total: number; scannedAt: string | null; scanning: boolean; scanError: string | null };
 const SOURCES = Object.keys(SOURCE_LABEL) as Source[];
@@ -58,10 +59,10 @@ export function Library({ active }: { active: boolean }) {
     void load(0);
   };
   const practice = (i: LibItem) => {
-    const item = paneItem(i);
-    if (!item) return;
+    const c = libraryContent(i);
+    if (c.type !== "file") return;
     try {
-      sessionStorage.setItem(LIBRARY_MATERIAL_KEY, JSON.stringify(item));
+      sessionStorage.setItem(LIBRARY_MATERIAL_KEY, JSON.stringify(c.item));
     } catch {
       /* storage unavailable */
     }

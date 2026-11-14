@@ -5,7 +5,7 @@ import { VideoView } from "../library/VideoView.tsx";
 import { PdfView } from "./PdfView.tsx";
 
 /** Anything the material pane can show: a vault file from the block, or (Plan B) a library item. */
-export type PaneItem = { key: string; label: string; kind: "pdf" | "tg" | "video" | "epub" | "other"; src: string | null; missing?: boolean; note?: string };
+export type PaneItem = { key: string; label: string; kind: "pdf" | "tg" | "video" | "audio" | "epub" | "other"; src: string | null; missing?: boolean; note?: string; libId?: string };
 
 export function vaultSrc(path: string): string {
   return `/api/vault-file?path=${encodeURIComponent(path)}`;

@@ -11,10 +11,13 @@ export function ItemRow({ item, onOpen, onPractice }: { item: LibItem; onOpen: (
   return (
     <li className="item">
       <button className="itemopen" onClick={() => onOpen(item)}>
+        {item.thumb ? <img className="thumb" src={`/api/media/${item.id}/thumb`} alt="" loading="lazy" /> : <span className={`thumb kind-${item.kind}`} aria-hidden="true">{item.kind === "zip-entry" ? "Sheet" : item.kind === "pdf" ? "PDF" : item.kind === "epub" ? "EPUB" : item.kind === "audio" ? "Audio" : "Video"}</span>}
+        <span className="itemtext">
         <span className="itemtitle">{item.title}</span>
         <span className="itemfacts">
           {facts.join(", ")}
           {amount && <span className="num">{amount}</span>}
+        </span>
         </span>
       </button>
       {paneItem(item) && (

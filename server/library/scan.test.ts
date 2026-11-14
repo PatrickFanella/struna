@@ -49,7 +49,7 @@ test("reading the archive's WAL-mode ledger leaves no -shm or -wal files", async
 test("an archive capture without an article is titled from its source page", () => {
   const twang = items.find((i) => i.group === "vimeo:259880969")!;
   assert.equal(twang.source, "archive");
-  assert.equal(twang.title, "12 bar blues country twang guitar lesson");
+  assert.equal(twang.title, "12 bar blues country twang guitar lesson".replace(/^./, (c) => c.toUpperCase()));
 });
 
 test("other sources", () => {

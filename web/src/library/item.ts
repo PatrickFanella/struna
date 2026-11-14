@@ -15,6 +15,7 @@ export type LibItem = {
   group: string | null;
   alt: string | null;
   calibreId: number | null;
+  thumb: string | null;
   copies: number;
 };
 

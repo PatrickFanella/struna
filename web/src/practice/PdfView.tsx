@@ -6,14 +6,22 @@ import { store } from "../api.ts";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-/** One PDF page at a time, fitted to the pane's width, with the page remembered per file. */
-export function PdfView({ src, storageKey }: { src: string; storageKey: string }) {
+type Fit = "page" | "width";
+
+/**
+ * One PDF page at a time, with the page turner on top. "Fit page" shows the whole page in the
+ * pane; "Fit width" fills the width and scrolls. The page and fit are remembered per file.
+ */
+export function PdfView({ src, storageKey, defaultFit = "page" }: { src: string; storageKey: string; defaultFit?: Fit }) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(() => Number(store.get(`guitar-room.page:${storageKey}`)) || 1);
+  const [fit, setFit] = useState<Fit>(() => (store.get(`guitar-room.fit:${storageKey}`) as Fit) || defaultFit);
+  const [zoom, setZoom] = useState(1);
   const [error, setError] = useState("");
-  const [width, setWidth] = useState(0);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [typed, setTyped] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -37,19 +45,22 @@ export function PdfView({ src, storageKey }: { src: string; storageKey: string }
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
   useEffect(() => {
-    if (!doc || !canvas.current || !width) return;
+    if (!doc || !canvas.current || !size.w) return;
     let task: { cancel(): void; promise: Promise<void> } | undefined;
     let cancelled = false;
     void doc.getPage(page).then((p) => {
       if (cancelled || !canvas.current) return;
       const base = p.getViewport({ scale: 1 });
-      const scale = width / base.width;
+      const pad = 16;
+      const byWidth = (size.w - pad) / base.width;
+      const byPage = Math.min(byWidth, size.h > 80 ? (size.h - pad) / base.height : byWidth);
+      const scale = (fit === "page" ? byPage : byWidth) * zoom;
       const dpr = Math.min(window.devicePixelRatio || 1, 3);
       const vp = p.getViewport({ scale: scale * dpr });
       const c = canvas.current;
@@ -65,20 +76,54 @@ export function PdfView({ src, storageKey }: { src: string; storageKey: string }
       cancelled = true;
       task?.cancel();
     };
-  }, [doc, page, width, storageKey]);
+  }, [doc, page, size, fit, zoom, storageKey]);
+
+  const pages = doc?.numPages ?? 0;
+  const go = (n: number) => pages && setPage(Math.min(pages, Math.max(1, n)));
+  const chooseFit = (f: Fit) => {
+    setFit(f);
+    setZoom(1);
+    store.set(`guitar-room.fit:${storageKey}`, f);
+  };
+  const keys = (e: React.KeyboardEvent) => {
+    if ((e.target as HTMLElement).tagName === "INPUT") return;
+    if (e.key === "ArrowRight" || e.key === "PageDown") (e.preventDefault(), go(page + 1));
+    if (e.key === "ArrowLeft" || e.key === "PageUp") (e.preventDefault(), go(page - 1));
+  };
 
   return (
-    <div className="pdf">
-      <div className="pdfpage" ref={box}>
-        {error ? <p className="matnote">This PDF could not be opened: {error}</p> : <canvas ref={canvas} aria-label={`Page ${page}`} />}
-      </div>
-      {doc && doc.numPages > 1 && (
-        <div className="pager">
-          <button className="ib" disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label="Previous page">Previous</button>
-          <span className="num">Page {page} of {doc.numPages}</span>
-          <button className="ib" disabled={page >= doc.numPages} onClick={() => setPage(page + 1)} aria-label="Next page">Next</button>
+    <div className="pdf" tabIndex={0} onKeyDown={keys}>
+      <div className="pdfbar" role="toolbar" aria-label="Page controls">
+        <button className="tool" disabled={page <= 1} onClick={() => go(page - 1)} aria-label="Previous page">‹</button>
+        <label className="pagebox">
+          <span className="sr">Page</span>
+          <input
+            className="num"
+            inputMode="numeric"
+            value={typed || String(page)}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => setTyped(e.target.value.replace(/\D/g, ""))}
+            onBlur={() => {
+              if (typed) go(Number(typed));
+              setTyped("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            aria-label={`Page, of ${pages}`}
+          />
+          <span className="num">of {pages || "–"}</span>
+        </label>
+        <button className="tool" disabled={!pages || page >= pages} onClick={() => go(page + 1)} aria-label="Next page">›</button>
+        <span className="barsp" />
+        <div className="seg mini words fitseg" role="radiogroup" aria-label="Fit">
+          <button role="radio" aria-checked={fit === "page"} className={fit === "page" ? "on" : ""} onClick={() => chooseFit("page")}>Page</button>
+          <button role="radio" aria-checked={fit === "width"} className={fit === "width" ? "on" : ""} onClick={() => chooseFit("width")}>Width</button>
         </div>
-      )}
+        <button className="tool" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} aria-label="Zoom out">−</button>
+        <button className="tool" onClick={() => setZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)))} aria-label="Zoom in">+</button>
+      </div>
+      <div className={`pdfpage fit-${fit}${zoom !== 1 ? " zoomed" : ""}`} ref={box}>
+        {error ? <p className="matnote">This PDF could not be opened: {error}</p> : <canvas ref={canvas} aria-label={`Page ${page} of ${pages}`} />}
+      </div>
     </div>
   );
 }

@@ -74,7 +74,8 @@ export function bookTitle(fileName: string): string {
 /** "https://countryguitaronline.com/12-bar-bluegrass-in-g-creekside-lesson/" → "12 bar bluegrass in g creekside lesson". */
 export function slugTitle(url: string): string {
   const slug = url.replace(/[?#].*$/, "").replace(/\/+$/, "").split("/").pop() ?? "";
-  return decodeURIComponent(slug).replace(/[-_]+/g, " ").trim();
+  const t = decodeURIComponent(slug).replace(/[-_]+/g, " ").trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 /** "G-Run-Licks.pdf" → "G Run Licks"; a trailing 8-digit hex download hash is dropped. */

@@ -21,7 +21,7 @@ test("book and slug titles", () => {
   assert.equal(bookTitle("Guitar Aerobics (Troy Nelson) (z-library.sk, 1lib.sk, z-lib.sk).pdf"), "Guitar Aerobics (Troy Nelson)");
   assert.equal(bookTitle("Tony Rice Collection Tab Book (Marcel Ardans).pdf"), "Tony Rice Collection Tab Book (Marcel Ardans)");
   assert.equal(fileTitle("blues-scale-charts-cgo-member-download-65e52dbd.pdf"), "blues scale charts cgo member download");
-  assert.equal(slugTitle("https://countryguitaronline.com/12-bar-bluegrass-in-g-creekside-lesson/"), "12 bar bluegrass in g creekside lesson");
+  assert.equal(slugTitle("https://countryguitaronline.com/12-bar-bluegrass-in-g-creekside-lesson/"), "12 bar bluegrass in g creekside lesson".replace(/^./, (c) => c.toUpperCase()));
 });
 
 test("titleMatch pairs a sheet with its lesson, not a lesson in another key", () => {

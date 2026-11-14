@@ -8,7 +8,8 @@ import { type Take, TakeRecorder } from "../audio/record.ts";
 import { type HelperState, type Suggestion, tempoHelper } from "../audio/tempo.ts";
 import { useMetronome } from "../audio/useMetronome.ts";
 import { blockName, type Stage, type Today, todayLine } from "../types.ts";
-import { Material, type PaneItem } from "./Material.tsx";
+import type { PaneItem } from "./Material.tsx";
+import { type PaneState, Workspace } from "../workspace/Workspace.tsx";
 import { SHORT, StageBar } from "./StageBar.tsx";
 import { TempoRow } from "./TempoRow.tsx";
 
@@ -29,7 +30,8 @@ export type SessionState = {
   metThree: boolean;
   recording: RecordingRef | null;
   pain: boolean;
-  materialKey: string | null;
+  /** What the session shows, side by side: the lesson, its sheet music or a tab, the coach. */
+  panes: PaneState[];
 };
 
 function fmt(ms: number): string {
@@ -99,13 +101,11 @@ function Instruction({ text }: { text: string }) {
 
 export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function Session({ today, state, setState, items, material, onPickMaterial, onFinish, closeTools }: {
+export function Session({ today, state, setState, items, onFinish, closeTools }: {
   today: Today;
   state: SessionState;
   setState: (fn: (s: SessionState) => SessionState) => void;
   items: PaneItem[];
-  material: PaneItem | null;
-  onPickMaterial: (key: string) => void;
   onFinish: () => void;
   closeTools: () => void;
 }) {
@@ -201,68 +201,65 @@ export function Session({ today, state, setState, items, material, onPickMateria
   const nextStage = stages[state.stage + 1];
   const b = today.block!;
   return (
-    <>
-      <dl className="meta">
-        <dt>Block</dt>
-        <dd>{blockName(b)}</dd>
-        <dt>Today</dt>
-        <dd>{state.cross ? "Cross-training day (not counted)" : todayLine(today)}</dd>
-      </dl>
-      <div className="stagehd">
-        <span><b>Stage {state.stage + 1} of {stages.length}</b></span>
-        <span>{state.kind === "full" ? "45-minute session" : "15-minute session"}</span>
-      </div>
-      <StageBar stages={stages} current={state.stage} progress={elapsed / total} />
-      <div className="stagebody">
-        <div>
-          <h1>{stage.title}</h1>
-          <Instruction key={state.stage} text={instruction(stage, today, state.cross)} />
+    <div className="session">
+      <div className="sessiontop">
+        <p className="sessionline">
+          <span>{blockName(b)}</span>
+          <span>{state.cross ? "Cross-training day (not counted)" : todayLine(today)}</span>
+          <span>{state.kind === "full" ? "45-minute session" : "15-minute session"}</span>
+        </p>
+        <StageBar stages={stages} current={state.stage} progress={elapsed / total} />
+        <div className="stagerow">
+          <div className="stagetext">
+            <h1><span className="stagecount num">{state.stage + 1}/{stages.length}</span> {stage.title}</h1>
+            <Instruction key={state.stage} text={instruction(stage, today, state.cross)} />
+          </div>
+          <button className="clock" onClick={pause} aria-label={state.resumedAt ? "Pause the stage timer" : "Resume the stage timer"}>
+            <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
+            <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} min` : `over ${stage.minutes} min`) : "paused, tap to resume"}</span>
+          </button>
+          <button className="btn primary nextb" onClick={next}>
+            <span>{nextStage ? "Next stage" : "Finish"}</span>
+            <small>{nextStage ? `Up next: ${SHORT[nextStage.key]}` : "Write the log"}</small>
+          </button>
         </div>
-        <button className="clock" onClick={pause} aria-label={state.resumedAt ? "Pause the stage timer" : "Resume the stage timer"}>
-          <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
-          <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} minutes` : `over ${stage.minutes} minutes`) : "paused, tap to resume"}</span>
-        </button>
       </div>
-      <Material items={items} current={material} onPick={onPickMaterial} />
-      <div className="push">
+
+      <Workspace panes={state.panes} setPanes={(fn) => setState((s) => ({ ...s, panes: fn(s.panes) }))} materials={items} />
+
+      <div className="sessionbar">
         <TempoRow passes={state.passes} suggestion={state.suggestion} onClean={() => log("clean")} onMiss={() => log("miss")} onApply={apply} />
-        {take ? (
-          <div className="takebox">
-            <p className="grp">Save this take (<span className="num">{Math.round(take.seconds)}</span> s)</p>
-            <div className="seg mini words" role="radiogroup" aria-label="Take label">
-              {(["baseline", "weekly", "midpoint", "final"] as const).map((l) => (
-                <button key={l} role="radio" aria-checked={takeLabel === l} className={takeLabel === l ? "on" : ""} onClick={() => setTakeLabel(l)}>{l[0]!.toUpperCase() + l.slice(1)}</button>
-              ))}
-            </div>
-            <input className="input" placeholder="Purpose, in one line" value={purpose} onChange={(e) => setPurpose(e.target.value)} aria-label="Purpose" />
-            <div className="row2">
-              <button className="btn outline" disabled={saving} onClick={saveTake}>{saving ? "Saving" : "Save take"}</button>
-              <button className="btn quiet" onClick={() => setTake(null)}>Discard</button>
-            </div>
-          </div>
+        <span className="barsp" />
+        {recording ? (
+          <button className="btn quiet recording" onClick={stopTake}>
+            <span className="rec now" aria-hidden="true" />Stop take <span className="num">{fmt(now - recording)}</span>
+          </button>
         ) : (
-          <div className="row2">
-            <button className="btn primary nextb" onClick={next}>
-              <span>{nextStage ? "Next stage" : "Finish"}</span>
-              <small>{nextStage ? `Up next: ${SHORT[nextStage.key]}` : "Write the log"}</small>
-            </button>
-            {recording ? (
-              <button className="btn quiet recording" onClick={stopTake}>
-                <span className="rec now" aria-hidden="true" />Stop take <span className="num">{fmt(now - recording)}</span>
-              </button>
-            ) : (
-              <button className="btn quiet" onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
-            )}
-          </div>
+          <button className="btn quiet" onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
         )}
-        {state.recording && !take && <p className="srcnote">Saved take: {state.recording.path}</p>}
-        {recError && <p className="notice" role="alert">{recError}</p>}
         <button className="linkbtn stoppain" onClick={() => {
           rec.current?.cancel();
           setState((s) => ({ ...s, pain: true }));
           onFinish();
         }}>Stop: pain or tension</button>
       </div>
-    </>
+      {state.recording && !take && <p className="srcnote takesaved">Saved take: {state.recording.path}</p>}
+      {recError && <p className="notice" role="alert">{recError}</p>}
+      {take && (
+        <div className="takebox" role="dialog" aria-label="Save this take">
+          <p className="grp">Save this take (<span className="num">{Math.round(take.seconds)}</span> s)</p>
+          <div className="seg mini words" role="radiogroup" aria-label="Take label">
+            {(["baseline", "weekly", "midpoint", "final"] as const).map((l) => (
+              <button key={l} role="radio" aria-checked={takeLabel === l} className={takeLabel === l ? "on" : ""} onClick={() => setTakeLabel(l)}>{l[0]!.toUpperCase() + l.slice(1)}</button>
+            ))}
+          </div>
+          <input className="input" placeholder="Purpose, in one line" value={purpose} onChange={(e) => setPurpose(e.target.value)} aria-label="Purpose" />
+          <div className="row2">
+            <button className="btn outline" disabled={saving} onClick={saveTake}>{saving ? "Saving" : "Save take"}</button>
+            <button className="btn quiet" onClick={() => setTake(null)}>Discard</button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

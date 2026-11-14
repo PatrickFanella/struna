@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+import { libraryContent } from "../workspace/Finder.tsx";
+import { pane, type PaneState, withCompanion, Workspace } from "../workspace/Workspace.tsx";
 
 import { PdfView } from "../practice/PdfView.tsx";
 import { EpubView } from "./EpubView.tsx";
@@ -10,8 +13,21 @@ export function Viewer({ item, onClose, onPractice }: { item: LibItem; onClose: 
   const src = mediaSrc(item);
   const facts = [SOURCE_LABEL[item.source], KIND_LABEL[item.kind], item.duration ? minutes(item.duration) : item.size ? megabytes(item.size) : ""].filter(Boolean).join(", ");
 
+  // Lesson videos open in a workspace, with their sheet music beside them.
+  const [panes, setPanes] = useState<PaneState[]>([]);
+  useEffect(() => {
+    if (item.kind !== "video") return;
+    let live = true;
+    setPanes([pane(libraryContent(item))]);
+    void withCompanion(libraryContent(item)).then((cs) => live && setPanes(cs.map(pane)));
+    return () => {
+      live = false;
+    };
+  }, [item]);
+
   let body;
-  if (item.kind === "video" || item.kind === "audio") body = <VideoView src={src} storageKey={item.id} audioOnly={item.kind === "audio"} />;
+  if (item.kind === "video") body = <Workspace panes={panes} setPanes={setPanes} materials={[]} />;
+  else if (item.kind === "audio") body = <VideoView src={src} storageKey={item.id} audioOnly />;
   else if (item.kind === "pdf" && format === "pdf") body = <PdfView src={src} storageKey={item.id} />;
   else if (item.kind === "epub" || (item.kind === "pdf" && format === "epub")) body = <EpubView src={item.kind === "pdf" ? `${src}?format=epub` : src} storageKey={`${item.id}:epub`} />;
   else if (item.kind === "zip-entry" && entryKind(item) === "pdf") body = <PdfView src={src} storageKey={item.id} />;
@@ -23,7 +39,7 @@ export function Viewer({ item, onClose, onPractice }: { item: LibItem; onClose: 
   );
 
   return (
-    <div className="viewer">
+    <div className={`viewer${item.kind === "video" ? " viewerws" : ""}`}>
       <button className="linkbtn" onClick={onClose}>Back to the library</button>
       <h1>{item.title}</h1>
       <p className="srcnote">{facts}{item.description && item.description !== "PDF and EPUB" && item.description !== "PDF" && item.description !== "EPUB" ? `. ${item.description}` : ""}</p>

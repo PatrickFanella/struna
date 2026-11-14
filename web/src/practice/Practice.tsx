@@ -6,6 +6,7 @@ import { metronome, SUBDIVISIONS } from "../audio/metronome.ts";
 import { useMetronome } from "../audio/useMetronome.ts";
 import { screenContext } from "../screen.ts";
 import type { Today } from "../types.ts";
+import { MAX_PANES, pane, withCompanion } from "../workspace/Workspace.tsx";
 import { type PaneItem, vaultSrc } from "./Material.tsx";
 import { Review } from "./Review.tsx";
 import { Session, type SessionState } from "./Session.tsx";
@@ -20,7 +21,9 @@ type Phase = { name: "start" } | { name: "session" } | { name: "review" } | { na
 function loadSession(): SessionState | null {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as SessionState) : null;
+    if (!raw) return null;
+    const s = JSON.parse(raw) as SessionState;
+    return { ...s, panes: Array.isArray(s.panes) ? s.panes : [] };
   } catch {
     return null;
   }
@@ -86,7 +89,8 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     }));
     return extra ? [extra, ...block] : block;
   }, [today, extra]);
-  const material = items.find((i) => i.key === session?.materialKey) ?? extra ?? items.find((i) => !i.missing && i.kind === "pdf") ?? items[0] ?? null;
+  const firstFile = session?.panes.find((p) => p.content.type === "file")?.content;
+  const material = firstFile?.type === "file" ? firstFile.item : null;
 
   useEffect(() => {
     const stage = session && today ? today.stages[session.kind][session.stage] : undefined;
@@ -99,9 +103,21 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     });
   }, [phase, session, today, material, m.bpm, m.subdivision]);
 
+  // "Use in practice" during a session opens the item beside the others.
+  useEffect(() => {
+    if (!extra || !session) return;
+    if (session.panes.some((p) => p.content.type === "file" && p.content.item.key === extra.key)) return;
+    void withCompanion({ type: "file", item: extra }).then((cs) =>
+      setSession((s) => ({ ...s, panes: [...cs.map(pane), ...s.panes].slice(0, MAX_PANES) })),
+    );
+  }, [extra]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const start = async (kind: "full" | "floor", cross?: string) => {
     // An item sent from the library ("Use in practice") leads this session; otherwise the block's first PDF.
     const first = extra ?? items.find((i) => !i.missing && i.kind === "pdf") ?? items[0];
+    const lead = first ? await withCompanion({ type: "file", item: first }) : [];
+    // On a wide screen the coach opens beside the lesson.
+    const panes = [...lead.map(pane), ...(window.innerWidth >= 1180 && lead.length < 3 ? [pane({ type: "coach" })] : [])];
     // Start from the last clean working tempo stored for this material, when there is one.
     if (first) {
       const tempos = await api.get<{ fragment: string; bpm: number }[]>("/api/tempos").catch(() => []);
@@ -122,7 +138,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       metThree: false,
       recording: null,
       pain: false,
-      materialKey: first?.key ?? null,
+      panes,
     };
     saveSession(s);
     setSessionState(s);
@@ -195,8 +211,6 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       state={session}
       setState={setSession}
       items={items}
-      material={material}
-      onPickMaterial={(key) => setSession((s) => ({ ...s, materialKey: key }))}
       onFinish={() => {
         setSession((s) => ({ ...s, elapsedBefore: s.elapsedBefore + (s.resumedAt ? Date.now() - s.resumedAt : 0), resumedAt: null }));
         setPhase({ name: "review" });

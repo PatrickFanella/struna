@@ -93,7 +93,8 @@ function newConversation(provider = state.provider) {
 
 let loadedLast = false;
 
-export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** The coach conversation: in the slide-over, or in a workspace pane (no Done button there). */
+export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => void) | undefined }) {
   useChat();
   const [text, setText] = useState("");
   const [list, setList] = useState<Conv[] | null>(null);
@@ -111,7 +112,7 @@ export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) 
       }
       loadedLast = true;
     }, () => {});
-    setTimeout(() => input.current?.focus(), 50);
+    if (onClose) setTimeout(() => input.current?.focus(), 50);
   }, [open]);
 
   useEffect(() => {
@@ -119,7 +120,7 @@ export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) 
   }, [state.version]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !onClose) return;
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     addEventListener("keydown", esc);
     return () => removeEventListener("keydown", esc);
@@ -136,9 +137,7 @@ export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) 
   const st = status?.[state.provider];
 
   return (
-    <div className={`chatwrap${open ? " open" : ""}`} aria-hidden={!open}>
-      <div className="scrim" onClick={onClose} />
-      <aside className="chat" role="dialog" aria-label="Coach" aria-modal="true">
+    <div className="chatbody">
         <div className="chathd">
           <h2>Coach</h2>
           <div className="seg mini words" role="radiogroup" aria-label="Provider">
@@ -146,7 +145,7 @@ export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) 
               <button key={p} role="radio" aria-checked={state.provider === p} className={state.provider === p ? "on" : ""} disabled={Boolean(state.busy)} onClick={() => p !== state.provider && newConversation(p)}>{NAMES[p]}</button>
             ))}
           </div>
-          <button className="sheetdone" onClick={onClose}>Done</button>
+          {onClose && <button className="sheetdone" onClick={onClose}>Done</button>}
         </div>
         <div className="chatbar">
           <button className="linkbtn" onClick={() => (list ? setList(null) : void showList())} aria-expanded={Boolean(list)}>{list ? "Back to the conversation" : "Conversations"}</button>
@@ -227,6 +226,16 @@ export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) 
             )}
           </form>
         )}
+    </div>
+  );
+}
+
+export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <div className={`chatwrap${open ? " open" : ""}`} aria-hidden={!open}>
+      <div className="scrim" onClick={onClose} />
+      <aside className="chat" role="dialog" aria-label="Coach" aria-modal="true">
+        <ChatPanel open={open} onClose={onClose} />
       </aside>
     </div>
   );
