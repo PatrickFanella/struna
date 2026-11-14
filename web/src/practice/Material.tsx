@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Icon } from "../icons.tsx";
+import { VideoView } from "../library/VideoView.tsx";
 import { PdfView } from "./PdfView.tsx";
 
 /** Anything the material pane can show: a vault file from the block, or (Plan B) a library item. */
@@ -39,7 +40,7 @@ export function Material({ items, current, onPick }: { items: PaneItem[]; curren
       ) : current.kind === "pdf" && current.src ? (
         <PdfView src={current.src} storageKey={current.key} />
       ) : current.kind === "video" && current.src ? (
-        <video className="matvideo" src={current.src} controls playsInline preload="metadata" />
+        <VideoView className="matvideo" src={current.src} storageKey={current.key.replace(/^lib:/, "")} />
       ) : (
         <p className="matnote">This file type cannot be shown here.</p>
       )}

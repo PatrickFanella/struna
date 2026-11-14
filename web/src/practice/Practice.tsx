@@ -86,7 +86,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     }));
     return extra ? [extra, ...block] : block;
   }, [today, extra]);
-  const material = items.find((i) => i.key === session?.materialKey) ?? items.find((i) => !i.missing && i.kind === "pdf") ?? items[0] ?? null;
+  const material = items.find((i) => i.key === session?.materialKey) ?? extra ?? items.find((i) => !i.missing && i.kind === "pdf") ?? items[0] ?? null;
 
   useEffect(() => {
     const stage = session && today ? today.stages[session.kind][session.stage] : undefined;
@@ -100,7 +100,8 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   }, [phase, session, today, material, m.bpm, m.subdivision]);
 
   const start = async (kind: "full" | "floor", cross?: string) => {
-    const first = items.find((i) => !i.missing && i.kind === "pdf") ?? items[0];
+    // An item sent from the library ("Use in practice") leads this session; otherwise the block's first PDF.
+    const first = extra ?? items.find((i) => !i.missing && i.kind === "pdf") ?? items[0];
     // Start from the last clean working tempo stored for this material, when there is one.
     if (first) {
       const tempos = await api.get<{ fragment: string; bpm: number }[]>("/api/tempos").catch(() => []);

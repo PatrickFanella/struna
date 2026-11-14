@@ -15,6 +15,7 @@
     "node": ">=24"
   },
   "dependencies": {
+    "epubjs": "^0.3.93",
     "pdfjs-dist": "^5.4.394",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
