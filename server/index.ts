@@ -8,6 +8,7 @@ import { conversations } from "./conversations.ts";
 import { openDb } from "./db.ts";
 import { fail, guard, HttpError, match, NOINDEX, route, send } from "./http.ts";
 import { practiceRoutes } from "./practice.ts";
+import { mediaRoutes } from "./library/media.ts";
 import { libraryRoutes } from "./library/routes.ts";
 import { recordingRoutes } from "./recordings.ts";
 
@@ -18,6 +19,7 @@ practiceRoutes(config, db);
 recordingRoutes(config);
 chatRoutes(config, db, conversations(db));
 libraryRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN }, db);
+mediaRoutes(config, db);
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",

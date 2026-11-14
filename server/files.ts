@@ -13,6 +13,8 @@ export const CONTENT_TYPES: Record<string, string> = {
   ".m4a": "audio/mp4",
   ".mp3": "audio/mpeg",
   ".webm": "audio/webm",
+  ".odt": "application/vnd.oasis.opendocument.text",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".md": "text/markdown; charset=utf-8",
   ".txt": "text/plain; charset=utf-8",
   ".png": "image/png",
