@@ -83,11 +83,11 @@ export function ftsQuery(q: string): string | null {
 /** Browsing order: lessons first, the raw archive last. */
 const SOURCE_ORDER = "CASE b.source WHEN 'cgo' THEN 0 WHEN 'artistworks' THEN 1 WHEN 'vault' THEN 2 WHEN 'books' THEN 3 WHEN 'music-books' THEN 4 WHEN 'sheets' THEN 5 ELSE 6 END,";
 
-type Row = { id: string; source: Item["source"]; kind: Item["kind"]; title: string; description: string; path: string | null; url: string | null; entry: string | null; size: number | null; duration: number | null; grp: string | null; alt: string | null; calibre_id: number | null; thumb: string | null; copies: number };
+type Row = { id: string; source: Item["source"]; kind: Item["kind"]; title: string; description: string; path: string | null; url: string | null; entry: string | null; size: number | null; duration: number | null; grp: string | null; alt: string | null; calibre_id: number | null; thumb: string | null; copies: number; sheets?: number };
 
-const toItem = (r: Row): Item & { copies: number } => ({
+const toItem = (r: Row): Item & { copies: number; sheets: number } => ({
   id: r.id, source: r.source, kind: r.kind, title: r.title, description: r.description, path: r.path, url: r.url, entry: r.entry,
-  size: r.size, duration: r.duration, group: r.grp, alt: r.alt, calibreId: r.calibre_id, thumb: r.thumb ?? null, links: [], copies: r.copies,
+  size: r.size, duration: r.duration, group: r.grp, alt: r.alt, calibreId: r.calibre_id, thumb: r.thumb ?? null, links: [], copies: r.copies, sheets: r.sheets ?? 0,
 });
 
 /** Sheet music and audio attached to any copy of this item's lesson: PDFs first, then audio. */
@@ -98,8 +98,15 @@ export function companions(db: DatabaseSync, id: string): (Item & { copies: numb
     JOIN item_links l ON l.companion_id = c.id
     JOIN items v ON v.id = l.item_id
     WHERE COALESCE(v.grp, v.id) = (SELECT COALESCE(grp, id) FROM items WHERE id = ?)
-    ORDER BY CASE c.kind WHEN 'pdf' THEN 0 WHEN 'zip-entry' THEN 1 ELSE 2 END, c.title COLLATE NOCASE`).all(id) as Row[];
-  return rows.map(toItem);
+    ORDER BY CASE c.kind WHEN 'pdf' THEN 0 WHEN 'zip-entry' THEN 1 ELSE 2 END, c.title COLLATE NOCASE, CASE c.source WHEN 'vault' THEN 0 ELSE 1 END`).all(id) as Row[];
+  // The same sheet often exists twice (the archive's upload and the vault download): show it once.
+  const seen = new Set<string>();
+  return rows.map(toItem).filter((c) => {
+    const k = `${c.kind}:${c.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 /** Printed PDF titles cached by path, size and mtime. */
@@ -114,7 +121,7 @@ export function pdfTitleCache(db: DatabaseSync) {
 }
 
 /** One row per lesson group, preferring the lesson-folder copy; filters apply to that preferred copy. */
-export function searchLibrary(db: DatabaseSync, o: { q?: string; source?: Item["source"]; kind?: Item["kind"]; limit: number; offset: number }): { items: (Item & { copies: number })[]; total: number } {
+export function searchLibrary(db: DatabaseSync, o: { q?: string; source?: Item["source"]; kind?: Item["kind"]; limit: number; offset: number }): { items: (Item & { copies: number; sheets: number })[]; total: number } {
   const match = o.q?.trim() ? ftsQuery(o.q) : null;
   if (o.q?.trim() && !match) return { items: [], total: 0 };
   const hits = match
@@ -127,7 +134,10 @@ export function searchLibrary(db: DatabaseSync, o: { q?: string; source?: Item["
         ROW_NUMBER() OVER (PARTITION BY COALESCE(i.grp, i.id) ORDER BY i.pref, i.title) AS rn
       FROM items i JOIN hits h ON h.g = COALESCE(i.grp, i.id)
     )
-    SELECT b.*, COUNT(*) OVER () AS total FROM ranked b WHERE b.rn = 1 ${where ? `AND ${where}` : ""}
+    SELECT b.*, COUNT(*) OVER () AS total,
+      (SELECT COUNT(DISTINCT lower(c.title)) FROM item_links l JOIN items v ON v.id = l.item_id JOIN items c ON c.id = l.companion_id
+        WHERE COALESCE(v.grp, v.id) = COALESCE(b.grp, b.id) AND c.kind IN ('pdf', 'zip-entry')) AS sheets
+    FROM ranked b WHERE b.rn = 1 ${where ? `AND ${where}` : ""}
     ORDER BY ${match ? "b.score," : SOURCE_ORDER} b.title COLLATE NOCASE LIMIT :limit OFFSET :offset`;
   const params: Record<string, string | number> = { limit: o.limit, offset: o.offset };
   if (match) params.match = match;

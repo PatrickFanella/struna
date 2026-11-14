@@ -4,7 +4,7 @@ import { store } from "../api.ts";
 
 const MIN = 25;
 const MAX = 200;
-const PRESETS = [50, 75, 100];
+const PRESETS = [50, 70, 85];
 
 function clock(s: number): string {
   const t = Math.max(0, Math.floor(s));
@@ -85,23 +85,25 @@ export function VideoView({ src, storageKey, audioOnly, className, poster }: { s
       {error && <p className="matnote">This file could not be played. The first play of an .mkv lesson converts it, which can take up to half a minute; try again.</p>}
       <div className="avbar" role="toolbar" aria-label="Practice controls">
         <div className="speedctl">
-          <button className="tool" onClick={() => setRate(speed - 5)} aria-label="5 percent slower">−</button>
+          <span className="grp">Speed</span>
+          <button className="tool" onClick={() => setRate(speed - 5)} aria-label="5 percent slower">−5%</button>
           <label className="speedval">
             <span className="num">{speed}%</span>
             <input type="range" min={MIN} max={MAX} step={5} value={speed} onChange={(e) => setRate(Number(e.target.value))} aria-label="Playback speed, percent" />
           </label>
-          <button className="tool" onClick={() => setRate(speed + 5)} aria-label="5 percent faster">+</button>
+          <button className="tool" onClick={() => setRate(speed + 5)} aria-label="5 percent faster">+5%</button>
           <span className="presets">
             {PRESETS.map((p) => (
-              <button key={p} className={`tool chip${speed === p ? " on" : ""}`} aria-pressed={speed === p} onClick={() => setRate(p)}>{p}%</button>
+              <button key={p} className={`tool chip${speed === p ? " on" : ""}`} aria-pressed={speed === p} onClick={() => setRate(p)}>{p}</button>
             ))}
+            <button className="tool" disabled={speed === 100} onClick={() => setRate(100)}>Reset</button>
           </span>
         </div>
         <div className="avloop">
           <button className="tool" onClick={() => skip(-5)} aria-label="Back 5 seconds">−5 s</button>
           <button className="tool" onClick={() => skip(5)} aria-label="Forward 5 seconds">+5 s</button>
-          <button className={`tool chip${a !== null ? " on" : ""}`} onClick={markA} aria-label="Set loop start">A{a !== null ? <span className="num"> {clock(a)}</span> : null}</button>
-          <button className={`tool chip${b !== null ? " on loopon" : ""}`} onClick={markB} disabled={a === null} aria-label="Set loop end">B{b !== null ? <span className="num"> {clock(b)}</span> : null}</button>
+          <button className={`tool chip${a !== null ? " on" : ""}`} onClick={markA} aria-label="Set loop start">Loop A{a !== null ? <span className="num"> {clock(a)}</span> : null}</button>
+          <button className={`tool chip${b !== null ? " on loopon" : ""}`} onClick={markB} disabled={a === null} aria-label="Set loop end">Loop B{b !== null ? <span className="num"> {clock(b)}</span> : null}</button>
           {(a !== null || b !== null) && <button className="tool" onClick={() => (setA(null), setB(null))}>Clear loop</button>}
         </div>
       </div>

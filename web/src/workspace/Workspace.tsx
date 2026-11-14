@@ -25,10 +25,10 @@ export function paneTitle(c: PaneContent): string {
 
 /** How many panes fit side by side in this width. */
 function slotsFor(width: number): number {
-  return width >= 1180 ? 3 : width >= 720 ? 2 : 1;
+  return width >= 1000 ? 3 : width >= 680 ? 2 : 1;
 }
 
-function FileBody({ item, onOpen }: { item: PaneItem; onOpen: (c: PaneContent) => void }) {
+function FileBody({ item, onOpen, open }: { item: PaneItem; onOpen: (c: PaneContent) => void; open: Set<string> }) {
   if (item.missing) return <p className="matnote">Material missing: {item.note ?? item.label}. Check the link in the block note.</p>;
   if (item.kind === "tg") return <p className="matnote">Export to Guitar Pro to view here. This is a TuxGuitar file ({item.note ?? item.label}).</p>;
   if (item.kind === "pdf" && item.src) return <PdfView src={item.src} storageKey={item.key} />;
@@ -36,7 +36,7 @@ function FileBody({ item, onOpen }: { item: PaneItem; onOpen: (c: PaneContent) =
     return (
       <div className="panescroll">
         <VideoView src={item.src} storageKey={item.libId ?? item.key} audioOnly={item.kind === "audio"} poster={item.libId ? `/api/media/${item.libId}/thumb` : undefined} />
-        {item.libId && <Companions libId={item.libId} onOpen={onOpen} />}
+        {item.libId && <Companions libId={item.libId} onOpen={onOpen} open={open} />}
       </div>
     );
   }
@@ -48,7 +48,7 @@ function FileBody({ item, onOpen }: { item: PaneItem; onOpen: (c: PaneContent) =
 }
 
 /** The sheet music and audio that came with a lesson video. */
-function Companions({ libId, onOpen }: { libId: string; onOpen: (c: PaneContent) => void }) {
+function Companions({ libId, onOpen, open }: { libId: string; onOpen: (c: PaneContent) => void; open: Set<string> }) {
   const [items, setItems] = useState<LibItem[] | null>(null);
   useEffect(() => {
     let live = true;
@@ -63,7 +63,7 @@ function Companions({ libId, onOpen }: { libId: string; onOpen: (c: PaneContent)
       <p className="grp">With this lesson</p>
       <div className="chips">
         {items.map((c) => (
-          <button key={c.id} onClick={() => onOpen(libraryContent(c))}>
+          <button key={c.id} className={open.has(`lib:${c.id}`) ? "on" : ""} aria-pressed={open.has(`lib:${c.id}`)} onClick={() => onOpen(libraryContent(c))}>
             <span className="kindbadge">{c.kind === "audio" ? "Audio" : "PDF"}</span>
             {c.title}
           </button>
@@ -131,7 +131,9 @@ export function Workspace({ panes, setPanes, materials, empty }: {
 
   const start = Math.max(0, Math.min(focus - slots + 1, panes.length - slots, focus));
   const shown = panes.slice(start, start + slots);
-  const weight = (c: PaneContent) => (c.type === "coach" ? 2 : 3);
+  // The coach is a fixed column beside the lesson; the lesson and its sheet share the rest.
+  const column = (c: PaneContent) => (c.type === "coach" ? (slots > 1 ? "minmax(280px, 360px)" : "minmax(0, 1fr)") : "minmax(0, 1fr)");
+  const openKeys = new Set(panes.flatMap((p) => (p.content.type === "file" ? [p.content.item.key] : [])));
 
   const menuBody = (at: number | "add") => (
     <div className="panemenu" role="menu">
@@ -148,14 +150,25 @@ export function Workspace({ panes, setPanes, materials, empty }: {
 
   return (
     <div className="workspace" ref={box}>
-      {panes.length > slots && (
-        <div className="panetabs" role="tablist" aria-label="Open panes">
-          {panes.map((p, i) => (
-            <button key={p.id} role="tab" aria-selected={i >= start && i < start + slots} className={i >= start && i < start + slots ? "on" : ""} onClick={() => setFocus(i)}>{paneTitle(p.content)}</button>
-          ))}
+      {(panes.length > slots || (panes.length > 0 && panes.length < MAX_PANES)) && (
+        <div className="wsbar">
+          {panes.length > slots && (
+            <div className="panetabs" role="tablist" aria-label="Open panes">
+              {panes.map((p, i) => (
+                <button key={p.id} role="tab" aria-selected={i >= start && i < start + slots} className={i >= start && i < start + slots ? "on" : ""} onClick={() => setFocus(i)}>{paneTitle(p.content)}</button>
+              ))}
+            </div>
+          )}
+          <span className="barsp" />
+          {panes.length > 0 && panes.length < MAX_PANES && (
+            <span className="wsadd">
+              <button className="tool" aria-haspopup="menu" aria-expanded={menu?.at === "add"} onClick={() => setMenu(menu?.at === "add" ? null : { at: "add" })}>Add pane</button>
+              {menu?.at === "add" && menuBody("add")}
+            </span>
+          )}
         </div>
       )}
-      <div className="panes" style={{ gridTemplateColumns: shown.map((p) => `minmax(0, ${weight(p.content)}fr)`).join(" ") || "1fr" }}>
+      <div className="panes" style={{ gridTemplateColumns: shown.map((p) => column(p.content)).join(" ") || "1fr" }}>
         {shown.length === 0 && <div className="pane emptypane">{empty ?? <p className="matnote">Nothing open.</p>}</div>}
         {shown.map((p, k) => {
           const i = start + k;
@@ -165,12 +178,11 @@ export function Workspace({ panes, setPanes, materials, empty }: {
                 <span className="panetitle">{paneTitle(p.content)}</span>
                 <span className="paneacts">
                   <button className="tool" aria-haspopup="menu" aria-expanded={menu?.at === i} onClick={() => setMenu(menu?.at === i ? null : { at: i })}>Open…</button>
-                  {k === shown.length - 1 && panes.length < MAX_PANES && (
-                    <button className="tool" aria-haspopup="menu" aria-expanded={menu?.at === "add"} onClick={() => setMenu(menu?.at === "add" ? null : { at: "add" })} aria-label="Add a pane">+ Pane</button>
-                  )}
-                  <button className="tool" onClick={() => close(i)} aria-label={`Close ${paneTitle(p.content)}`}>×</button>
+                  <button className="tool iconbtn" onClick={() => close(i)} aria-label={`Close ${paneTitle(p.content)}`}>
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+                  </button>
                 </span>
-                {menu && (menu.at === i || (menu.at === "add" && k === shown.length - 1)) && menuBody(menu.at)}
+                {menu && menu.at === i && menuBody(menu.at)}
               </header>
               <div className="panebody">
                 {p.content.type === "coach" ? (
@@ -178,7 +190,7 @@ export function Workspace({ panes, setPanes, materials, empty }: {
                 ) : p.content.type === "tab" ? (
                   <TabPlayer src={`/api/tabs/${p.content.tabId}/file`} title={paneTitle(p.content)} />
                 ) : (
-                  <FileBody item={p.content.item} onOpen={(c) => void open(c, "add")} />
+                  <FileBody item={p.content.item} onOpen={(c) => void open(c, "add")} open={openKeys} />
                 )}
               </div>
             </section>
@@ -188,7 +200,7 @@ export function Workspace({ panes, setPanes, materials, empty }: {
       {shown.length === 0 && (
         <div className="paneadd">
           <button className="btn outline" onClick={() => setMenu({ at: "add" })}>Open a pane</button>
-          {menu?.at === "add" && menuBody("add")}
+          {menu?.at === "add" && panes.length === 0 && menuBody("add")}
         </div>
       )}
       {finder && <Finder mode={finder.mode} onClose={() => setFinder(null)} onPick={(c) => void open(c, finder.at)} />}

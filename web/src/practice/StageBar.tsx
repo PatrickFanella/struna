@@ -13,7 +13,7 @@ export function StageBar({ stages, current, progress }: { stages: Stage[]; curre
       </div>
       <div className="stagelabels" aria-hidden="true">
         {stages.map((s, i) => (
-          <span key={s.key} className={i === current ? "cur" : ""} style={{ flex: s.minutes }}>{SHORT[s.key]}</span>
+          <span key={s.key} className={i === current ? "cur" : ""} style={{ flex: s.minutes }}>{i < current ? "" : SHORT[s.key]}</span>
         ))}
       </div>
     </>

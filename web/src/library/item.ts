@@ -17,6 +17,8 @@ export type LibItem = {
   calibreId: number | null;
   thumb: string | null;
   copies: number;
+  /** Sheet music that comes with this lesson. */
+  sheets?: number;
 };
 
 export const SOURCE_LABEL: Record<Source, string> = {

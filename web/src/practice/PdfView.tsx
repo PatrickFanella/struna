@@ -12,7 +12,7 @@ type Fit = "page" | "width";
  * One PDF page at a time, with the page turner on top. "Fit page" shows the whole page in the
  * pane; "Fit width" fills the width and scrolls. The page and fit are remembered per file.
  */
-export function PdfView({ src, storageKey, defaultFit = "page" }: { src: string; storageKey: string; defaultFit?: Fit }) {
+export function PdfView({ src, storageKey, defaultFit = "width" }: { src: string; storageKey: string; defaultFit?: Fit }) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
@@ -57,7 +57,8 @@ export function PdfView({ src, storageKey, defaultFit = "page" }: { src: string;
     void doc.getPage(page).then((p) => {
       if (cancelled || !canvas.current) return;
       const base = p.getViewport({ scale: 1 });
-      const pad = 16;
+      // The box has 8 px padding on each side; leave a little more so nothing is clipped.
+      const pad = 24;
       const byWidth = (size.w - pad) / base.width;
       const byPage = Math.min(byWidth, size.h > 80 ? (size.h - pad) / base.height : byWidth);
       const scale = (fit === "page" ? byPage : byWidth) * zoom;
@@ -91,6 +92,15 @@ export function PdfView({ src, storageKey, defaultFit = "page" }: { src: string;
     if (e.key === "ArrowLeft" || e.key === "PageUp") (e.preventDefault(), go(page - 1));
   };
 
+  // On touch, tapping the left or right third of the page turns it, as on a music stand.
+  const tap = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!matchMedia("(pointer: coarse)").matches) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    if (x < 1 / 3) go(page - 1);
+    else if (x > 2 / 3) go(page + 1);
+  };
+
   return (
     <div className="pdf" tabIndex={0} onKeyDown={keys}>
       <div className="pdfbar" role="toolbar" aria-label="Page controls">
@@ -122,7 +132,7 @@ export function PdfView({ src, storageKey, defaultFit = "page" }: { src: string;
         <button className="tool" onClick={() => setZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)))} aria-label="Zoom in">+</button>
       </div>
       <div className={`pdfpage fit-${fit}${zoom !== 1 ? " zoomed" : ""}`} ref={box}>
-        {error ? <p className="matnote">This PDF could not be opened: {error}</p> : <canvas ref={canvas} aria-label={`Page ${page} of ${pages}`} />}
+        {error ? <p className="matnote">This PDF could not be opened: {error}</p> : <canvas ref={canvas} onClick={tap} aria-label={`Page ${page} of ${pages}`} />}
       </div>
     </div>
   );

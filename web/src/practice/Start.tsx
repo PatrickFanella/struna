@@ -47,7 +47,7 @@ export function Start({ today, onStart, onTune, onCoach, onWeek }: {
       <p className="instr">{today.next.text ? cap(today.next.text) : "No instruction recorded yet."}</p>
       <p className="srcnote">{today.next.source === "log" ? "From your last practice log" : "From the progress ledger"}</p>
 
-      <div className="push startacts">
+      <div className="startacts">
         <button className="btn primary full" disabled={!b} onClick={() => onStart("full")}>Full session (45 min)</button>
         <button className="btn outline full" disabled={!b} onClick={() => onStart("floor")}>Short session (15 min)</button>
         <button className="btn quiet full" onClick={onTune}><Icon id="i-fork" />Tune first</button>

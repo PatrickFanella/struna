@@ -116,8 +116,12 @@ test("companions: lesson downloads, ArtistWorks charts and tracks, and archive s
   assert.deepEqual(titles(id((i) => i.source === "archive" && i.group === "vimeo:132673069")), ["audio:PREVIEW strum", "pdf:strumming pattern chart"]);
   // ArtistWorks: same instructor, the song name leads the video title.
   assert.deepEqual(titles(id((i) => i.source === "artistworks" && i.kind === "video")), ["audio:You Are My Sunshine", "pdf:You Are My Sunshine BasicRhythm"]);
-  // An archive sheet whose first line names the lesson.
+  // An archive sheet whose first line names the lesson, shown once although the archive holds two copies.
   assert.deepEqual(titles(id((i) => i.group === "vimeo:259880969")), ["pdf:12 Bar Blues with a Country Twang"]);
+  // Search results say which lessons come with sheet music.
+  const twang = searchLibrary(db, { q: "twang", kind: "video", limit: 5, offset: 0 }).items[0]!;
+  assert.equal(twang.sheets, 1);
+  assert.equal(searchLibrary(db, { q: "hammer", kind: "video", limit: 5, offset: 0 }).items[0]!.sheets, 0);
   // Nothing loosely related: "Rye Whiskey" names no lesson in the fixtures.
   assert.ok(!items.filter((i) => i.kind === "video").some((v) => titles(v.id).some((t) => t.includes("Rye"))));
   db.close();

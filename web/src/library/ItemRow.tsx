@@ -5,6 +5,7 @@ export function ItemRow({ item, onOpen, onPractice }: { item: LibItem; onOpen: (
     SOURCE_LABEL[item.source],
     item.kind === "zip-entry" ? `${KIND_LABEL[item.kind]} (${(item.entry ?? "").split(".").pop()?.toUpperCase()})` : KIND_LABEL[item.kind],
     item.alt ? "also EPUB" : "",
+    item.sheets ? (item.sheets === 1 ? "sheet music" : `${item.sheets} sheets`) : "",
     item.copies > 1 ? `${item.copies} copies` : "",
   ].filter(Boolean);
   const amount = item.duration ? minutes(item.duration) : item.size ? megabytes(item.size) : "";

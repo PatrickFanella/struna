@@ -222,7 +222,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
             {state.busy ? (
               <button type="button" className="btn outline" onClick={() => state.busy?.abort()}>Stop</button>
             ) : (
-              <button className="btn primary" disabled={!text.trim()}>Send</button>
+              <button className="btn outline" disabled={!text.trim()}>Send</button>
             )}
           </form>
         )}
