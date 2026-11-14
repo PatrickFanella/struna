@@ -1,0 +1,20 @@
+[Unit]
+Description=Guitar Room (practice app with subscription-backed coach chat)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Work/PatrickFanella/guitar-room
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=5182
+Environment=ALLOWED_HOSTS=guitar.subcult.tv
+Environment=REQUIRE_USER=onnwee
+Environment=PATH=%h/.local/share/mise/shims:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/.local/share/mise/shims/node server/index.ts
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=default.target

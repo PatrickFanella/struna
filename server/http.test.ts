@@ -24,11 +24,13 @@ test("guard rejects an unknown host with 403", () => {
   assert.equal(status(() => guard(req({ host: "evil.example" }), hosts)), 403);
 });
 
-test("guard checks Remote-User when requireUser is set", () => {
-  const opts = { ...hosts, requireUser: "onnwee" };
-  assert.equal(status(() => guard(req({ host: "localhost", "remote-user": "mallory" }), opts)), 403);
-  assert.equal(status(() => guard(req({ host: "localhost" }), opts)), 403);
-  assert.equal(status(() => guard(req({ host: "localhost", "remote-user": "onnwee" }), opts)), undefined);
+test("guard checks Remote-User on the public host when requireUser is set", () => {
+  const opts = { allowedHosts: new Set([...hosts.allowedHosts, "guitar.subcult.tv"]), requireUser: "onnwee" };
+  assert.equal(status(() => guard(req({ host: "guitar.subcult.tv", "remote-user": "mallory" }), opts)), 403);
+  assert.equal(status(() => guard(req({ host: "guitar.subcult.tv" }), opts)), 403);
+  assert.equal(status(() => guard(req({ host: "guitar.subcult.tv", "remote-user": "onnwee" }), opts)), undefined);
+  // Loopback names are only reachable from Kvant itself, never through the Almaz route.
+  assert.equal(status(() => guard(req({ host: "localhost:5182" }), opts)), undefined);
 });
 
 test("send sets the noindex header", () => {

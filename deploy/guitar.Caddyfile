@@ -1,0 +1,8 @@
+# Guitar Room: guitar practice app with subscription-backed coach chat. Almaz forwards over SSH to Kvant loopback 5182.
+http://guitar.subcult.tv {
+    import authelia
+    header X-Robots-Tag "noindex, nofollow"
+    reverse_proxy 172.20.0.1:34948 {
+        flush_interval -1
+    }
+}

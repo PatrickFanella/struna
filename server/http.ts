@@ -9,12 +9,17 @@ export class HttpError extends Error {
 }
 
 export const NOINDEX = "noindex, nofollow";
+const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-/** Reject requests for unknown hosts, and, when `requireUser` is set, requests Authelia did not sign in as that user. */
+/**
+ * Reject requests for unknown hosts, and, when `requireUser` is set, requests for a
+ * public host that Authelia did not sign in as that user. Loopback host names are
+ * only reachable on Kvant itself; the Almaz route always carries the public host.
+ */
 export function guard(req: IncomingMessage, opts: { allowedHosts: Set<string>; requireUser?: string | undefined }): void {
   const host = (req.headers.host ?? "").replace(/:\d+$/, "");
   if (!opts.allowedHosts.has(host)) throw new HttpError(403, "host not allowed");
-  if (opts.requireUser && req.headers["remote-user"] !== opts.requireUser) throw new HttpError(403, "user not allowed");
+  if (opts.requireUser && !LOOPBACK.has(host) && req.headers["remote-user"] !== opts.requireUser) throw new HttpError(403, "user not allowed");
 }
 
 export function send(res: ServerResponse, status: number, body: unknown): void {
