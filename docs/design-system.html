@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guitar Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+/* ---- Tokens: "Method book" ---- */
+:root{
+  --wedge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 10'%3E%3Cpath d='M1.5 1.5 16.5 5 1.5 8.5' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --chk:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.3 4.8 9 10 3' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --page:#FCFCFA; --panel:#FFFFFF; --rule:#E3E3DE; --ink:#1A1A1A; --graphite:#5C5C58;
+  --pencil:#C2271B; --empty:#E3E3DE; --on-ink:#FFFFFF; --wash:#EFEFEB;
+  --edge:#8E8E88;            /* interactive outlines, >= 3:1 on page and panel */
+  --done:#5C5C58;
+  --serif:"Source Serif 4",Georgia,serif; --sans:"Atkinson Hyperlegible Next",system-ui,sans-serif;
+  --mono:ui-monospace,Menlo,Consolas,monospace;
+  --r:10px; --gap:16px; --col:760px;
+  /* type and size scale, phone */
+  --fs-meta:14px; --fs-h1:28px; --fs-instr:18px; --fs-label:15px; --fs-clock:56px; --fs-bpm:46px; --sp:14px;
+  --btn-h:52px; --fs-btn:17px; --dot:24px; --ib-h:44px; --fs-nav:14px; --icon-nav:24px; --fs-unit:16px; --fs-cap:15px; --fs-ib:15px; --fs-name:20px; --bar:20px; --fs-note:140px; --beat:44px;
+}
+:root[data-theme="dark"]{
+  --page:#232428; --panel:#2B2D32; --rule:#393B42; --ink:#ECEBE6; --graphite:#A3A29C;
+  --pencil:#F87D70; --empty:#393B42; --on-ink:#1A1A1A; --wash:#353840; --edge:#7A7C83; --done:#A3A29C;
+}
+@media (min-width:700px){
+  :root{ --gap:28px; --fs-meta:16px; --fs-h1:38px; --fs-instr:24px; --fs-label:18px; --fs-clock:104px; --fs-bpm:72px;
+         --btn-h:64px; --fs-btn:22px; --dot:36px; --ib-h:48px; --fs-nav:16px; --icon-nav:26px; --sp:22px; --fs-unit:21px; --fs-cap:18px; --fs-ib:18px; --fs-name:24px; --bar:18px; --fs-note:200px; --beat:56px; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.wrap{max-width:var(--col);width:100%;margin:0 auto;padding:0 var(--gap)}
+.num{font-family:var(--serif);font-weight:600;font-variant-numeric:lining-nums tabular-nums}
+
+/* header */
+.top{border-bottom:1px solid var(--rule)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;padding-top:6px;padding-bottom:6px}
+.top .name{font-family:var(--serif);font-weight:700;font-size:var(--fs-name)}
+.top .acts{display:flex;gap:2px;margin-right:-10px}
+.ib{display:inline-flex;align-items:center;gap:8px;height:var(--ib-h);padding:0 10px;border-radius:var(--r);border:0;background:transparent;font-size:var(--fs-ib)}
+.ib svg{width:20px;height:20px}
+.ib[aria-pressed="true"]{border:2px solid var(--ink);background:var(--wash);font-weight:700}
+
+main{flex:1;display:flex}
+main .wrap{display:flex;flex-direction:column;padding-top:12px;padding-bottom:16px}
+.view{display:none;flex:1;flex-direction:column}.view.on{display:flex}
+.push{margin-top:auto}
+
+/* bottom tabs */
+.tabs{position:sticky;bottom:0;border-top:1px solid var(--rule);background:var(--page)}
+.tabs .wrap{display:grid;grid-template-columns:repeat(3,1fr);padding-top:10px;padding-bottom:18px}
+.tabs a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;font-size:var(--fs-nav);color:var(--graphite);text-decoration:none}
+.tabs a svg{width:var(--icon-nav);height:var(--icon-nav)}
+.tabs a{position:relative}
+.tabs a[aria-current]{color:var(--ink);font-weight:700}
+.tabs a[aria-current]::before{content:"";position:absolute;top:-11px;left:50%;width:64px;transform:translateX(-50%);height:3px;border-radius:0;background:var(--ink)}
+
+/* practice */
+.meta{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:var(--fs-meta);color:var(--graphite);margin:0 0 var(--sp);padding-bottom:calc(var(--sp) * .6);border-bottom:1px solid var(--rule)}
+.meta dd{margin:0;color:var(--ink)}
+.stagehd{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--fs-label);color:var(--graphite);margin:0 0 8px}
+.stagehd b{color:var(--ink)}
+.stages{display:flex;gap:4px;margin:0 0 var(--sp)}
+.stages i{min-width:30px;height:var(--bar);border-radius:4px;background:transparent;box-shadow:inset 0 0 0 1px var(--edge);position:relative;overflow:hidden}
+.stages i.done{background:var(--wash);box-shadow:inset 0 0 0 1px var(--edge);display:grid;place-items:center}
+.stages i.done::before{content:"";width:13px;height:13px;background:var(--ink);-webkit-mask:var(--chk) center/contain no-repeat;mask:var(--chk) center/contain no-repeat}
+.stages i.now{background:var(--panel);box-shadow:inset 0 0 0 2px var(--pencil)}
+.stages i.now::after{content:"";position:absolute;inset:0;width:var(--p);background:var(--pencil)}
+h1{font-family:var(--serif);font-weight:700;font-size:var(--fs-h1);line-height:1.15;margin:0 0 6px}
+.instr{font-size:var(--fs-instr);line-height:1.35;margin:0 0 var(--sp);max-width:34em}
+.clock{display:flex;align-items:baseline;gap:12px;margin:0 0 var(--sp)}
+.clock .t{font-size:var(--fs-clock);line-height:.85}
+.clock .s{font-size:var(--fs-unit);color:var(--graphite);font-variant-numeric:tabular-nums}
+.mat{flex:0 0 auto;display:flex;flex-direction:column;min-height:0;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r);padding:10px 12px 8px;margin:0 0 var(--sp)}
+.mat .cap{font-size:var(--fs-cap);color:var(--graphite);margin:0 0 6px}
+.mat svg{display:block;width:100%;height:auto;color:var(--ink)}
+.mat .tab-wide{display:none}
+@media (min-width:700px){.mat .tab-narrow{display:none}.mat .tab-wide{display:block}}
+.tabnum{font-family:var(--serif);font-size:21px;font-weight:600;font-variant-numeric:lining-nums tabular-nums;text-anchor:middle;dominant-baseline:central;fill:currentColor;paint-order:stroke;stroke:var(--panel);stroke-width:4px;stroke-linejoin:round}
+.met{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:0 0 var(--sp)}
+.met .passes{justify-content:space-between}
+.tempo .u{line-height:1.25;white-space:nowrap}
+.tempocol{display:flex;align-items:center;gap:14px}
+.click{display:flex;gap:8px}.click i{position:relative;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--edge)}.click i.acc{box-shadow:inset 0 0 0 3px var(--ink)}.click i.acc::before{content:"";position:absolute;left:50%;top:-12px;width:12px;height:7px;transform:translateX(-50%);background:var(--ink);-webkit-mask:var(--wedge) center/contain no-repeat;mask:var(--wedge) center/contain no-repeat}.click i.hit{background:var(--pencil);box-shadow:none}
+@media (min-width:700px){.tempocol{flex-direction:row;align-items:center;gap:20px}.click i{width:32px;height:32px}.click i.acc::before{top:-15px;width:15px;height:9px}}
+
+.stagebody .instr{margin-bottom:var(--sp)}
+@media (min-width:700px){.stagebody{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:start}.stagebody .clock{flex-direction:column;align-items:flex-end;gap:4px;margin:0}.met{flex-direction:row;align-items:center;justify-content:space-between}.met .passes{justify-content:flex-start}}
+.tempo{display:flex;align-items:center;gap:10px}
+.tempo .bpm{font-size:var(--fs-bpm);line-height:1}
+.tempo .u{font-size:var(--fs-unit);color:var(--graphite)}
+.passes{display:flex;align-items:center;gap:10px;white-space:nowrap;min-height:48px;padding:8px 10px 8px 14px;border-radius:var(--r);border:0;background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--edge);font-size:var(--fs-unit);font-weight:600}
+.dots{display:flex;gap:6px}
+.dots i{width:var(--dot);height:var(--dot);border-radius:4px;box-shadow:inset 0 0 0 2px var(--edge)}
+.dots i{display:grid;place-items:center;color:var(--on-ink)}
+.dots i.ok{background:var(--ink);box-shadow:none}
+.dots i svg{width:60%;height:60%}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{height:var(--btn-h);border-radius:var(--r);border:0;font-size:var(--fs-btn);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:10px}
+.btn.primary{background:var(--ink);color:var(--on-ink)}
+.btn.outline{background:var(--panel);box-shadow:inset 0 0 0 2px var(--ink)}
+.btn.nextb{flex-direction:column;gap:0;line-height:1.15}.btn.nextb small{font-size:14px;font-weight:600;opacity:.8}
+.btn.quiet{background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--edge)}
+.btn .rec{width:14px;height:14px;border-radius:50%;background:var(--ink)}
+
+/* tools */
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border-radius:13px;background:var(--page);box-shadow:inset 0 0 0 1.5px var(--edge);margin:0 0 18px;font-size:var(--fs-label)}
+.seg span{display:flex;align-items:center;justify-content:center;height:42px;border-radius:var(--r)}
+.seg span.on{background:var(--wash);box-shadow:inset 0 0 0 2px var(--ink);font-weight:700}
+.note{text-align:center;font-family:var(--serif);font-weight:700;line-height:1}
+.note .nl{position:relative;display:inline-block;font-size:var(--fs-note)}.note sub{position:absolute;left:100%;bottom:.18em;font-size:.24em;padding-left:2px}
+.read{text-align:center;font-family:var(--serif);font-weight:600;font-size:28px;margin:4px 0 22px;font-variant-numeric:lining-nums}
+.scale{position:relative;height:196px;margin:0 20px 10px}
+.scale .zone{position:absolute;left:45%;width:10%;top:30px;height:126px;background:var(--wash);border:1px solid var(--edge);border-bottom:0;border-radius:3px 3px 0 0}
+.scale .tk{position:absolute;top:126px;width:2px;height:30px;background:var(--graphite);transform:translateX(-50%)}
+.scale .tk.s{top:139px;height:17px}
+.scale .base{position:absolute;left:0;right:0;top:156px;height:1.5px;background:var(--graphite)}
+.scale .tk.m{top:106px;height:50px}
+.scale .tk.z{top:30px;height:126px;width:2.5px;background:var(--ink)}
+.scale .nd{position:absolute;top:18px;height:138px;width:4px;z-index:2;transform:translateX(-50%);box-shadow:0 0 0 2px var(--page);border-radius:2px;background:var(--pencil)}
+.scale .lab{position:absolute;top:166px;font:600 20px var(--serif);font-variant-numeric:lining-nums tabular-nums;color:var(--graphite);transform:translateX(-50%)}
+.strings{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:22px 0 0}
+.strings span{position:relative;display:flex;align-items:center;justify-content:center;gap:0;height:62px;border-radius:var(--r);font-family:var(--serif);font-weight:700;font-size:22px;font-variant-numeric:lining-nums;box-shadow:inset 0 0 0 1.5px var(--edge);background:var(--panel)}
+.strings .ok{color:var(--graphite)}
+.strings .ok svg{position:absolute;top:6px;right:6px;width:16px;height:16px;padding:3px;padding:2.5px;border-radius:50%;background:var(--ink);color:var(--on-ink)}
+.strings small{font-size:14px;font-weight:600;margin:10px 0 0 1px}
+.strings span{padding-top:6px}
+.strings .cur{background:var(--wash);box-shadow:inset 0 0 0 2.5px var(--pencil);color:var(--pencil)}
+.foot{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:var(--fs-label)}
+.foot .v{font-family:var(--mono)}
+.set{display:flex;align-items:center;justify-content:space-between;gap:8px;height:52px;padding:0 14px;text-align:left;width:100%;border-radius:var(--r);border:1.5px solid var(--edge);background:var(--panel);color:var(--ink);font-size:var(--fs-label);font-variant-numeric:tabular-nums}
+.set svg{width:16px;height:16px}
+.set>span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}.set small{font-size:13px;color:var(--graphite)}.set b{font-weight:600;font-size:18px}
+.big{text-align:center;font-size:120px;line-height:1}
+.bpml{display:flex;justify-content:center;align-items:baseline;gap:18px;font-size:22px;color:var(--graphite);margin:6px 0 10px}
+.bigrow{display:flex;justify-content:center}.bigrow .bigc{position:relative}.bigrow .tsig{position:absolute;right:calc(100% + 22px);top:50%;transform:translateY(-46%);gap:2px}.tsig{display:flex;flex-direction:column;align-items:center;font-size:42px;line-height:.85;font-weight:700}
+.bpml .num{font-size:20px}
+.beats{display:flex;justify-content:center;gap:24px;margin:34px 0 22px}
+.beats i{width:var(--beat);height:var(--beat);border-radius:50%;box-shadow:inset 0 0 0 2px var(--edge)}
+.beats i{position:relative}
+.beats i.acc{box-shadow:inset 0 0 0 3.5px var(--ink)}
+.beats i.acc::before{content:"";position:absolute;left:50%;top:-18px;width:18px;height:10px;transform:translateX(-50%);background:var(--ink);-webkit-mask:var(--wedge) center/contain no-repeat;mask:var(--wedge) center/contain no-repeat}
+.beats i.hit{background:var(--pencil);box-shadow:none}
+.beats i.acc.hit{box-shadow:inset 0 0 0 3.5px var(--ink)}
+.grp{font-size:16px;color:var(--graphite);margin:0 0 8px}
+.r3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 24px}
+.r4{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 20px}
+@media (min-width:700px){.r4{grid-template-columns:repeat(4,1fr)}}
+.r3 button,.r4 button{border-radius:var(--r);border:0;background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--edge);font-size:var(--fs-label)}
+.r3 button{height:var(--btn-h);font-size:var(--fs-btn);font-weight:600}.r3 button.num{font-weight:600}
+.r4 button{display:flex;align-items:center;justify-content:flex-start;gap:12px;height:52px;padding:0 18px;font-size:16px}
+.r4 button svg{width:36px;height:28px}
+.r4 button.on{background:var(--wash);box-shadow:inset 0 0 0 2px var(--ink);font-weight:700}
+.btn.full{width:100%}
+.r2{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin:0 0 18px}.seg.mini{grid-template-columns:repeat(auto-fit,minmax(0,1fr));margin:0}.seg.mini span{font-family:var(--serif);font-weight:600;font-variant-numeric:lining-nums}.seg.mini.words span{font-family:var(--sans)}
+.mid{flex:1;display:flex;flex-direction:column;padding:0}
+#tuner .upper{margin:auto 0;padding:16px 0}
+#tuner .lower{padding-top:8px}
+.sheethd{display:flex;align-items:center;gap:10px;margin:0 0 8px}.sheethd .seg{flex:1;margin:0}
+.sheethd h2{margin:0;font-family:var(--serif);font-weight:700;font-size:22px}
+.sheetdone{height:48px;padding:0 18px;border-radius:var(--r);border:1.5px solid var(--edge);background:var(--panel);font-size:var(--fs-label);font-weight:600}
+.tools .tabs,.tools .top{display:none}
+.tools main .wrap{padding-top:10px}
+.grab{width:44px;height:5px;border-radius:3px;background:var(--edge);margin:0 auto 14px}
+@media (min-width:700px){:root{--fs-h1:44px;--fs-instr:26px;--fs-clock:104px;--dot:40px;--fs-bpm:88px}.mat{padding:16px 20px 16px;gap:8px}.stagebody{margin-bottom:var(--sp)}.stagebody .instr{margin-bottom:0}.read{font-size:32px}.strings span{height:68px;font-size:24px}.set{height:56px}.r4 button{font-size:17px}.r4 button svg{width:36px;height:26px}.big{font-size:150px}.bpml{font-size:21px}}
+@media (min-width:700px){.passes{min-height:var(--btn-h);font-size:22px;padding:8px 16px}:root{--dot:34px}}
+.stagelabels{display:none}
+@media (min-width:700px){
+  :root{--fs-meta:17px;--fs-cap:18px;--bar:24px;--btn-h:68px;--fs-btn:24px;--dot:40px}
+  .stages{margin-bottom:6px}.stages i{min-width:34px}.stages i.done::before{width:15px;height:15px}
+  .stagelabels{display:flex;gap:4px;margin:0 0 var(--sp);font-size:13px;color:var(--graphite)}.stagelabels span{min-width:34px;white-space:nowrap}.stagelabels .cur{color:var(--ink);font-weight:600}
+  .click i{width:40px;height:40px}.click i.acc::before{top:-16px;width:16px;height:9px}
+  .tempo .u{font-size:22px}.passes{font-size:22px}
+  .btn.nextb small{font-size:16px}
+  .tabs a{font-size:17px}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-fork" viewBox="0 0 24 24"><path d="M7.5 2.5v8a4.5 4.5 0 0 0 9 0v-8M12 15v4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="20.6" r="1.6" fill="currentColor"/></symbol>
+  <symbol id="i-down" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9.5L4 20z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-stand" viewBox="0 0 24 24"><path d="M4 3.5h16l-2.5 8h-11zM12 11.5v6M12 17.5l-5.5 4M12 17.5l5.5 4M12 17.5v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+  <symbol id="i-books" viewBox="0 0 24 24"><path d="M3.5 4h4.5v16H3.5zM8 4h4.5v16H8zM12.5 5.4l3.8-1 3.9 14.7-3.8 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-tab" viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h18M3 12h6M15 12h6M3 19h18"/></g><text x="12" y="15.6" fill="currentColor" font-family="'Source Serif 4',Georgia,serif" font-weight="700" font-size="10.5" text-anchor="middle">3</text></symbol>
+  <symbol id="i-check" viewBox="0 0 12 12"><path d="M2 6.3 4.8 9 10 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="n-q" viewBox="0 0 36 28"><ellipse cx="16" cy="21" rx="4.3" ry="3.1" transform="rotate(-20 16 21)" fill="currentColor"/><ellipse cx="16" cy="21" rx="4.3" ry="3.1" transform="rotate(-20 16 21)" opacity="0" fill="currentColor"/><path d="M19.9 20V6" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="n-8" viewBox="0 0 36 28"><ellipse cx="8" cy="22" rx="4.3" ry="3.1" transform="rotate(-20 8 22)" fill="currentColor"/><ellipse cx="25" cy="22" rx="4.3" ry="3.1" transform="rotate(-20 25 22)" fill="currentColor"/><path d="M11.9 21V7" stroke="currentColor" stroke-width="2"/><path d="M28.9 21V7" stroke="currentColor" stroke-width="2"/><path d="M10.9 8.6H29.9" stroke="currentColor" stroke-width="3.2"/></symbol>
+  <symbol id="n-3" viewBox="0 0 36 28"><ellipse cx="5" cy="23.5" rx="4.3" ry="3.1" transform="rotate(-20 5 23.5)" fill="currentColor"/><ellipse cx="16" cy="23.5" rx="4.3" ry="3.1" transform="rotate(-20 16 23.5)" fill="currentColor"/><ellipse cx="27" cy="23.5" rx="4.3" ry="3.1" transform="rotate(-20 27 23.5)" fill="currentColor"/><path d="M8.9 22.5V9.5" stroke="currentColor" stroke-width="2"/><path d="M19.9 22.5V9.5" stroke="currentColor" stroke-width="2"/><path d="M30.9 22.5V9.5" stroke="currentColor" stroke-width="2"/><path d="M7.9 9.5H31.9" stroke="currentColor" stroke-width="2.8"/><text x="18" y="6.8" font-size="9.5" font-weight="700" text-anchor="middle" fill="currentColor" font-family="'Source Serif 4',Georgia,serif">3</text></symbol>
+  <symbol id="n-16" viewBox="0 0 36 28"><ellipse cx="8" cy="22" rx="4.3" ry="3.1" transform="rotate(-20 8 22)" fill="currentColor"/><ellipse cx="25" cy="22" rx="4.3" ry="3.1" transform="rotate(-20 25 22)" fill="currentColor"/><path d="M11.9 21V6.5" stroke="currentColor" stroke-width="2"/><path d="M28.9 21V6.5" stroke="currentColor" stroke-width="2"/><path d="M10.9 7.8H29.9" stroke="currentColor" stroke-width="2.6"/><path d="M10.9 12.2H29.9" stroke="currentColor" stroke-width="2.6"/></symbol>
+</svg>
+
+<div class="app">
+  <header class="top"><div class="wrap">
+    <span class="name">Guitar Room</span>
+    <span class="acts">
+      <button class="ib" id="tune" aria-pressed="false"><svg aria-hidden="true"><use href="#i-fork"/></svg>Tuner</button>
+      <button class="ib"><svg aria-hidden="true"><use href="#i-chat"/></svg>Coach</button>
+    </span>
+  </div></header>
+
+  <main><div class="wrap">
+    <section class="view" id="practice">
+      <dl class="meta"><dt>Block</dt><dd>1: G vocabulary and Nine Pound Hammer</dd><dt>Today</dt><dd>Week 1, session 1: decode (baseline)</dd></dl>
+      <div class="stagehd"><span><b>Stage 3 of 6</b></span><span>45-minute session</span></div>
+      <div class="stages" role="img" aria-label="Stage 3 of 6, 16 percent done">
+        <i class="done" style="flex:2"></i><i class="done" style="flex:5"></i><i class="now" style="flex:8;--p:16%"></i><i style="flex:10"></i><i style="flex:15"></i><i style="flex:5"></i>
+      </div>
+      <div class="stagelabels" aria-hidden="true"><span style="flex:2">Target</span><span style="flex:5">Prepare</span><span class="cur" style="flex:8">Vocabulary</span><span style="flex:10">Mechanism</span><span style="flex:15">Music</span><span style="flex:5">Review</span></div>
+      <div class="stagebody"><div><h1>Build vocabulary</h1>
+      <p class="instr">G major-blues pattern 1 from memory, then one variation. Say the scale degree of each blue note.</p></div>
+      <div class="clock"><span class="t num">6:42</span><span class="s">left of 8 minutes</span></div></div>
+      <figure class="mat"><figcaption class="cap">Aaron Jaxon, blues scales, pattern 1</figcaption>
+        <svg class="tab-narrow" viewBox="0 0 320 138" role="img" aria-label="Tab excerpt">
+          <g stroke="var(--edge)" stroke-width="1.5"><line x1="6" y1="14" x2="313" y2="14"/><line x1="6" y1="36" x2="313" y2="36"/><line x1="6" y1="58" x2="313" y2="58"/><line x1="6" y1="80" x2="313" y2="80"/><line x1="6" y1="102" x2="313" y2="102"/><line x1="6" y1="124" x2="313" y2="124"/></g><rect x="7.5" y="15" width="22" height="108" fill="var(--panel)"/><g stroke="currentColor"><line x1="6" y1="14" x2="6" y2="124" stroke-width="1.5"/><line x1="172" y1="14" x2="172" y2="124" stroke-width="1.5"/><line x1="306" y1="14" x2="306" y2="124" stroke-width="1.5"/><line x1="313" y1="14" x2="313" y2="124" stroke-width="3.2"/></g>
+          <g font-family="'Source Serif 4',Georgia,serif" font-weight="700" font-size="22" text-anchor="middle" dominant-baseline="central" fill="currentColor"><text x="18" y="36.0">T</text><text x="18" y="69.0">A</text><text x="18" y="102.0">B</text></g>
+          <g class="tabnum" style="font-size:22px;stroke-width:6px"><text x="49" y="124">3</text><text x="72" y="102">0</text><text x="94" y="102">1</text><text x="116" y="102">2</text><text x="138" y="80">0</text><text x="161" y="80">2</text><text x="183" y="58">0</text><text x="206" y="80">2</text><text x="228" y="80">0</text><text x="250" y="102">2</text><text x="272" y="102">0</text><text x="295" y="124">3</text></g>
+        </svg>
+        <svg class="tab-wide" viewBox="0 0 688 264" role="img" aria-label="Tab excerpt">
+          <g stroke="var(--edge)" stroke-width="1.5"><line x1="6" y1="22" x2="681" y2="22"/><line x1="6" y1="66" x2="681" y2="66"/><line x1="6" y1="110" x2="681" y2="110"/><line x1="6" y1="154" x2="681" y2="154"/><line x1="6" y1="198" x2="681" y2="198"/><line x1="6" y1="242" x2="681" y2="242"/></g><rect x="7.5" y="23" width="40" height="218" fill="var(--panel)"/><g stroke="currentColor"><line x1="6" y1="22" x2="6" y2="242" stroke-width="1.5"/><line x1="368" y1="22" x2="368" y2="242" stroke-width="1.5"/><line x1="674" y1="22" x2="674" y2="242" stroke-width="1.5"/><line x1="681" y1="22" x2="681" y2="242" stroke-width="3.2"/></g>
+          <g font-family="'Source Serif 4',Georgia,serif" font-weight="700" font-size="40" text-anchor="middle" dominant-baseline="central" fill="currentColor"><text x="27" y="66.0">T</text><text x="27" y="132.0">A</text><text x="27" y="198.0">B</text></g>
+          <g class="tabnum" style="font-size:40px;stroke-width:8px"><text x="88" y="242">3</text><text x="138" y="198">0</text><text x="190" y="198">1</text><text x="240" y="198">2</text><text x="292" y="154">0</text><text x="342" y="154">2</text><text x="394" y="110">0</text><text x="444" y="154">2</text><text x="496" y="154">0</text><text x="546" y="198">2</text><text x="598" y="198">0</text><text x="648" y="242">3</text></g>
+        </svg>
+      </figure>
+      <div class="push">
+        <div class="met">
+          <span class="tempocol"><span class="tempo"><span class="bpm num">72</span><span class="u">BPM<br>Eighths</span></span><span class="click" role="img" aria-label="Click on, beat 2"><i class="acc"></i><i class="hit"></i><i></i><i></i></span></span>
+          <button class="passes">Log clean pass <span class="dots" role="img" aria-label="2 of 3 clean passes"><i class="ok"><svg aria-hidden="true"><use href="#i-check"/></svg></i><i class="ok"><svg aria-hidden="true"><use href="#i-check"/></svg></i><i></i></span></button>
+        </div>
+        <div class="row2"><button class="btn primary nextb"><span>Next stage</span><small>Up next: Mechanism</small></button><button class="btn quiet"><span class="rec" aria-hidden="true"></span>Record take</button></div>
+      </div>
+    </section>
+
+    <section class="view" id="tuner">
+      <div class="grab" aria-hidden="true"></div><div class="sheethd"><div class="seg"><span class="on">Tuner</span><span>Metronome</span></div><button class="sheetdone">Done</button></div>
+      <div class="mid"><div class="upper"><div class="note"><span class="nl">D<sub>3</sub></span></div>
+      <p class="read">12 cents flat</p>
+      <div class="scale" id="scale"><i class="zone"></i><i class="nd" style="left:38%"></i></div>
+      <div class="strings"><span class="ok">E<small>2</small><svg aria-hidden="true"><use href="#i-check"/></svg></span><span class="ok">A<small>2</small><svg aria-hidden="true"><use href="#i-check"/></svg></span><span class="cur">D<small>3</small></span><span>G<small>3</small></span><span>B<small>3</small></span><span>E<small>4</small></span></div>
+      </div><div class="lower"><div class="foot"><div><p class="grp">Tuning</p><button class="set"><span><b>Standard</b></span><svg aria-hidden="true"><use href="#i-down"/></svg></button></div><div><p class="grp">Pitch</p><button class="set"><span><b class="num">A4 = 440 Hz</b></span><svg aria-hidden="true"><use href="#i-down"/></svg></button></div></div></div></div>
+    </section>
+
+    <section class="view" id="metronome">
+      <div class="grab" aria-hidden="true"></div><div class="sheethd"><div class="seg"><span>Tuner</span><span class="on">Metronome</span></div><button class="sheetdone">Done</button></div>
+      <div class="mid"><div class="bigrow"><span class="bigc"><span class="tsig num" aria-label="4/4 time"><span>4</span><span>4</span></span><span class="big num">72</span></span></div>
+      <p class="bpml">BPM</p>
+      <div class="beats" role="img" aria-label="Beat 2 of 4, beat 1 accented"><i class="acc"></i><i class="hit"></i><i></i><i></i></div>
+      <div class="r2"><div><p class="grp">Time</p><div class="seg mini"><span>3/4</span><span class="on">4/4</span><span>6/8</span></div></div><div><p class="grp">Count-in</p><div class="seg mini words"><span class="on">On</span><span>Off</span></div></div></div>
+      <p class="grp">Tempo</p>
+      <div class="r3"><button class="num">−2</button><button>Tap</button><button class="num">+2</button></div>
+      <p class="grp">Subdivision</p>
+      <div class="r4">
+        <button><svg aria-hidden="true"><use href="#n-q"/></svg>Quarters</button>
+        <button class="on"><svg aria-hidden="true"><use href="#n-8"/></svg>Eighths</button>
+        <button><svg aria-hidden="true"><use href="#n-3"/></svg>Triplets</button>
+        <button><svg aria-hidden="true"><use href="#n-16"/></svg>Sixteenths</button>
+      </div></div>
+      <button class="btn primary full" style="margin-top:auto">Stop</button>
+    </section>
+  </div></main>
+
+  <nav class="tabs" aria-label="Sections"><div class="wrap">
+    <a href="#" id="nav-practice"><svg aria-hidden="true"><use href="#i-stand"/></svg>Practice</a>
+    <a href="#"><svg aria-hidden="true"><use href="#i-books"/></svg>Library</a>
+    <a href="#"><svg aria-hidden="true"><use href="#i-tab"/></svg>Tabs</a>
+  </div></nav>
+</div>
+
+<script>
+const q=new URLSearchParams(location.search);
+document.documentElement.dataset.theme=q.get('theme')||'light';
+const v=q.get('view')||'practice';
+document.getElementById(v).classList.add('on');
+if(v==='practice'){document.getElementById('nav-practice').setAttribute('aria-current','page')}
+else{document.querySelector('.app').classList.add('tools')}
+const sc=document.getElementById('scale');
+const b=document.createElement('i');b.className='base';sc.appendChild(b);
+for(let c=-50;c<=50;c+=5){if(c===5||c===-5)continue;const t=document.createElement('i');t.className='tk'+(c===0?' z':c%25===0?' m':c%10===0?'':' s');t.style.left=(50+c)+'%';sc.appendChild(t)}
+for(const [c,l] of [[-50,'−50'],[-25,'−25'],[0,'0'],[25,'+25'],[50,'+50']]){const s=document.createElement('span');s.className='lab';if(c===0)s.style.color='var(--ink)';s.style.left=(50+c)+'%';s.textContent=l;sc.appendChild(s)}
+</script>
+</body>
+</html>
