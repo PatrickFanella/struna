@@ -20,14 +20,14 @@ const withChat = process.argv.includes("--chat");
 mkdirSync(out, { recursive: true });
 const sock = process.env.SOCKET_PATH ?? `${process.env.XDG_RUNTIME_DIR}/guitar-room/http.sock`;
 const secret = readFileSync(join(homedir(), ".config/guitar-room/edge-secret"), "utf8").trim();
-const ORIGIN = "https://guitar.subcult.tv";
+const ORIGIN = "https://struna.subcult.tv";
 const CHUNK = 4 * 1024 * 1024;
 const logsDir = join(homedir(), "Work/Vaults/Ars Malefica/001 Projects/Threads/Guitar/Practice/Logs");
 const logsBefore = readdirSync(logsDir).sort().join("|");
 
 function viaSocket(method: string, path: string, headers: Record<string, string>, body?: Buffer): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
   return new Promise((ok, fail) => {
-    const h: Record<string, string> = { ...headers, host: "guitar.subcult.tv", "x-edge-secret": secret, "remote-user": "onnwee" };
+    const h: Record<string, string> = { ...headers, host: "struna.subcult.tv", "x-edge-secret": secret, "remote-user": "onnwee" };
     // Open-ended ranges on big media are answered in chunks, as a browser's follow-up requests would be.
     const r = /^bytes=(\d+)-$/.exec(h.range ?? "");
     if (r) h.range = `bytes=${r[1]}-${Number(r[1]) + CHUNK - 1}`;

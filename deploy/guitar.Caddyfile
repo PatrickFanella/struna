@@ -1,11 +1,16 @@
-# Guitar Room: guitar practice app with subscription-backed coach chat. Almaz forwards over SSH to a Unix socket on Kvant.
+# Struna (formerly Guitar Room): guitar practice app with subscription-backed coach chat. Almaz forwards over SSH to a Unix socket on Kvant.
 # The header_up placeholder is replaced at install with the contents of Kvant ~/.config/guitar-room/edge-secret; the app refuses
 # public-host requests without it, so a container on Almaz that reaches 172.20.0.1:34948 directly cannot skip Authelia.
-http://guitar.subcult.tv {
+http://struna.subcult.tv {
     import authelia
     header X-Robots-Tag "noindex, nofollow"
     reverse_proxy 172.20.0.1:34948 {
         header_up X-Edge-Secret "__EDGE_SECRET__"
         flush_interval -1
     }
+}
+
+# The old name sends people to the new one.
+http://guitar.subcult.tv {
+    redir https://struna.subcult.tv{uri} 302
 }

@@ -10,7 +10,7 @@ RuntimeDirectory=guitar-room
 RuntimeDirectoryMode=0700
 Environment=SOCKET_PATH=%t/guitar-room/http.sock
 Environment=EDGE_SECRET_FILE=%h/.config/guitar-room/edge-secret
-Environment=ALLOWED_HOSTS=guitar.subcult.tv
+Environment=ALLOWED_HOSTS=struna.subcult.tv,guitar.subcult.tv
 Environment=REQUIRE_USER=onnwee
 Environment=PATH=%h/.local/share/mise/shims:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=%h/.local/share/mise/shims/node server/index.ts
