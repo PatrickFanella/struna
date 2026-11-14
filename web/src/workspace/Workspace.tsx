@@ -3,12 +3,18 @@ import { createPortal } from "react-dom";
 
 import { api } from "../api.ts";
 import { ChatPanel } from "../chat/Chat.tsx";
+import { EpubView } from "../library/EpubView.tsx";
 import { type LibItem, paneItem } from "../library/item.ts";
 import { VideoView } from "../library/VideoView.tsx";
+import { hostOf, webUrl, youtubeEmbed, youtubeId } from "../materials/item.ts";
+import { TextView } from "../materials/TextView.tsx";
+import { useApp } from "../mode.ts";
 import type { PaneItem } from "../practice/Material.tsx";
 import { PdfView } from "../practice/PdfView.tsx";
 import { TabPlayer } from "../tabs/TabPlayer.tsx";
-import { Finder, libraryContent } from "./Finder.tsx";
+import { Finder, type FinderMode, libraryContent } from "./Finder.tsx";
+
+export { materialPane } from "../materials/item.ts";
 
 export type PaneContent =
   | { type: "file"; item: PaneItem }
@@ -24,7 +30,10 @@ export const pane = (content: PaneContent): PaneState => ({ id: newId(), content
 export function paneShort(c: PaneContent): string {
   if (c.type === "coach") return "Coach";
   if (c.type === "tab") return "Tab";
-  return c.item.kind === "pdf" ? "Sheet music" : c.item.kind === "video" ? "Video" : c.item.kind === "audio" ? "Audio" : c.item.label;
+  const k = c.item.kind;
+  if (k === "tabfile") return "Tab";
+  if (k === "link") return c.item.youtube ? "Video" : "Link";
+  return k === "pdf" ? "Sheet music" : k === "video" ? "Video" : k === "audio" ? "Audio" : c.item.label;
 }
 
 export function paneTitle(c: PaneContent): string {
@@ -36,15 +45,54 @@ function slotsFor(width: number): number {
   return width >= 1240 ? 3 : width >= 680 ? 2 : 1;
 }
 
-function FileBody({ item, onOpen, open }: { item: PaneItem; onOpen: (c: PaneContent) => void; open: Set<string> }) {
-  if (item.missing) return <p className="matnote">Material missing: {item.note ?? item.label}. Check the link in the block note.</p>;
+/** A web link: a YouTube video plays here, from the address that sets no cookies; anything else opens in a new tab. */
+function LinkBody({ item }: { item: PaneItem }) {
+  const url = webUrl(item.url);
+  const yt = youtubeId(item.youtube);
+  if (!url && !yt) return <p className="matnote">This link has no web address.</p>;
+  return (
+    <div className="panescroll linkpane">
+      {yt && (
+        <div className="ytframe">
+          <iframe src={youtubeEmbed(yt)} title={item.label} loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
+        </div>
+      )}
+      <div className="linkcard">
+        {!yt && <p className="linktitle">{item.label}</p>}
+        {item.note && <p className="matnote">{item.note}</p>}
+        {url && (
+          <p className="linkacts">
+            <a className={yt ? "linkbtn" : "btn outline"} href={url} target="_blank" rel="noreferrer noopener">{yt ? "Open on YouTube" : "Open in a new tab"}</a>
+            <span className="linkhost">{hostOf(url)}</span>
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** What a pane shows for a file, a link or a tab file. Also the body of the Materials screen's viewer. */
+export function FileBody({ item, onOpen, open }: { item: PaneItem; onOpen?: (c: PaneContent) => void; open?: Set<string> }) {
+  const generic = useApp().mode === "generic";
+  if (item.missing) return <p className="matnote">Material missing: {item.note ?? item.label}. {generic ? "The plan names a file that is not in your materials. Add it, or ask the coach to fix the plan." : "Check the link in the block note."}</p>;
+  if (item.kind === "link") return <LinkBody item={item} />;
+  if (item.kind === "image" && item.src) {
+    return (
+      <div className="panescroll imgpane">
+        <img src={item.src} alt={item.label} />
+      </div>
+    );
+  }
+  if (item.kind === "text" && item.src) return <TextView src={item.src} label={item.label} />;
+  if (item.kind === "tabfile" && item.src) return <TabPlayer src={item.src} title={item.label} />;
+  if (item.kind === "epub" && item.src) return <EpubView src={item.src} storageKey={item.key} />;
   if (item.kind === "tg") return <p className="matnote">Export to Guitar Pro to view here. This is a TuxGuitar file ({item.note ?? item.label}).</p>;
   if (item.kind === "pdf" && item.src) return <PdfView src={item.src} storageKey={item.key} />;
   if ((item.kind === "video" || item.kind === "audio") && item.src) {
     return (
       <div className="panescroll">
         <VideoView src={item.src} storageKey={item.libId ?? item.key} audioOnly={item.kind === "audio"} poster={item.poster}>
-          {item.libId && <Companions libId={item.libId} onOpen={onOpen} open={open} />}
+          {item.libId && onOpen && <Companions libId={item.libId} onOpen={onOpen} open={open ?? new Set()} />}
         </VideoView>
       </div>
     );
@@ -116,7 +164,9 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   const [tall, setTall] = useState(false);
   const [focus, setFocus] = useState(0);
   const [menu, setMenu] = useState<Menu>(null);
-  const [finder, setFinder] = useState<{ mode: "library" | "tabs"; at: number | "add" } | null>(null);
+  const [finder, setFinder] = useState<{ mode: FinderMode; at: number | "add" } | null>(null);
+  const app = useApp();
+  const generic = app.mode === "generic";
 
   useEffect(() => {
     const el = box.current;
@@ -191,20 +241,24 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   const shown = panes.slice(start, start + slots);
   // The coach is a narrow fixed column; the sheet or tab gets the largest share, the video less.
   const column = (c: PaneContent) =>
-    slots === 1 ? "minmax(0, 1fr)" : c.type === "coach" ? "minmax(260px, 300px)" : c.type === "file" && (c.item.kind === "video" || c.item.kind === "audio") ? "minmax(0, 0.85fr)" : "minmax(0, 1.4fr)";
+    slots === 1 ? "minmax(0, 1fr)" : c.type === "coach" ? "minmax(260px, 300px)" : c.type === "file" && (c.item.kind === "video" || c.item.kind === "audio" || (c.item.kind === "link" && c.item.youtube)) ? "minmax(0, 0.85fr)" : "minmax(0, 1.4fr)";
   const stacked = tall && shown.length === 2;
   const openKeys = new Set(panes.flatMap((p) => (p.content.type === "file" ? [p.content.item.key] : [])));
 
   const menuBody = (at: number | "add") => (
     <div className="panemenu" role="menu">
       <button role="menuitem" onClick={() => open({ type: "coach" }, at)}>Coach</button>
-      {materials.length > 0 && <p className="grp">Block material</p>}
+      {materials.length > 0 && <p className="grp">{generic ? "From your plan" : "Block material"}</p>}
       {materials.map((m) => (
         <button key={m.key} role="menuitem" onClick={() => open({ type: "file", item: m }, at)}>{m.label}{m.missing ? " (missing)" : ""}</button>
       ))}
       <p className="grp">Find</p>
-      <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "library", at }))}>A lesson, sheet or book…</button>
-      <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "tabs", at }))}>A Guitar Pro tab…</button>
+      {generic ? (
+        <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "materials", at }))}>From your materials…</button>
+      ) : (
+        <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "library", at }))}>A lesson, sheet or book…</button>
+      )}
+      {(!generic || app.sections.includes("tabs")) && <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "tabs", at }))}>A Guitar Pro tab…</button>}
     </div>
   );
 

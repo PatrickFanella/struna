@@ -1,0 +1,43 @@
+# Example user unit for the generic mode. Copy it to ~/.config/systemd/user/, replace the
+# placeholders, then: systemctl --user daemon-reload && systemctl --user enable --now guitar-room-generic
+#
+#   CHECKOUT      the folder holding this repository, after `pnpm install && pnpm build`
+#   STUDIO        the player's studio folder (created at start); one player per unit
+#   NODE          the full path of Node 24 or later (`command -v node`)
+#
+# It listens on loopback TCP only, with no login of its own: anyone who can reach the port can
+# use the coach on this account's Claude and ChatGPT subscriptions and write to the studio folder.
+# Keep it on 127.0.0.1. To reach it from another device, put a reverse proxy with its own login in
+# front, add the public name to ALLOWED_HOSTS, and see the README for REQUIRE_USER,
+# EDGE_SECRET_FILE and SOCKET_PATH.
+#
+# The `claude` and `codex` CLIs must be signed in for this account and on PATH (or set CLAUDE_BIN
+# and CODEX_BIN). ffmpeg is needed only to play videos that are not MP4.
+
+[Unit]
+Description=Guitar Room, generic mode (practice app with a coach)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=CHECKOUT
+Environment=NODE_ENV=production
+Environment=GUITAR_MODE=generic
+Environment="GUITAR_HOME=STUDIO"
+Environment=HOST=127.0.0.1
+Environment=PORT=5184
+# Optional; remove the leading # to use them.
+#Environment="GUITAR_LIBRARY_DIRS=/path/to/lessons:/path/to/sheet music"
+#Environment="GUITAR_TABS_DIR=/path/to/guitar pro files"
+#Environment=GUITAR_TIMEZONE=Europe/Berlin
+#Environment=GUITAR_COACH_WEB=0
+#Environment="GUITAR_APP_NAME=Guitar Room"
+#Environment=ALLOWED_HOSTS=guitar.example.org
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=NODE server/index.ts
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=default.target

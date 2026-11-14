@@ -2,6 +2,11 @@ import type { Stage } from "../types.ts";
 
 export const SHORT: Record<string, string> = { target: "Target", prepare: "Prepare", vocabulary: "Vocabulary", mechanism: "Mechanism", music: "Music", review: "Review" };
 
+/** The short name under the bar and in "Up next": the fixed word in personal mode, the plan's own title otherwise. */
+export function stageShort(s: Stage): string {
+  return (s.instruction === undefined ? SHORT[s.key] : undefined) ?? s.title;
+}
+
 export function StageBar({ stages, current, progress }: { stages: Stage[]; current: number; progress: number }) {
   const pct = Math.round(Math.min(1, Math.max(0, progress)) * 100);
   return (
@@ -13,7 +18,7 @@ export function StageBar({ stages, current, progress }: { stages: Stage[]; curre
       </div>
       <div className="stagelabels" aria-hidden="true">
         {stages.map((s, i) => (
-          <span key={s.key} className={i === current ? "cur" : ""} style={{ flex: s.minutes }}>{i < current ? "" : SHORT[s.key]}</span>
+          <span key={s.key} className={i === current ? "cur" : ""} style={{ flex: s.minutes }}>{i < current ? "" : stageShort(s)}</span>
         ))}
       </div>
     </>

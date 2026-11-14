@@ -16,7 +16,7 @@ export type SessionType = "decode" | "connect" | "vary" | "prove";
 
 export const LOG_NAME = /^Practice Log - (\d{4}-\d{2}-\d{2})(?: \((\d+)\))?\.md$/;
 
-function value(body: string, label: string): string {
+export function value(body: string, label: string): string {
   const esc = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`^\\s*-\\s*\\*\\*${esc}:\\*\\*[ \\t]*(.*)$`, "mi").exec(body)?.[1]?.trim() ?? "";
 }

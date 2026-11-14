@@ -1,0 +1,105 @@
+/* Generic mode: the Materials screen and the pane bodies for images, text, links and tab files.
+   Built from the round 10 tokens and the Library screen's classes. */
+
+/* Screen header: the title with Add and Find online beside it. */
+.mathd{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.mathd h1{margin:0}
+.mathdacts{display:flex;gap:8px}
+.mathdacts .btn{height:48px;padding:0 18px;font-size:var(--fs-label)}
+.materials{position:relative}
+.materials.dragging{outline:2px dashed var(--pencil);outline-offset:6px;border-radius:var(--r)}
+.dropnote{margin:0;padding:12px 14px;border-radius:var(--r);background:var(--wash);font-size:var(--fs-label);font-weight:600}
+
+/* Add and Find online panels. */
+.addpanel{display:flex;flex-direction:column;gap:12px;padding:12px;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r)}
+.addpanel .sheethd{margin:0}
+.addpanel .srcnote{margin:0}
+.addpanel .notice{margin:0}
+.addform{display:flex;flex-direction:column;gap:12px}
+.addform .btn,.findform .btn{height:48px;font-size:var(--fs-label)}
+.pastebox{font-family:var(--mono);font-size:15px;min-height:160px;white-space:pre;overflow:auto}
+.tick{display:flex;align-items:flex-start;gap:10px;font-size:var(--fs-meta);line-height:1.4;color:var(--graphite);cursor:pointer}
+.tick input{flex:none;width:22px;height:22px;margin:0;accent-color:var(--ink)}
+@media (max-width:479px){.addpanel .seg button{font-size:14px;padding:0 2px}.addpanel .sheetdone{padding:0 12px}}
+
+/* Upload progress, one line per file. */
+.uploads{display:flex;flex-direction:column;gap:4px;padding:10px 12px;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r)}
+.uploads ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.upload{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;font-size:var(--fs-meta)}
+.upname{font-weight:600;overflow-wrap:anywhere}
+.upstate{color:var(--graphite)}
+.upload.sending .upstate{color:var(--ink)}
+.upload.failed .upstate{grid-column:1 / -1;color:var(--ink)}
+.upload.failed .upname::before{content:"";display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:var(--pencil)}
+.upload progress{grid-column:1;grid-row:2;width:100%;height:8px;appearance:none;-webkit-appearance:none;border:0;border-radius:4px;background:var(--empty);overflow:hidden}
+.upload progress::-webkit-progress-bar{background:var(--empty)}
+.upload progress::-webkit-progress-value{background:var(--pencil)}
+.upload progress::-moz-progress-bar{background:var(--pencil)}
+.upload.sending .upstate{grid-column:2;grid-row:1 / span 2}
+.uploads .linkbtn{font-size:var(--fs-meta);padding:4px 0 0}
+
+/* The list: a row opens the item; its actions sit on a line below so they stay reachable on a phone. */
+.matitem{flex-wrap:wrap;gap:0 12px;padding-bottom:6px}
+.matitem .itemopen{flex:1 1 100%;padding-bottom:6px}
+.matitem .itemfacts{flex-wrap:wrap;gap:2px 10px}
+.itemnote{font-size:var(--fs-meta);color:var(--graphite);line-height:1.35;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+.inplan{color:var(--ink);font-weight:600}
+.inplan::before{content:"";display:inline-block;width:11px;height:11px;margin-right:5px;vertical-align:-1px;background:var(--ink);-webkit-mask:var(--chk) center/contain no-repeat;mask:var(--chk) center/contain no-repeat}
+.matacts{display:flex;flex-wrap:wrap;align-items:center;gap:0 18px;padding-left:76px}
+.matacts .linkbtn,.confirm .linkbtn{font-size:var(--fs-meta);padding:8px 0;min-height:40px}
+.confirm{display:inline-flex;flex-wrap:wrap;align-items:center;gap:0 14px;font-size:var(--fs-meta)}
+.vacts .confirm{font-size:var(--fs-label)}
+.vacts .confirm .linkbtn{font-size:var(--fs-label)}
+@media (min-width:700px){.matacts{padding-left:100px}}
+@media (min-width:700px) and (pointer:fine){
+  .matitem{flex-wrap:nowrap;align-items:center;padding-bottom:0}
+  .matitem .itemopen{flex:1 1 auto;padding-bottom:8px}
+  .matacts{flex:none;padding-left:0;justify-content:flex-end;max-width:50%}
+}
+
+/* Empty state. */
+.matempty .instr{color:var(--ink)}
+.ways{margin:0 0 var(--sp);padding-left:1.3em;display:flex;flex-direction:column;gap:8px;font-size:var(--fs-label);line-height:1.4;max-width:38em}
+
+/* The viewer on the Materials screen shows the same bodies a pane does, at page width. */
+.matviewer .vacts a.linkbtn{padding:8px 0}
+.matbody{min-height:0}
+.matbody .panescroll{overflow:visible;padding:0}
+.matbody > .matnote{padding:0}
+.matbody .tabplayer{padding:0}
+.matbody .mdoc{padding:14px 16px;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r)}
+
+/* Pane bodies. */
+.imgpane img{display:block;max-width:100%;height:auto;margin:0 auto;border-radius:4px;background:#fff}
+.mdoc{font-size:var(--fs-label);line-height:1.5;max-width:46em;overflow-wrap:anywhere}
+.mdoc > :first-child{margin-top:0}
+.mdoc > :last-child{margin-bottom:0}
+.mdoc h1,.mdoc h2,.mdoc h3,.mdoc h4{font-family:var(--serif);font-weight:700;line-height:1.2;margin:1.2em 0 .4em}
+.mdoc h1{font-size:1.5em}.mdoc h2{font-size:1.25em}.mdoc h3,.mdoc h4{font-size:1.08em}
+.mdoc p,.mdoc ul,.mdoc ol,.mdoc pre,.mdoc table,.mdoc blockquote{margin:0 0 .8em}
+.mdoc ul,.mdoc ol{padding-left:1.4em}
+.mdoc li{margin:.2em 0}
+.mdoc a{color:var(--ink);text-underline-offset:3px}
+.mdoc blockquote{padding-left:12px;border-left:3px solid var(--rule);color:var(--graphite)}
+.mdoc hr{border:0;border-top:1px solid var(--rule);margin:1em 0}
+/* Tab and chord boxes are fenced text: fixed width, never wrapped, scrolled sideways when too long. */
+.mdoc pre{padding:10px 12px;background:var(--wash);border-radius:6px;overflow-x:auto;font-family:var(--mono);font-size:14px;line-height:1.35;white-space:pre;-webkit-overflow-scrolling:touch}
+.mdoc pre code{font-size:inherit}
+.mdoc.plain{max-width:none;margin:0;padding:10px 12px;background:var(--wash);border-radius:6px;overflow-x:auto;font-family:var(--mono);font-size:14px;line-height:1.35;white-space:pre}
+.matbody .mdoc.plain{background:var(--panel)}
+.mdoc table{border-collapse:collapse;display:block;overflow-x:auto}
+.mdoc th,.mdoc td{padding:4px 10px;border:1px solid var(--rule);text-align:left}
+@media (min-width:700px){.mdoc pre,.mdoc.plain{font-size:15px}}
+
+.linkpane{display:flex;flex-direction:column;gap:10px}
+.ytframe{position:relative;width:100%;aspect-ratio:16 / 9;max-height:70vh;background:#000;border-radius:6px;overflow:hidden}
+.ytframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.linkcard{display:flex;flex-direction:column;gap:8px}
+.linkcard .matnote{margin:0;padding:0}
+.linktitle{margin:0;font-family:var(--serif);font-weight:700;font-size:20px;line-height:1.25;overflow-wrap:anywhere}
+.linkacts{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:0}
+.linkacts .btn{height:48px;padding:0 18px;font-size:var(--fs-label);color:var(--ink);text-decoration:none}
+.linkacts a.linkbtn{padding:6px 0}
+.linkhost{font-size:var(--fs-meta);color:var(--graphite);overflow-wrap:anywhere}
+.findernone{padding:4px 14px 14px;margin:0}
+.matbody .linkcard .matnote{display:none}

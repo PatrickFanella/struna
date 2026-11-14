@@ -5,6 +5,9 @@ import { App } from "./App.tsx";
 import "./styles/tokens.css";
 import "./styles/components.css";
 import "./styles/app.css";
+import "./styles/generic.css";
+import "./styles/materials.css";
+import "./styles/coach.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

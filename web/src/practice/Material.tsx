@@ -4,8 +4,23 @@ import { Icon } from "../icons.tsx";
 import { VideoView } from "../library/VideoView.tsx";
 import { PdfView } from "./PdfView.tsx";
 
-/** Anything the material pane can show: a vault file from the block, or (Plan B) a library item. */
-export type PaneItem = { key: string; label: string; kind: "pdf" | "tg" | "video" | "audio" | "epub" | "other"; src: string | null; missing?: boolean; note?: string; libId?: string; poster?: string };
+/**
+ * Anything the material pane can show: a vault file from the block, a library item, or (generic
+ * mode) one of the player's materials. `tabfile` is a Guitar Pro or MusicXML file played from
+ * `src`; `link` is a web address in `url`, a YouTube video when `youtube` holds its id.
+ */
+export type PaneItem = {
+  key: string;
+  label: string;
+  kind: "pdf" | "tg" | "video" | "audio" | "epub" | "other" | "image" | "text" | "link" | "tabfile";
+  src: string | null;
+  missing?: boolean;
+  note?: string;
+  libId?: string;
+  poster?: string;
+  url?: string;
+  youtube?: string;
+};
 
 export function vaultSrc(path: string): string {
   return `/api/vault-file?path=${encodeURIComponent(path)}`;

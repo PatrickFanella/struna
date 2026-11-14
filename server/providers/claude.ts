@@ -3,25 +3,46 @@ import { type ChatEvent, type ChatRequest, jsonLines } from "./process.ts";
 
 export const VALIDATOR = "python3 .agents/skills/guitar-practice-coach/scripts/validate-practice-system.py";
 
+export type ClaudeOptions = {
+  /** The working directory: reads inside it need no permission. */
+  cwd: string;
+  /** The built-in tools the model may see. */
+  tools: string[];
+  /** Permission rules; in dontAsk mode anything else that needs permission is denied. */
+  allowed: string[];
+  /** Extra readable folders. */
+  addDirs: string[];
+  timeoutMs?: number | undefined;
+};
+
+/** The owner's vault: read the vault and the media folder, edit only the Guitar thread, run only the coach's validator. */
+export function personalClaude(o: { vaultRoot: string; threadRel: string; mediaRoot: string }): ClaudeOptions {
+  return {
+    cwd: o.vaultRoot,
+    tools: ["Read", "Glob", "Grep", "Edit", "Write", "Bash"],
+    allowed: [`Edit(${o.threadRel}/**)`, `Write(${o.threadRel}/**)`, `Bash(${VALIDATOR}:*)`],
+    addDirs: [o.mediaRoot],
+  };
+}
+
 /**
- * Claude Code in print mode, signed in with a Claude.ai subscription, run from the vault root.
- * Tools: read the vault and the media folder, edit only the Guitar thread, run only the coach's validator.
- * No user or project settings (hooks, plugins, extra permissions), no MCP servers, no web tools.
+ * Claude Code in print mode, signed in with a Claude.ai subscription.
+ * No user or project settings (hooks, plugins, extra permissions) and no MCP servers.
+ * There are no Read/Glob/Grep allow rules: reads inside the working directory and --add-dir need no
+ * permission, and in dontAsk mode a read anywhere else (the home folder, keys, tokens) is denied.
  */
-export function claudeArgs(o: { system: string; threadId?: string | undefined; model?: string | undefined; vaultRoot: string; threadRel: string; mediaRoot: string }): string[] {
+export function claudeCommand(o: { system: string; threadId?: string | undefined; model?: string | undefined; options: Pick<ClaudeOptions, "tools" | "allowed" | "addDirs"> }): string[] {
   const args = [
     "-p",
     "--output-format", "stream-json",
     "--verbose",
     "--include-partial-messages",
-    "--tools", "Read,Glob,Grep,Edit,Write,Bash",
-    // No Read/Glob/Grep allow rules: reads inside the working directory and --add-dir need no
-    // permission, and in dontAsk mode a read anywhere else (onnwee's home, keys, tokens) is denied.
-    "--allowedTools", [`Edit(${o.threadRel}/**)`, `Write(${o.threadRel}/**)`, `Bash(${VALIDATOR}:*)`].join(","),
+    "--tools", o.options.tools.join(","),
+    "--allowedTools", o.options.allowed.join(","),
     "--permission-mode", "dontAsk",
     "--setting-sources", "",
     "--strict-mcp-config",
-    "--add-dir", o.mediaRoot,
+    ...o.options.addDirs.flatMap((d) => ["--add-dir", d]),
     "--append-system-prompt", o.system,
   ];
   if (o.threadId) args.push("--resume", o.threadId);
@@ -29,11 +50,15 @@ export function claudeArgs(o: { system: string; threadId?: string | undefined; m
   return args;
 }
 
-export async function* claudeChat(req: ChatRequest): AsyncGenerator<ChatEvent> {
+export function claudeArgs(o: { system: string; threadId?: string | undefined; model?: string | undefined; vaultRoot: string; threadRel: string; mediaRoot: string }): string[] {
+  return claudeCommand({ system: o.system, threadId: o.threadId, model: o.model, options: personalClaude(o) });
+}
+
+export async function* claudeChat(req: ChatRequest, options: ClaudeOptions): AsyncGenerator<ChatEvent> {
   const lines = jsonLines(
     config.claudeBin,
-    claudeArgs({ system: req.system, threadId: req.threadId, model: config.claudeModel, vaultRoot: config.vaultRoot, threadRel: config.threadRel, mediaRoot: config.mediaRoot }),
-    { cwd: config.vaultRoot, input: req.prompt, signal: req.signal, timeoutMs: config.chatTimeoutMs },
+    claudeCommand({ system: req.system, threadId: req.threadId, model: config.claudeModel, options }),
+    { cwd: options.cwd, input: req.prompt, signal: req.signal, timeoutMs: options.timeoutMs ?? config.chatTimeoutMs },
   );
 
   let streamed = false;

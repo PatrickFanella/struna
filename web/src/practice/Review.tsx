@@ -2,12 +2,12 @@ import { useState } from "react";
 
 import { api } from "../api.ts";
 import { SUBDIVISIONS } from "../audio/metronome.ts";
-import { blockLogName, firstSentence, type Today } from "../types.ts";
+import { blockLogName, firstSentence, sessionKind, type Today } from "../types.ts";
 import type { SessionState } from "./Session.tsx";
 
 type Recall = "memory" | "cue map" | "page-dependent";
 
-function Choice<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: [T, string][]; onChange: (v: T) => void }) {
+export function Choice<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: [T, string][]; onChange: (v: T) => void }) {
   return (
     <div className="field">
       <p className="grp">{label}</p>
@@ -20,7 +20,7 @@ function Choice<T extends string>({ label, value, options, onChange }: { label: 
   );
 }
 
-function Text({ label, value, onChange, area, num, placeholder }: { label: string; value: string; onChange: (v: string) => void; area?: boolean; num?: boolean; placeholder?: string }) {
+export function Text({ label, value, onChange, area, num, placeholder }: { label: string; value: string; onChange: (v: string) => void; area?: boolean; num?: boolean; placeholder?: string }) {
   return (
     <label className="field">
       <span className="grp">{label}</span>
@@ -66,7 +66,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
     setDrafting(true);
     setError("");
     try {
-      const stages = today.stages[session.kind].slice(0, Math.max(session.furthest ?? session.stage, session.stage) + 1).map((s) => s.title);
+      const stages = sessionKind(today, session.kind).stages.slice(0, Math.max(session.furthest ?? session.stage, session.stage) + 1).map((s) => s.title);
       const { draft } = await api.post<{ draft: Partial<Record<"target" | "improvement" | "failure" | "next" | "observation", string>> }>("/api/coach/review", {
         facts: {
           material: f.material,

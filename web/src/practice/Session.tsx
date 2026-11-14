@@ -7,16 +7,20 @@ import { metronome, type Subdivision } from "../audio/metronome.ts";
 import { type Take, TakeRecorder } from "../audio/record.ts";
 import { type HelperState, type Suggestion, tempoHelper } from "../audio/tempo.ts";
 import { useMetronome } from "../audio/useMetronome.ts";
-import { blockName, type Stage, type Today, todayLine } from "../types.ts";
+import { useApp } from "../mode.ts";
+import { blockName, sessionKind, type Stage, type Today, todayLine } from "../types.ts";
 import type { PaneItem } from "./Material.tsx";
 import { type PaneState, Workspace } from "../workspace/Workspace.tsx";
-import { SHORT, StageBar } from "./StageBar.tsx";
+import { StageBar, stageShort } from "./StageBar.tsx";
 import { TempoRow } from "./TempoRow.tsx";
 
 export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
 export type SessionState = {
-  kind: "full" | "floor";
+  /** The session kind's id: `full` or `floor` in personal mode, the plan's own ids in generic mode. */
+  kind: string;
   cross: string | null;
+  /** Epoch ms when the session began, for the minutes in the generic review. */
+  startedAt?: number;
   stage: number;
   /** Milliseconds spent on the current stage before the last resume. */
   elapsedBefore: number;
@@ -84,6 +88,8 @@ function useWakeLock() {
 }
 
 function instruction(stage: Stage, today: Today, cross: string | null): string {
+  // Generic mode: the server sends the instruction whole. An extra session keeps the stage's own task.
+  if (stage.instruction !== undefined) return cross ? `${cross.replace(/[.;]$/, "")}. ${stage.output}` : stage.instruction;
   const week = today.block?.weeks[today.position.week - 1];
   if (stage.key === "target") return today.next.text;
   if (cross && stage.weekField) return cross;
@@ -119,8 +125,12 @@ export function Session({ today, state, setState, items, material, onFinish, clo
 }) {
   useWakeLock();
   const m = useMetronome();
-  const stages = today.stages[state.kind];
-  const stage = stages[state.stage]!;
+  const generic = useApp().mode === "generic";
+  const kind = sessionKind(today, state.kind);
+  const stages = kind.stages;
+  // The coach may shorten the plan while a session runs; stay on its last stage then.
+  const at = Math.min(state.stage, stages.length - 1);
+  const stage = stages[at]!;
   const total = stage.minutes * 60_000;
   const [now, setNow] = useState(Date.now());
   const elapsed = state.elapsedBefore + (state.resumedAt ? now - state.resumedAt : 0);
@@ -214,11 +224,11 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   const [guideState, setGuideState] = useState<"idle" | "loading" | { error: string }>("idle");
   const [guideTry, setGuideTry] = useState(0);
   const stageText = instruction(stage, today, state.cross);
-  const guide = state.guides?.[state.stage];
+  const guide = state.guides?.[at];
   useEffect(() => {
-    if (!guideOn || guide) return void setGuideState("idle");
+    if (generic || !guideOn || guide) return void setGuideState("idle");
     const abort = new AbortController();
-    const at = state.stage;
+    const stageAt = at;
     setGuideState("loading");
     fetch("/api/coach/guide", {
       method: "POST",
@@ -229,7 +239,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error ?? r.statusText);
-        setState((s) => ({ ...s, guides: { ...(s.guides ?? {}), [at]: d.text } }));
+        setState((s) => ({ ...s, guides: { ...(s.guides ?? {}), [stageAt]: d.text } }));
         setGuideState("idle");
       })
       .catch((e) => {
@@ -242,22 +252,32 @@ export function Session({ today, state, setState, items, material, onFinish, clo
     setGuideOn(!guideOn);
   };
   const left = total - elapsed;
-  const nextStage = stages[state.stage + 1];
+  const nextStage = stages[at + 1];
   const b = today.block!;
   return (
     <div className="session">
       <div className="sessiontop">
         <div className="sessionline">
-          <span>{blockName(b)}</span>
-          <span>{state.cross ? "Cross-training day (not counted)" : todayLine(today)}</span>
-          <span>{state.kind === "full" ? "45-minute session" : "15-minute session"}</span>
+          <span>{generic ? b.title : blockName(b)}</span>
+          {generic ? (
+            <>
+              <span>{state.cross ? "Extra session (not counted)" : (today.line ?? todayLine(today))}</span>
+              <span>{kind.label}</span>
+            </>
+          ) : (
+            <>
+              <span>{state.cross ? "Cross-training day (not counted)" : todayLine(today)}</span>
+              <span>{state.kind === "full" ? "45-minute session" : "15-minute session"}</span>
+            </>
+          )}
           <span className="addslot" ref={setAddSlot} />
         </div>
-        <StageBar stages={stages} current={state.stage} progress={elapsed / total} />
+        <StageBar stages={stages} current={at} progress={elapsed / total} />
         <div className="stagerow">
           <div className="stagetext">
-            <h1><span className="stagecount num">{state.stage + 1}/{stages.length}</span> {stage.title}</h1>
+            <h1><span className="stagecount num">{at + 1}/{stages.length}</span> {stage.title}</h1>
             <Instruction key={state.stage} text={stageText} />
+            {!generic && (
             <p className="coachline" aria-live="polite">
               <span className="coachtag">Coach</span>
               {!guideOn ? (
@@ -271,6 +291,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
               )}
               <button className="linkbtn" onClick={toggleGuide}>{guideOn ? "Turn off" : "Turn on"}</button>
             </p>
+            )}
           </div>
           <button className={`clock${state.resumedAt ? "" : " waiting"}`} onClick={pause} aria-label={state.resumedAt ? "Pause the stage timer" : elapsed ? "Resume the stage timer" : "Start the stage timer"}>
             <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
@@ -279,7 +300,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
           {state.stage > 0 && <button className="btn quiet backb" onClick={back} disabled={Boolean(take) || recording !== null}>Back</button>}
           <button className="btn primary nextb" onClick={next} disabled={Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
             <span>{nextStage ? "Next stage" : "Finish"}</span>
-            <small>{nextStage ? `Up next: ${SHORT[nextStage.key]}` : "Write the log"}</small>
+            <small>{nextStage ? `Up next: ${stageShort(nextStage)}` : "Write the log"}</small>
           </button>
         </div>
       </div>
@@ -309,8 +330,8 @@ export function Session({ today, state, setState, items, material, onFinish, clo
         <div className="takebox" role="dialog" aria-label="Save this take">
           <p className="grp">Save this take (<span className="num">{Math.round(take.seconds)}</span> s)</p>
           <div className="seg mini words" role="radiogroup" aria-label="Take label">
-            {(["baseline", "weekly", "midpoint", "final"] as const).map((l) => (
-              <button key={l} role="radio" aria-checked={takeLabel === l} className={takeLabel === l ? "on" : ""} onClick={() => setTakeLabel(l)}>{l[0]!.toUpperCase() + l.slice(1)}</button>
+            {(generic ? (["baseline", "weekly", "final"] as const) : (["baseline", "weekly", "midpoint", "final"] as const)).map((l) => (
+              <button key={l} role="radio" aria-checked={takeLabel === l} className={takeLabel === l ? "on" : ""} onClick={() => setTakeLabel(l)}>{generic && l === "weekly" ? "Progress" : l[0]!.toUpperCase() + l.slice(1)}</button>
             ))}
           </div>
           <input className="input" placeholder="Purpose, in one line" value={purpose} onChange={(e) => setPurpose(e.target.value)} aria-label="Purpose" />

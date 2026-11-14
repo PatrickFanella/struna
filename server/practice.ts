@@ -119,16 +119,8 @@ export function parseReview(input: any): SessionReview {
   return r;
 }
 
-export function practiceRoutes(paths: Paths & { threadDir: string; timeZone: string }, db: DatabaseSync): void {
-  route("GET", "/api/today", async (_req, res) => send(res, 200, await today(paths, db)));
-
-  route("PUT", "/api/week-override", async (req, res) => {
-    const { week } = await readJson(req);
-    if (week !== null && !(Number.isInteger(week) && week >= 1 && week <= 4)) throw new HttpError(400, "week must be 1 to 4 or null");
-    setSetting(db, "weekOverride", week === null ? null : String(week));
-    send(res, 200, { ok: true });
-  });
-
+/** The last clean tempo per fragment; both modes use these two routes. */
+export function tempoRoutes(db: DatabaseSync): void {
   route("GET", "/api/tempos", (_req, res) => send(res, 200, db.prepare("SELECT fragment, bpm, subdivision, updated FROM tempos ORDER BY updated DESC").all()));
 
   route("PUT", "/api/tempos", async (req, res) => {
@@ -141,6 +133,19 @@ export function practiceRoutes(paths: Paths & { threadDir: string; timeZone: str
     ).run(f, b, String(subdivision ?? "").slice(0, 50), new Date().toISOString());
     send(res, 200, { ok: true });
   });
+}
+
+export function practiceRoutes(paths: Paths & { threadDir: string; timeZone: string }, db: DatabaseSync): void {
+  route("GET", "/api/today", async (_req, res) => send(res, 200, await today(paths, db)));
+
+  route("PUT", "/api/week-override", async (req, res) => {
+    const { week } = await readJson(req);
+    if (week !== null && !(Number.isInteger(week) && week >= 1 && week <= 4)) throw new HttpError(400, "week must be 1 to 4 or null");
+    setSetting(db, "weekOverride", week === null ? null : String(week));
+    send(res, 200, { ok: true });
+  });
+
+  tempoRoutes(db);
 
   route("POST", "/api/sessions", async (req, res) => {
     const review = parseReview(await readJson(req));

@@ -7,7 +7,7 @@ import { cap } from "./Session.tsx";
 
 export function Start({ today, onStart, onTune, onCoach, onWeek }: {
   today: Today;
-  onStart: (kind: "full" | "floor", cross?: string) => void;
+  onStart: (kind: string, cross?: string) => void;
   onTune: () => void;
   onCoach: () => void;
   onWeek: (week: number | null) => void;

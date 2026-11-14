@@ -9,6 +9,12 @@ import { config } from "./config.ts";
 import { conversations } from "./conversations.ts";
 import { openDb } from "./db.ts";
 import { fail, guard, HttpError, match, NOINDEX, route, send } from "./http.ts";
+import { genericCoach } from "./generic/coach.ts";
+import { materialsRoutes } from "./generic/materials.ts";
+import { promptRoutes } from "./generic/prompts.ts";
+import { genericRoutes } from "./generic/routes.ts";
+import { ensureStudio, type Studio } from "./generic/studio.ts";
+import type { AppInfo } from "./generic/types.ts";
 import { practiceRoutes } from "./practice.ts";
 import { mediaRoutes } from "./library/media.ts";
 import { libraryRoutes } from "./library/routes.ts";
@@ -18,13 +24,27 @@ import { tabsRoutes } from "./tabs.ts";
 export const db = openDb(config.stateDir);
 
 route("GET", "/api/health", (_req, res) => send(res, 200, { ok: true }));
-practiceRoutes(config, db);
-recordingRoutes(config);
-chatRoutes(config, db, conversations(db));
-coachOnceRoutes(config, db);
-const tabs = tabsRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN }, db);
-libraryRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN, onScan: () => tabs.rescan() }, db);
-mediaRoutes(config, db);
+if (config.mode === "generic") {
+  // One studio folder instead of the vault: the profile, the plan, logs, materials and recordings.
+  await ensureStudio(config.home);
+  const studio: Studio = { home: config.home, db, timeZone: config.timeZone, libraryDirs: config.libraryDirs, web: config.coachWeb, appName: config.appName };
+  genericRoutes(studio, { tabs: Boolean(config.tabsDir) });
+  materialsRoutes(studio, { cacheDir: config.cacheDir });
+  recordingRoutes({ mediaRoot: config.home, timeZone: config.timeZone });
+  chatRoutes(genericCoach(studio), db, conversations(db));
+  if (config.tabsDir) tabsRoutes({ root: config.tabsDir, autoScan: !process.env.GUITAR_NO_SCAN }, db);
+} else {
+  const info: AppInfo = { mode: "personal", name: config.appName, sections: ["practice", "library", "tabs"], web: false, profile: true };
+  route("GET", "/api/app", (_req, res) => send(res, 200, info));
+  practiceRoutes(config, db);
+  recordingRoutes(config);
+  chatRoutes(config, db, conversations(db));
+  coachOnceRoutes(config, db);
+  const tabs = tabsRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN }, db);
+  libraryRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN, onScan: () => tabs.rescan() }, db);
+  mediaRoutes(config, db);
+}
+promptRoutes(db, config.mode);
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -82,6 +102,10 @@ if (import.meta.main) {
   const server = createServer(handle);
   const started = (where: string) => () => {
     console.log(`guitar-room on ${where}`);
+    if (config.mode === "generic") {
+      console.log(`  studio ${config.home}`);
+      return;
+    }
     console.log(`  vault ${config.practiceDir}`);
     console.log(`  media ${config.mediaRoot}`);
   };

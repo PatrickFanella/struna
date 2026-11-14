@@ -1,43 +1,78 @@
 import { useEffect, useState } from "react";
 
+import { CoachToasts } from "./chat/actions.tsx";
 import { Chat } from "./chat/Chat.tsx";
+import type { AppInfo } from "./generic.ts";
 import { Icon, IconSprite } from "./icons.tsx";
 import { Library } from "./library/Library.tsx";
+import { Materials } from "./materials/Materials.tsx";
+import { useAppLoaded } from "./mode.ts";
 import { Practice } from "./practice/Practice.tsx";
 import { Tabs } from "./tabs/Tabs.tsx";
 import { ToolsSheet } from "./tools/ToolsSheet.tsx";
 
-type Section = "practice" | "library" | "tabs";
-const SECTIONS: { id: Section; label: string; icon: "i-stand" | "i-books" | "i-tab" }[] = [
-  { id: "practice", label: "Practice", icon: "i-stand" },
-  { id: "library", label: "Library", icon: "i-books" },
-  { id: "tabs", label: "Tabs", icon: "i-tab" },
-];
+type Section = AppInfo["sections"][number];
+const SECTION: Record<Section, { label: string; icon: "i-stand" | "i-books" | "i-tab" }> = {
+  practice: { label: "Practice", icon: "i-stand" },
+  library: { label: "Library", icon: "i-books" },
+  materials: { label: "Materials", icon: "i-books" },
+  tabs: { label: "Tabs", icon: "i-tab" },
+};
 
-function sectionFromHash(): Section {
-  const h = location.hash.replace(/^#\/?/, "").split("/")[0];
-  return h === "library" || h === "tabs" ? h : "practice";
+/** The section the address names, when this server has it; Practice otherwise. */
+function sectionFromHash(hash: string, sections: readonly Section[]): Section {
+  const h = hash.replace(/^#\/?/, "").split("/")[0];
+  return sections.find((s) => s === h) ?? "practice";
 }
 
 export type Tool = "tuner" | "metronome";
 
 export function App() {
-  const [section, setSection] = useState<Section>(sectionFromHash);
+  const info = useAppLoaded();
+  const [hash, setHash] = useState(() => location.hash);
   const [tool, setTool] = useState<Tool | null>(null);
   const [chat, setChat] = useState(false);
+  const [unread, setUnread] = useState(false);
 
   useEffect(() => {
-    const on = () => setSection(sectionFromHash());
+    const on = () => setHash(location.hash);
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
   }, []);
+  // The coach panel asks to be opened (a prompt was sent from another screen) and reports replies that finished unseen.
+  useEffect(() => {
+    const open = () => setChat(true);
+    const mark = (e: Event) => {
+      const d = (e as CustomEvent<unknown>).detail;
+      setUnread(!(d === false || (typeof d === "object" && d !== null && (d as { unread?: unknown }).unread === false)));
+    };
+    addEventListener("guitar-room:coach-open", open);
+    addEventListener("guitar-room:coach-unread", mark);
+    return () => {
+      removeEventListener("guitar-room:coach-open", open);
+      removeEventListener("guitar-room:coach-unread", mark);
+    };
+  }, []);
+  useEffect(() => {
+    if (chat) setUnread(false);
+  }, [chat]);
+  useEffect(() => {
+    if (info) document.title = info.name;
+  }, [info]);
+
+  // Nothing is drawn until the server says which app this is, so the wrong sections never flash.
+  if (!info) return <div className="app"><IconSprite /></div>;
+  const generic = info.mode === "generic";
+  const section = sectionFromHash(hash, info.sections);
+  const SECTIONS = info.sections.map((id) => ({ id, ...SECTION[id] }));
+  const has = (s: Section) => info.sections.includes(s);
 
   return (
     <div className={`app${tool ? " tools" : ""}`}>
       <IconSprite />
       <header className="top">
         <div className="wrap">
-          <span className="name">Guitar Room</span>
+          <span className="name">{info.name}</span>
           <nav className="topnav" aria-label="Sections">
             {SECTIONS.map((s) => (
               <a key={s.id} href={`#${s.id}`} {...(section === s.id ? { "aria-current": "page" as const } : {})}>
@@ -54,6 +89,7 @@ export function App() {
             <button className="ib" aria-pressed={chat} onClick={() => setChat((c) => !c)}>
               <Icon id="i-chat" />
               Coach
+              {unread && !chat && <span className="unread" role="status" aria-label="New reply from the coach" />}
             </button>
           </span>
         </div>
@@ -64,20 +100,30 @@ export function App() {
           <section className={`view${section === "practice" && !tool ? " on" : ""}`} aria-label="Practice">
             <Practice openTool={setTool} closeTools={() => setTool(null)} openChat={() => setChat(true)} />
           </section>
-          <section className={`view${section === "library" && !tool ? " on" : ""}`} aria-label="Library">
-            <Library active={section === "library"} />
-          </section>
-          <section className={`view${section === "tabs" && !tool ? " on" : ""}`} aria-label="Tabs">
-            <Tabs active={section === "tabs"} />
-          </section>
+          {has("library") && (
+            <section className={`view${section === "library" && !tool ? " on" : ""}`} aria-label="Library">
+              <Library active={section === "library"} />
+            </section>
+          )}
+          {has("materials") && (
+            <section className={`view${section === "materials" && !tool ? " on" : ""}`} aria-label="Materials">
+              <Materials active={section === "materials"} />
+            </section>
+          )}
+          {has("tabs") && (
+            <section className={`view${section === "tabs" && !tool ? " on" : ""}`} aria-label="Tabs">
+              <Tabs active={section === "tabs"} />
+            </section>
+          )}
           {tool && <ToolsSheet tool={tool} onSwitch={setTool} onClose={() => setTool(null)} />}
         </div>
       </main>
 
       <Chat open={chat} onClose={() => setChat(false)} />
+      {generic && <CoachToasts />}
 
       <nav className="tabs" aria-label="Sections">
-        <div className="wrap">
+        <div className={SECTIONS.length === 3 ? "wrap" : `wrap n${SECTIONS.length}`}>
           {SECTIONS.map((s) => (
             <a key={s.id} href={`#${s.id}`} {...(section === s.id ? { "aria-current": "page" as const } : {})}>
               <Icon id={s.icon} />

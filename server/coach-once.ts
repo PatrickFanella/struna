@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import { buildContext, PROVIDERS, type Screen, SYSTEM } from "./chat.ts";
+import { buildContext, type CoachProfile, personalCoach, PROVIDERS, type Screen, SYSTEM } from "./chat.ts";
 import type { Provider } from "./conversations.ts";
 import { getSetting } from "./db.ts";
 import { HttpError, readJson, route, send } from "./http.ts";
@@ -89,9 +89,9 @@ export function sanitizeDraft(v: Record<string, unknown>): Draft {
 }
 
 /** One question to the coach outside any saved conversation; throws with the CLI's own error text. */
-async function askCoach(provider: Provider, prompt: string, signal: AbortSignal): Promise<string> {
+async function askCoach(coach: CoachProfile, provider: Provider, prompt: string, signal: AbortSignal): Promise<string> {
   let text = "";
-  for await (const ev of PROVIDERS[provider]({ system: SYSTEM, prompt, signal })) {
+  for await (const ev of PROVIDERS[provider](coach)({ system: SYSTEM, prompt, signal })) {
     if (ev.type === "delta") text += ev.text;
     else if (ev.type === "error") throw new HttpError(502, ev.message);
   }
@@ -103,7 +103,8 @@ function str(v: unknown, max: number): string {
   return typeof v === "string" ? v.slice(0, max) : "";
 }
 
-export function coachOnceRoutes(paths: Paths, db: DatabaseSync): void {
+export function coachOnceRoutes(paths: Paths & { mediaRoot: string }, db: DatabaseSync): void {
+  const coach = personalCoach(paths, db);
   const providerOf = (v: unknown): Provider => (v === "codex" || v === "claude" ? v : getSetting(db, "provider") === "codex" ? "codex" : "claude");
   const withAbort = (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => {
     const abort = new AbortController();
@@ -118,7 +119,7 @@ export function coachOnceRoutes(paths: Paths, db: DatabaseSync): void {
     if (!stage.title) throw new HttpError(400, "stage required");
     const screen: Screen = { view: "practice session", stage: stage.title, ...(str(input.fragment, 300) ? { fragment: str(input.fragment, 300) } : {}), ...(Number.isFinite(input.bpm) ? { bpm: Number(input.bpm) } : {}), ...(str(input.subdivision, 60) ? { subdivision: str(input.subdivision, 60) } : {}) };
     const context = buildContext(screen, await today(paths, db));
-    const text = await askCoach(providerOf(input.provider), `${context}\n\n${guidePrompt(stage)}`, withAbort(req, res).signal);
+    const text = await askCoach(coach, providerOf(input.provider), `${context}\n\n${guidePrompt(stage)}`, withAbort(req, res).signal);
     send(res, 200, { text: text.slice(0, 1200) });
   });
 
@@ -139,7 +140,7 @@ export function coachOnceRoutes(paths: Paths, db: DatabaseSync): void {
       notes: str(f.notes, 2000),
     };
     const context = buildContext({ view: "session review", ...(facts.material ? { fragment: facts.material } : {}) }, await today(paths, db));
-    const reply = await askCoach(providerOf(input.provider), `${context}\n\n${reviewPrompt(facts)}`, withAbort(req, res).signal);
+    const reply = await askCoach(coach, providerOf(input.provider), `${context}\n\n${reviewPrompt(facts)}`, withAbort(req, res).signal);
     const json = extractJson(reply);
     if (!json) throw new HttpError(502, "the coach did not return a review sheet");
     send(res, 200, { draft: sanitizeDraft(json) });

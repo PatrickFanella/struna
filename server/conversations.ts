@@ -3,7 +3,9 @@ import type { DatabaseSync } from "node:sqlite";
 
 export type Provider = "claude" | "codex";
 export type Conversation = { id: string; provider: Provider; title: string; thread_id: string | null; created: string; updated: string };
-export type Message = { role: "user" | "assistant" | "error"; text: string; created: string };
+/** `meta.auto` names the automatic action that sent a user message (generic mode). */
+export type MessageMeta = { auto?: string };
+export type Message = { role: "user" | "assistant" | "error"; text: string; created: string; meta?: MessageMeta };
 
 export function conversations(db: DatabaseSync) {
   db.exec(`
@@ -11,6 +13,9 @@ export function conversations(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS messages (conversation TEXT, role TEXT, text TEXT, created TEXT);
     CREATE INDEX IF NOT EXISTS messages_by_conversation ON messages (conversation);
   `);
+  // Databases from before automatic messages get the column on first use.
+  const cols = (db.prepare("PRAGMA table_info(messages)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("meta")) db.exec("ALTER TABLE messages ADD COLUMN meta TEXT");
   const now = () => new Date().toISOString();
   const titleOf = (message: string) => {
     const t = message.replace(/\s+/g, " ").trim();
@@ -28,12 +33,17 @@ export function conversations(db: DatabaseSync) {
     get(id: string): (Conversation & { messages: Message[] }) | undefined {
       const c = db.prepare("SELECT id, provider, title, thread_id, created, updated FROM conversations WHERE id = ?").get(id) as Conversation | undefined;
       if (!c) return undefined;
-      const messages = db.prepare("SELECT role, text, created FROM messages WHERE conversation = ? ORDER BY rowid").all(id) as Message[];
+      const rows = db.prepare("SELECT role, text, created, meta FROM messages WHERE conversation = ? ORDER BY rowid").all(id) as (Omit<Message, "meta"> & { meta: string | null })[];
+      // Messages without meta keep the shape they always had.
+      const messages = rows.map(({ meta, ...m }): Message => {
+        const parsed = meta ? parseMeta(meta) : undefined;
+        return parsed ? { ...m, meta: parsed } : m;
+      });
       return { ...c, messages };
     },
-    append(id: string, role: Message["role"], text: string): void {
+    append(id: string, role: Message["role"], text: string, meta?: MessageMeta): void {
       const t = now();
-      db.prepare("INSERT INTO messages (conversation, role, text, created) VALUES (?, ?, ?, ?)").run(id, role, text, t);
+      db.prepare("INSERT INTO messages (conversation, role, text, created, meta) VALUES (?, ?, ?, ?, ?)").run(id, role, text, t, meta ? JSON.stringify(meta) : null);
       db.prepare("UPDATE conversations SET updated = ? WHERE id = ?").run(t, id);
     },
     setThread(id: string, threadId: string): void {
@@ -48,4 +58,13 @@ export function conversations(db: DatabaseSync) {
     },
   };
 }
+function parseMeta(raw: string): MessageMeta | undefined {
+  try {
+    const v = JSON.parse(raw);
+    return v && typeof v === "object" && !Array.isArray(v) ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export type Conversations = ReturnType<typeof conversations>;

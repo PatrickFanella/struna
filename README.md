@@ -2,6 +2,8 @@
 
 A private web app on Kvant for practicing guitar, published at `https://guitar.subcult.tv` behind Authelia. Practice is the default screen: it starts today's session from the practice plan in the Ars Malefica vault, with a stage timer, a metronome, the clean-pass tempo helper, take recording and a session log written back to the vault. A tuner and a metronome open from any screen, and a coach chat talks to Claude or ChatGPT through the owner's existing subscriptions. The Library screen searches the lesson videos, PDFs and books; the Tabs screen browses and plays the Guitar Pro collection.
 
+The same code also runs as a practice app for any guitarist, with no vault: see [Generic mode](#generic-mode). Everything above that section describes the personal mode, which is the default.
+
 The design is in `docs/design.md`, the approved visual reference in `docs/design-system.html` (open it with `?view=practice|tuner|metronome&theme=light|dark`), and the implementation plans in `docs/plans/`.
 
 ## Running it
@@ -85,3 +87,99 @@ Rollback:
 2. Almaz: remove the `# Guitar Room (Kvant)` comment and its `import` line from the main Caddyfile (the prior copy is `Caddyfile.before-guitar-room-20261114T032908Z`), delete `sites/guitar.Caddyfile`, validate and reload Caddy, then `systemctl --user disable --now guitar-room-edge-tunnel.service` and remove the unit.
 
 Logs, recordings and the state database stay where they are.
+
+## Generic mode
+
+`GUITAR_MODE=generic` turns the app into a practice room for any guitarist at any level. There is no Obsidian vault and no media library: everything lives in one plain folder, the studio. A setup form asks about the player (level, instrument, styles, songs they want, minutes per session), the app writes a starter plan, and the coach replaces it with one that fits and keeps adjusting it from the practice logs. The screens are Practice and Materials, plus Tabs when `GUITAR_TABS_DIR` is set. The tuner, metronome, stage timer, clean-pass helper and take recording are the same as in the personal mode.
+
+One running instance serves one player: there are no accounts, and one server has one studio folder. For a second player, run a second instance with its own `GUITAR_HOME`, `GUITAR_STATE_DIR` and port.
+
+### Running it
+
+```sh
+pnpm install && pnpm build
+GUITAR_MODE=generic GUITAR_HOME=~/Guitar\ Room PORT=5184 pnpm start
+```
+
+Then open `http://localhost:5184`. `deploy/guitar-room-generic.service` is an example user unit. The server has no login of its own, so keep it on loopback, or put a reverse proxy with a login in front and use `ALLOWED_HOSTS`, `REQUIRE_USER`, `EDGE_SECRET_FILE` and `SOCKET_PATH` as the personal deployment does. The coach needs the `claude` or `codex` CLI signed in for the account that runs the server; the rest of the app works without them.
+
+`node scripts/smoke-generic.ts <scratch-dir> [screenshot-dir]` walks the whole mode in Chromium at phone and iPad size against scratch studio folders: setup, a session, the log, materials, prompts, coach settings and toasts. A stand-in CLI answers for the coach, so no subscription is used. It needs `pnpm build`.
+
+### Configuration
+
+`HOST`, `PORT`, `SOCKET_PATH`, `ALLOWED_HOSTS`, `REQUIRE_USER`, `EDGE_SECRET_FILE`, `CLAUDE_BIN`, `CODEX_BIN`, `CLAUDE_MODEL` and `CODEX_MODEL` work as in the table above. The vault and media variables are not used.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GUITAR_MODE` | `personal` | `generic` selects this mode. Any other value stops the server at start. |
+| `GUITAR_HOME` | `~/Guitar Room` | The studio folder, created at start. A relative path is taken from the working directory. |
+| `GUITAR_STATE_DIR` | `~/.local/state/guitar-room-generic` | SQLite database: tempos, conversations, coach settings, custom prompts. Separate from the personal default, so both modes can run on one machine. |
+| `GUITAR_CACHE_DIR` | `~/.cache/guitar-room-generic` | The video remux cache. |
+| `GUITAR_LIBRARY_DIRS` | (none) | Extra folders of lessons, sheets and tabs, separated by `:`. They show under Materials and the coach can read them; nothing writes to them. |
+| `GUITAR_TABS_DIR` | (none) | A Guitar Pro collection (gp3, gp4, gp5). When set, the Tabs screen appears. |
+| `GUITAR_TIMEZONE` | the system zone | The zone for log dates, such as `Europe/Berlin`. An unknown name stops the server at start. In the personal mode the default stays `America/Chicago`. |
+| `GUITAR_COACH_WEB` | `1` | `0` removes the coach's web search and page fetching. |
+| `GUITAR_APP_NAME` | `Guitar Room` | The name in the header and the page title. |
+
+### The studio folder
+
+```
+<GUITAR_HOME>/
+  profile.json            the setup form's answers
+  coach-notes.md          what the coach wants to remember; the player may edit it
+  plan/plan.json          the active plan
+  plan/archive/<id>.json  earlier plans
+  logs/YYYY-MM-DD.md      one file per session; a second that day is YYYY-MM-DD-2.md
+  materials/              uploads, saved web copies, pasted text, lesson sheets the coach writes
+  materials/links.json    web links, each with a title and a note
+  materials/.trash/       files deleted from the Materials screen
+  Recordings/<plan-id>/   takes
+```
+
+The app writes `profile.json`, new log files (created exclusively, never overwritten or edited), takes, files under `materials/`, `links.json` and the first starter plan. After that the plan belongs to the coach and the player: the app only reads and checks it. A plan the app cannot read shows its errors on the start screen, with buttons to ask the coach to fix it or to replace it with a starter plan (the unreadable file moves to `plan/archive/invalid-<time>.json`).
+
+A plan has phases, each lasting a number of counted sessions, and two or three session kinds (for example 15, 10 and 5 minutes), each a list of timed stages. A log counts toward the plan when it is dated on or after the plan's `started` date, was not stopped for pain, and is not an off-day extra. The next instruction on the start screen is the newest counted log's, unless the coach changed the plan's `next` after that log.
+
+### Materials
+
+The Materials screen takes uploads (PDF, images, audio, video, Guitar Pro, MusicXML, text, Markdown, EPUB; 500 MB each), web links and pasted text. Pasted text that is not Markdown is saved in a fenced block, so chord charts and text tab keep their spacing. YouTube links play inside the app through `youtube-nocookie.com`; other links open in a new tab. Anything can be opened beside the session in a pane.
+
+"Save a copy" downloads a link into `materials/`. The downloader takes only http and https on the standard ports, refuses any host that resolves to a loopback, private, link-local or otherwise non-public address, connects to the address it checked, follows at most three redirects with the same checks, stops at 200 MB, and accepts only files (PDF, images, audio, video, Guitar Pro, MusicXML, text); a web page stays a link. Files are served with `nosniff`, and types the app does not know are sent as downloads, so nothing a coach or a website wrote can run as a page of the app.
+
+### The coach in this mode
+
+Chat still runs the signed-in `claude` and `codex` CLIs with the API-key variables removed, as described under "How chat avoids the APIs". What differs is where they run and what they may touch:
+
+- **Claude** runs from the studio folder with `--tools Read,Glob,Grep,Edit,Write,WebSearch,WebFetch`, `--permission-mode dontAsk`, no settings sources, no MCP servers and no Bash. Edit and Write are allowed only for `plan/**`, `materials/**`, `coach-notes.md` and `profile.json`. It can read the studio folder and the `GUITAR_LIBRARY_DIRS` folders (`--add-dir`) and nothing else. Logs, recordings and the library folders are read-only: the CLI refuses those writes.
+- **Codex** runs `codex exec` from the studio folder with `--skip-git-repo-check`, `--ignore-user-config --ignore-rules`, a `workspace-write` sandbox with shell network off, `--disable apps` and `-c web_search="live"`. Its sandbox makes the whole studio folder (and `/tmp`) writable, so under Codex only the instructions keep it out of `logs/` and `Recordings/`. Codex 0.167 still reads `~/.codex/AGENTS.md` when one exists.
+- **Web access:** with `GUITAR_COACH_WEB=1` the coach can search the web and open pages (Claude's WebSearch and WebFetch, Codex's `web_search` tool). It is told to open a page before adding it to `materials/links.json`, to prefer free, legal teaching sources, to link to copyrighted material and never copy it out, and to set `"save": true` only on direct file links that are clearly free to download. With `GUITAR_COACH_WEB=0` Claude gets no web tools and Codex gets `web_search="disabled"`; `--disable apps` stays on in both cases, because the ChatGPT apps connector carries a web search of its own.
+- **After every reply** the app compares `plan/plan.json`, `profile.json` and `materials/` with how they were before, tells the open screens to reload what changed, and downloads the links marked `"save": true` (at most ten per reply). If the reply left the plan missing or invalid, or `links.json` unreadable, the app sends the exact errors back for one repair turn on the same conversation. If the file is still wrong after that, the chat shows a notice and the start screen shows the errors; it never tries a second time.
+- A turn may run for 15 minutes (5 in the personal mode), since building a plan with web research takes a few minutes.
+
+Each message is prefixed with a context block: screen, level, plan, phase and session, stage, material, metronome tempo, next instruction and days since the last session.
+
+### Prompts and automatic actions
+
+The coach panel and the start screen offer ready-made prompts as buttons, chosen for the screen the player is on: build or rebuild the plan, make today easier or harder, only ten minutes, explain this material, find lessons for a song, and about thirty more. A prompt that needs a value from the screen (the material, the stage, the tempo) shows only where that value exists. A prompt ending in "…" goes into the message box for the player to finish; the others are sent at once. Players add their own under Coach settings on the start screen (up to 30).
+
+Seven events can send a message to the coach by themselves. Each has a mode, set under Coach settings: **Auto** sends it at once and shows a note with an Open button, **Ask first** shows a note with a button and sends nothing until it is tapped, **Off** does nothing. Messages the app sent are marked "Automatic" in the conversation, and the Coach button shows a dot when a reply finished unseen.
+
+| Event | Default | What the coach is asked |
+|---|---|---|
+| The setup form is saved for the first time | Auto | Replace the starter plan with one that fits the profile, and find three to five starting materials. |
+| Material is added | Auto | Look at the new items and work them into the plan. |
+| A session is logged | Auto | Review the new log and set the next instruction. |
+| A session is stopped for pain or tension | Auto | Advise, and lighten the plan. |
+| The plan's sessions are all done | Ask first | Review the plan's logs and propose what comes next. |
+| Seven or more days since the last session | Ask first | Ease the plan back in. |
+| The profile is edited | Ask first | Adjust the plan. |
+
+### Limits
+
+- One player per instance, and no login in the app itself.
+- The coach needs a signed-in CLI and a subscription with room left; a signed-out or rate-limited CLI shows its own error. Without a coach the starter plan, sessions, logs and materials still work, but nothing adjusts the plan.
+- Under Codex, the read-only rule for logs and recordings rests on the instructions, not on the sandbox.
+- Whether the coach really opened a page before linking to it cannot be checked by the app.
+- The app does not back up or commit the studio folder.
+- Not tested on iOS Safari.
+

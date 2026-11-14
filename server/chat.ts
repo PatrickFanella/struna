@@ -1,22 +1,52 @@
 import { execFile } from "node:child_process";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { promisify } from "node:util";
 
 import { config } from "./config.ts";
-import type { Conversations, Provider } from "./conversations.ts";
+import type { Conversations, MessageMeta, Provider } from "./conversations.ts";
 import { getSetting, setSetting } from "./db.ts";
 import { HttpError, readJson, route, send } from "./http.ts";
 import { type Paths, today } from "./practice.ts";
-import { claudeChat } from "./providers/claude.ts";
-import { codexChat } from "./providers/codex.ts";
+import { type ClaudeOptions, claudeChat, personalClaude } from "./providers/claude.ts";
+import { type CodexOptions, codexChat } from "./providers/codex.ts";
 import { type ChatEvent, type ChatRequest, subscriptionEnv } from "./providers/process.ts";
 import type { Block } from "./vault.ts";
 
 const run = promisify(execFile);
-export const PROVIDERS: Record<Provider, (req: ChatRequest) => AsyncGenerator<ChatEvent>> = { claude: claudeChat, codex: codexChat };
+export type Run = (req: ChatRequest) => AsyncGenerator<ChatEvent>;
+export const PROVIDERS: Record<Provider, (coach: CoachProfile) => Run> = {
+  claude: (coach) => (req) => claudeChat(req, coach.claude),
+  codex: (coach) => (req) => codexChat(req, coach.codex),
+};
 
+/** `fragment` is what is on the stand: the personal block's fragment, or the generic mode's material. */
 export type Screen = { view: string; stage?: string; fragment?: string; bpm?: number; subdivision?: string };
+
+/** What a turn changed in the studio folder; sent to the web as the SSE event `changed`. */
+export type Changed = { plan: boolean; materials: boolean; profile: boolean };
+export type AfterTurn = { changed?: Changed; notices?: string[]; followUp?: string };
+
+/** What a mode gives the chat: the instructions, the context block and what each CLI may touch. */
+export type CoachProfile = {
+  system: string | (() => Promise<string>);
+  /** The [Guitar Room] block that prefixes each message. */
+  context: (screen: Screen) => Promise<string>;
+  claude: ClaudeOptions;
+  codex: CodexOptions;
+  /** Where the CLIs are signed in, for the web's "not signed in on …" notice. */
+  host?: string;
+  beforeTurn?: () => Promise<unknown>;
+  /**
+   * Runs after the provider finishes; may ask for one follow-up turn on the same thread.
+   * `final` is set when no follow-up can run (one already did, or the turn failed), so
+   * anything still wrong must come back as a notice.
+   */
+  afterTurn?: (before: unknown, pass?: { final: boolean }) => Promise<AfterTurn>;
+};
+
+const ACTIONS = new Set(["onboarding", "material-added", "session-logged", "plan-complete", "pain", "back-after-break", "profile-changed"]);
 type TodayLike = { block: Block | null; position: { week: number; sessionInWeek: number; type: string }; next: { text: string } };
 
 export const SYSTEM = `You are the owner's guitar practice coach in Ars Malefica, their Obsidian vault.
@@ -42,7 +72,7 @@ function screenOf(v: any): Screen {
   const s = (x: unknown) => (typeof x === "string" ? x.slice(0, 300) : undefined);
   const out: Screen = { view: s(v?.view) ?? "unknown" };
   const stage = s(v?.stage);
-  const fragment = s(v?.fragment);
+  const fragment = s(v?.fragment) ?? s(v?.material);
   const subdivision = s(v?.subdivision);
   if (stage) out.stage = stage;
   if (fragment) out.fragment = fragment;
@@ -68,25 +98,106 @@ async function providerStatus() {
   return { claude, codex };
 }
 
-async function chat(req: IncomingMessage, res: ServerResponse, store: Conversations, db: DatabaseSync, paths: Paths) {
+/** The owner's coach in the vault: the instructions, context and permissions the app has always used. */
+export function personalCoach(paths: Paths & { mediaRoot: string }, db: DatabaseSync): CoachProfile {
+  return {
+    system: SYSTEM,
+    context: async (screen) => buildContext(screen, await today(paths, db)),
+    claude: personalClaude(paths),
+    codex: { cwd: join(paths.vaultRoot, paths.threadRel) },
+    host: "Kvant",
+  };
+}
+
+type Emit = (event: string, data: unknown) => void;
+
+/**
+ * One exchange with the coach: the provider's turn, then the profile's `afterTurn`, then at most
+ * one follow-up turn on the same thread (streamed into the same reply after a blank line).
+ */
+export async function coachTurn(o: { coach: CoachProfile; run: Run; prompt: string; threadId?: string | undefined; signal: AbortSignal; emit: Emit; onThread?: (id: string) => void }): Promise<{ reply: string; errors: string[] }> {
+  const { coach, emit, signal } = o;
+  let reply = "";
+  let threadId = o.threadId;
+  const errors: string[] = [];
+  const fail = (e: unknown) => {
+    const m = String((e as Error)?.message ?? e);
+    errors.push(m);
+    emit("error", { message: m });
+  };
+  const turn = async (system: string, prompt: string) => {
+    for await (const ev of o.run({ system, prompt, ...(threadId ? { threadId } : {}), signal })) {
+      if (ev.type === "delta") {
+        reply += ev.text;
+        emit("delta", { text: ev.text });
+      } else if (ev.type === "thread") {
+        threadId = ev.id;
+        o.onThread?.(ev.id);
+        emit("thread", { id: ev.id });
+      } else if (ev.type === "notice") emit("notice", { message: ev.message });
+      else fail(ev.message);
+    }
+  };
+  const after = async (before: unknown, final: boolean): Promise<string | undefined> => {
+    const r = await coach.afterTurn!(before, { final });
+    if (r.changed && (r.changed.plan || r.changed.materials || r.changed.profile)) emit("changed", r.changed);
+    for (const n of r.notices ?? []) emit("notice", { message: n });
+    return final ? undefined : r.followUp;
+  };
+
+  let system = "";
+  let before: unknown;
+  try {
+    system = typeof coach.system === "string" ? coach.system : await coach.system();
+    before = await coach.beforeTurn?.();
+    await turn(system, o.prompt);
+  } catch (e) {
+    fail(e);
+  }
+  if (!coach.afterTurn) return { reply, errors };
+  try {
+    const canFollowUp = Boolean(threadId) && !signal.aborted && errors.length === 0;
+    const followUp = await after(before, !canFollowUp);
+    if (followUp) {
+      if (reply) {
+        reply += "\n\n";
+        emit("delta", { text: "\n\n" });
+      }
+      try {
+        await turn(system, followUp);
+      } catch (e) {
+        fail(e);
+      }
+      await after(before, true);
+    }
+  } catch (e) {
+    emit("notice", { message: `Could not check what the coach changed: ${String((e as Error)?.message ?? e)}` });
+  }
+  return { reply, errors };
+}
+
+async function chat(req: IncomingMessage, res: ServerResponse, store: Conversations, db: DatabaseSync, coach: CoachProfile) {
   const input = await readJson(req);
   const provider = input.provider as Provider;
   if (!(provider in PROVIDERS)) throw new HttpError(400, "unknown provider");
   const message = String(input.message ?? "").trim();
   if (!message) throw new HttpError(400, "empty message");
   if (message.length > 20_000) throw new HttpError(413, "message too long");
-  let conv = typeof input.conversation === "string" ? store.get(input.conversation) : undefined;
+  if (input.auto !== undefined && !ACTIONS.has(input.auto)) throw new HttpError(400, "unknown action");
+  const meta: MessageMeta | undefined = input.auto ? { auto: input.auto } : undefined;
+  const conv = typeof input.conversation === "string" ? store.get(input.conversation) : undefined;
   if (input.conversation && !conv) throw new HttpError(404, "conversation not found");
   if (conv && conv.provider !== provider) throw new HttpError(400, "this conversation uses the other provider");
   const id = conv?.id ?? store.create(provider, message).id;
   setSetting(db, "provider", provider);
 
-  const t = await today(paths, db);
-  const prompt = `${buildContext(screenOf(input.screen), t)}\n\n${message}`;
-  store.append(id, "user", message);
+  const prompt = `${await coach.context(screenOf(input.screen))}\n\n${message}`;
+  store.append(id, "user", message, meta);
 
   res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive", "x-robots-tag": "noindex, nofollow", "x-accel-buffering": "no" });
-  const emit = (event: string, data: unknown) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  const emit: Emit = (event, data) => {
+    if (!res.writableEnded && !res.destroyed) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
   emit("conversation", { id });
 
   const abort = new AbortController();
@@ -97,27 +208,7 @@ async function chat(req: IncomingMessage, res: ServerResponse, store: Conversati
     abort.abort();
   });
 
-  let reply = "";
-  const errors: string[] = [];
-  try {
-    for await (const ev of PROVIDERS[provider]({ system: SYSTEM, prompt, ...(conv?.thread_id ? { threadId: conv.thread_id } : {}), signal: abort.signal })) {
-      if (ev.type === "delta") {
-        reply += ev.text;
-        emit("delta", { text: ev.text });
-      } else if (ev.type === "thread") {
-        store.setThread(id, ev.id);
-        emit("thread", { id: ev.id });
-      } else if (ev.type === "notice") emit("notice", { message: ev.message });
-      else {
-        errors.push(ev.message);
-        emit("error", { message: ev.message });
-      }
-    }
-  } catch (e) {
-    const m = String((e as Error).message ?? e);
-    errors.push(m);
-    emit("error", { message: m });
-  }
+  const { reply, errors } = await coachTurn({ coach, run: PROVIDERS[provider](coach), prompt, threadId: conv?.thread_id ?? undefined, signal: abort.signal, emit, onThread: (thread) => store.setThread(id, thread) });
   clearInterval(keepalive);
   if (reply) store.append(id, "assistant", reply);
   if (abort.signal.aborted && !res.writableEnded) store.append(id, "error", "Stopped.");
@@ -128,9 +219,11 @@ async function chat(req: IncomingMessage, res: ServerResponse, store: Conversati
   }
 }
 
-export function chatRoutes(paths: Paths, db: DatabaseSync, store: Conversations): void {
-  route("POST", "/api/chat", (req, res) => chat(req, res, store, db, paths));
-  route("GET", "/api/providers", async (_req, res) => send(res, 200, { ...(await providerStatus()), last: getSetting(db, "provider") ?? "claude" }));
+/** `coach` is the mode's profile; the personal mode may still pass its paths, as it always did. */
+export function chatRoutes(coach: CoachProfile | (Paths & { mediaRoot: string }), db: DatabaseSync, store: Conversations): void {
+  const profile = "context" in coach ? coach : personalCoach(coach, db);
+  route("POST", "/api/chat", (req, res) => chat(req, res, store, db, profile));
+  route("GET", "/api/providers", async (_req, res) => send(res, 200, { ...(await providerStatus()), last: getSetting(db, "provider") ?? "claude", host: profile.host ?? "this computer" }));
   route("GET", "/api/conversations", (_req, res) => send(res, 200, store.list()));
   route("GET", "/api/conversations/:id", (_req, res, { params }) => {
     const c = store.get(params.id!);

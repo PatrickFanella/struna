@@ -4,12 +4,19 @@ import type { Tool } from "../App.tsx";
 import { api, store } from "../api.ts";
 import { metronome, SUBDIVISIONS } from "../audio/metronome.ts";
 import { useMetronome } from "../audio/useMetronome.ts";
+import type { Changed, Profile } from "../generic.ts";
+import { refPaneItem } from "../materials/item.ts";
+import { useApp } from "../mode.ts";
 import { screenContext } from "../screen.ts";
-import type { Today } from "../types.ts";
+import { sessionKind, type Today } from "../types.ts";
 import { MAX_PANES, pane, withCompanion } from "../workspace/Workspace.tsx";
+import { GenericReview } from "./GenericReview.tsx";
+import { GenericStart } from "./GenericStart.tsx";
+import { fromForm, toForm } from "./genericLogic.ts";
 import { type PaneItem, vaultSrc } from "./Material.tsx";
 import { Review } from "./Review.tsx";
 import { Session, type SessionState } from "./Session.tsx";
+import { Setup } from "./Setup.tsx";
 import { Start } from "./Start.tsx";
 
 const SESSION_KEY = "guitar-room.session";
@@ -51,6 +58,9 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   const [session, setSessionState] = useState<SessionState | null>(loadSession);
   const [phase, setPhase] = useState<Phase>(() => (loadSession() ? { name: "session" } : { name: "start" }));
   const [extra, setExtra] = useState<PaneItem | null>(libraryItem);
+  const [editing, setEditing] = useState(false);
+  const app = useApp();
+  const generic = app.mode === "generic";
   const m = useMetronome();
 
   const load = useCallback(() => {
@@ -63,6 +73,15 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     );
   }, []);
   useEffect(load, [load]);
+  // Generic mode: the coach changed the plan or the profile, so today is out of date.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<Changed | undefined>).detail;
+      if (d?.plan || d?.profile) load();
+    };
+    addEventListener("guitar-room:changed", on);
+    return () => removeEventListener("guitar-room:changed", on);
+  }, [load]);
   useEffect(() => {
     const on = () => setExtra(libraryItem());
     addEventListener("guitar-room:material", on);
@@ -79,6 +98,10 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   }, []);
 
   const items = useMemo<PaneItem[]>(() => {
+    if (generic) {
+      const plan = (today?.materials ?? []).map(refPaneItem);
+      return extra ? [extra, ...plan.filter((i) => i.key !== extra.key)] : plan;
+    }
     const block = (today?.block?.materials ?? []).map<PaneItem>((mat) => ({
       key: mat.path,
       label: mat.label,
@@ -88,20 +111,22 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       note: mat.path.split("/").pop()!,
     }));
     return extra ? [extra, ...block] : block;
-  }, [today, extra]);
+  }, [today, extra, generic]);
   const firstFile = session?.panes.find((p) => p.content.type === "file")?.content;
   const material = firstFile?.type === "file" ? firstFile.item : null;
 
   useEffect(() => {
-    const stage = session && today ? today.stages[session.kind][session.stage] : undefined;
+    const stages = session && today ? sessionKind(today, session.kind).stages : [];
+    const stage = session ? stages[Math.min(session.stage, stages.length - 1)] : undefined;
+    const setup = generic && today !== null && (today.profile === null || editing);
     screenContext.set({
-      view: phase.name === "session" ? "practice session" : phase.name === "review" ? "session review" : "practice start",
+      view: setup ? "practice setup" : phase.name === "session" ? "practice session" : phase.name === "review" ? "session review" : "practice start",
       ...(stage ? { stage: stage.title } : {}),
       ...(material && phase.name !== "start" ? { fragment: material.label } : {}),
       bpm: m.bpm,
       subdivision: SUBDIVISIONS.find((s) => s.value === m.subdivision)!.log,
     });
-  }, [phase, session, today, material, m.bpm, m.subdivision]);
+  }, [phase, session, today, material, m.bpm, m.subdivision, generic, editing]);
 
   // "Use in practice" during a session asks first: replace the lesson's material, or add it beside.
   const [offer, setOffer] = useState<PaneItem | null>(null);
@@ -126,9 +151,10 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     });
   };
 
-  const start = async (kind: "full" | "floor", cross?: string) => {
+  const start = async (kind: string, cross?: string) => {
     // An item sent from the library ("Use in practice") leads this session; otherwise the block's first PDF.
-    const first = extra ?? items.find((i) => !i.missing && i.kind === "pdf") ?? items[0];
+    // In generic mode the coach orders the plan's materials, so the first one that exists leads.
+    const first = generic ? (extra ?? items.find((i) => !i.missing)) : (extra ?? items.find((i) => !i.missing && i.kind === "pdf") ?? items[0]);
     const lead = first ? await withCompanion({ type: "file", item: first }) : [];
     // On a wide screen the coach opens beside the lesson.
     const panes = [...lead.map(pane), ...(window.innerWidth >= 1180 && lead.length < 3 ? [pane({ type: "coach" })] : [])];
@@ -142,6 +168,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     const s: SessionState = {
       kind,
       cross: cross ?? null,
+      startedAt: Date.now(),
       stage: 0,
       elapsedBefore: 0,
       // The timer waits: tune, read the stage, then tap it to start.
@@ -183,12 +210,43 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       <div className="start">
         <h1>Log written</h1>
         <p className="instr">{phase.file}</p>
-        <p className="srcnote">In Practice/Logs in the vault. The app never edits it again; commit it when you review.</p>
-        <button className="btn primary full push" onClick={() => {
+        <p className="srcnote">{generic ? "In the logs folder of your studio. The app never changes it again; the coach reads it to plan what comes next." : "In Practice/Logs in the vault. The app never edits it again; commit it when you review."}</p>
+        <button className={`btn primary full${generic ? "" : " push"}`} onClick={() => {
           setPhase({ name: "start" });
           load();
         }}>Back to today</button>
       </div>
+    );
+  }
+
+  if (generic && (today.profile === null || editing)) {
+    return (
+      <Setup
+        profile={(today.profile ?? null) as Profile | null}
+        appName={app.name}
+        onSaved={() => {
+          setEditing(false);
+          load();
+        }}
+        {...(today.profile ? { onCancel: () => setEditing(false) } : {})}
+      />
+    );
+  }
+
+  if (generic && (phase.name === "start" || !session || !today.block)) {
+    return (
+      <GenericStart
+        today={today}
+        onStart={start}
+        onTune={() => openTool("tuner")}
+        onCoach={openChat}
+        onEditProfile={() => setEditing(true)}
+        onStarter={async () => {
+          const res = await api.put<{ plan: "created" | "kept" }>("/api/profile", fromForm(toForm(today.profile ?? null)));
+          if (res.plan !== "created") throw new Error("the server kept the plan file that is there.");
+          load();
+        }}
+      />
     );
   }
 
@@ -200,8 +258,9 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   }
 
   if (phase.name === "review") {
+    const View = generic ? GenericReview : Review;
     return (
-      <Review
+      <View
         today={today}
         session={session}
         bpm={m.bpm}
@@ -229,7 +288,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
         <div className="scrim" onClick={() => void answerOffer("no")} />
         <div className="finder offer">
           <h2>Use “{offer.label}” in this lesson?</h2>
-          <p className="srcnote">Replacing swaps the lesson's material and sheet music; the coach and any tab stay open. The practice block in your vault is not changed.</p>
+          <p className="srcnote">Replacing swaps the lesson's material and sheet music; the coach and any tab stay open. {generic ? "Your plan is not changed." : "The practice block in your vault is not changed."}</p>
           <div className="offeracts">
             <button className="btn primary" onClick={() => void answerOffer("replace")}>Replace the lesson material</button>
             <button className="btn outline" onClick={() => void answerOffer("beside")}>Add it beside</button>

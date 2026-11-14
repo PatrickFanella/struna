@@ -120,8 +120,13 @@ export function tabArtists(db: DatabaseSync, prefix: string, limit = 100): { art
   return hit.slice(0, limit);
 }
 
-export function tabsRoutes(opts: { mediaRoot: string; autoScan: boolean }, db: DatabaseSync): { rescan: () => boolean } {
-  const root = join(opts.mediaRoot, TABS_REL);
+/**
+ * `root` is the Guitar Pro collection folder. Without it the collection is the
+ * personal one, `TABS_REL` under `mediaRoot`.
+ */
+export function tabsRoutes(opts: { root?: string | undefined; mediaRoot?: string | undefined; autoScan: boolean }, db: DatabaseSync): { rescan: () => boolean } {
+  const root = opts.root || (opts.mediaRoot ? join(opts.mediaRoot, TABS_REL) : "");
+  if (!root) throw new Error("tabsRoutes needs the collection root");
   let running = false;
   const rescan = () => {
     if (running) return false;
