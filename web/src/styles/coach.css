@@ -55,3 +55,9 @@
   .actionlist li{flex-direction:row;align-items:center;justify-content:space-between;gap:16px}
   .actionlist .seg{flex:none;width:300px}
 }
+
+/* Pictures in a generic-mode coach reply; a remote one says which site it came from. */
+.msg.assistant .md .replyimg{display:block;margin:8px 0}
+.msg.assistant .md .replyimg img{display:block;max-width:100%;max-height:360px;height:auto;border-radius:6px;border:1px solid var(--rule)}
+.msg.assistant .md .replyimg small{display:block;color:var(--graphite);font-size:var(--fs-meta);margin-top:2px}
+.msg.assistant .md .replyimg.failed{color:var(--graphite);font-size:var(--fs-meta)}

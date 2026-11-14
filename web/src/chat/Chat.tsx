@@ -7,7 +7,7 @@ import { useApp } from "../mode.ts";
 import { screenContext } from "../screen.ts";
 import { fillPrompt, GROUPS, promptsFor, screenId, usePrompts } from "./prompts.ts";
 import { pickProvider, type ProviderId, type ProviderStatus, readiness } from "./providers.ts";
-import { REPLY_MARKDOWN } from "./reply.ts";
+import { GENERIC_REPLY_MARKDOWN, REPLY_MARKDOWN } from "./reply.ts";
 
 type Provider = ProviderId;
 /** `auto` names the automatic action that sent a user message. */
@@ -431,7 +431,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
               <div key={i} className={`msg ${m.role}${m.auto ? " auto" : ""}`}>
                 {m.role === "assistant" ? (
                   <div className="md">
-                    <Markdown {...REPLY_MARKDOWN}>{m.text || "…"}</Markdown>
+                    <Markdown {...(generic ? GENERIC_REPLY_MARKDOWN : REPLY_MARKDOWN)}>{m.text || "…"}</Markdown>
                   </div>
                 ) : (
                   <>

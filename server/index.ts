@@ -11,6 +11,7 @@ import { conversations } from "./conversations.ts";
 import { openDb } from "./db.ts";
 import { fail, guard, HttpError, match, NOINDEX, route, send } from "./http.ts";
 import { genericCoach } from "./generic/coach.ts";
+import { chatImageRoutes } from "./generic/chat-images.ts";
 import { materialsRoutes } from "./generic/materials.ts";
 import { promptRoutes } from "./generic/prompts.ts";
 import { genericAppInfo, genericRoutes } from "./generic/routes.ts";
@@ -41,6 +42,7 @@ if (config.mode === "generic") {
   genericRoutes(studio, { tabs: Boolean(config.tabsDir) });
   appInfo = () => genericAppInfo(studio, { tabs: Boolean(config.tabsDir) });
   materialsRoutes(studio, { cacheDir: config.cacheDir });
+  chatImageRoutes(config.cacheDir);
   recordingRoutes({ mediaRoot: config.home, timeZone: config.timeZone });
   // Codex's sandbox must read its own install folder; with it known, commands cannot read outside the studio.
   const codexInstall = await codexInstallDir(config.codexBin).catch(() => null);

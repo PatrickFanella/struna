@@ -28,6 +28,8 @@ const shots = process.argv[3] ? resolve(process.argv[3]) : null;
 const port = Number(process.env.SMOKE_PORT ?? 5196);
 const base = `http://localhost:${port}`;
 const COACH_NEXT = "Play the first exercise slowly, twice, and listen for buzzing strings.";
+/** Requests the browser tried to send outside the app (all answered with an empty page). */
+const direct: string[] = [];
 const COACH_LINK = "https://www.justinguitar.com/categories/beginner-guitar-lessons-grade-1";
 
 rmSync(dir, { recursive: true, force: true });
@@ -147,7 +149,7 @@ process.stdin.on("data", (d) => (input += d)).on("end", () => {
     list.push({ url: ${JSON.stringify(COACH_LINK)}, title: "JustinGuitar: beginner grade 1", note: "Free video course; suits a first-month player.", added: new Date().toISOString() });
     fs.writeFileSync(links, JSON.stringify(list, null, 2));
   }
-  out({ type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "I set your next instruction and added one lesson link." } } });
+  out({ type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "I set your next instruction and added one lesson link.\\n\\n![C shape](https://pics.example/c-shape.png)" } } });
   out({ type: "result", is_error: false, result: "unused" });
 });
 `,
@@ -249,6 +251,11 @@ async function walk(page: Page, env: string) {
   await chatIdle();
   await page.waitForTimeout(400); // the panel slides in
   check(calls().length === 2, `the chip "${label}" sent a message to the coach`);
+  // A picture in a reply goes through the server, never straight from the browser to the site.
+  const pic = page.getByRole("dialog", { name: "Coach" }).locator(".msg.assistant .replyimg").last();
+  await pic.filter({ hasText: /pics\.example/ }).waitFor({ timeout: 10_000 });
+  check(/could not be loaded \(pics\.example\)|Picture from pics\.example/.test((await pic.textContent()) ?? ""), "a reply's picture names its site");
+  check(!direct.some((u) => u.includes("pics.example")), "the browser never asked the picture's site itself");
   await shot("coach-panel");
   await page.getByRole("dialog", { name: "Coach" }).locator(".morechip").click();
   await page.locator(".promptsheet").waitFor();
@@ -414,10 +421,11 @@ try {
       const ctx = await browser.newContext({ viewport, deviceScaleFactor: scale, hasTouch: true, isMobile: name === "phone" });
       const page = await ctx.newPage();
       // No outside requests: the YouTube player is replaced by an empty page.
-      await page.route(/^https?:\/\/(?!localhost)/, (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>blocked in the smoke test</title>" }));
+      await page.route(/^https?:\/\/(?!localhost)/, (r) => (direct.push(r.request().url()), r.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>blocked in the smoke test</title>" })));
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(e.message));
-      page.on("console", (m) => m.type() === "error" && !/favicon/.test(m.location().url) && errors.push(`${m.text()} ${m.location().url}`));
+      // The stand-in's picture is on a name that does not resolve, so the server refuses it (422).
+      page.on("console", (m) => m.type() === "error" && !/favicon|\/api\/chat\/image/.test(m.location().url) && errors.push(`${m.text()} ${m.location().url}`));
       // Without the token the server answers nothing; the printed link stores it in a cookie.
       check((await fetch(`${base}/api/app`)).status === 403, "the API refuses a request without the access token");
       await page.goto(`${base}/?token=${token}`);
