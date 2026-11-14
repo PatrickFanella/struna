@@ -15,7 +15,7 @@ async function claim(dir: string, stem: string, ext: string): Promise<string> {
   for (let n = 1; n < 1000; n++) {
     const name = n === 1 ? `${stem}.${ext}` : `${stem}-${n}.${ext}`;
     try {
-      await (await open(join(dir, name), "wx", 0o644)).close();
+      await (await open(join(dir, name), "wx", 0o664)).close();
       return name;
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;

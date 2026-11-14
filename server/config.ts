@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -16,6 +17,10 @@ export const config = {
     ["localhost", "127.0.0.1", "[::1]", ...(env.ALLOWED_HOSTS?.split(",") ?? [])].map((h) => h.trim()).filter(Boolean),
   ),
   requireUser: env.REQUIRE_USER || undefined,
+  /** Shared with the Almaz Caddy site, which sends it as X-Edge-Secret after Authelia. */
+  edgeSecret: env.EDGE_SECRET_FILE ? readFileSync(env.EDGE_SECRET_FILE, "utf8").trim() || undefined : undefined,
+  /** A Unix socket path; when set the server listens there instead of HOST:PORT. */
+  socket: env.SOCKET_PATH || undefined,
   vaultRoot,
   threadRel,
   threadDir,

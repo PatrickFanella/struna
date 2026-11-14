@@ -109,7 +109,8 @@ export async function writeSessionLog(practiceDir: string, review: SessionReview
   for (let n = 1; n < 1000; n++) {
     const file = n === 1 ? `Practice Log - ${date}.md` : `Practice Log - ${date} (${n}).md`;
     try {
-      const fh = await open(join(dir, file), "wx", 0o644);
+      // 664 like the owner's own logs, so the shared tree's group (and its default ACL) can edit it.
+      const fh = await open(join(dir, file), "wx", 0o664);
       try {
         await fh.writeFile(text);
       } finally {

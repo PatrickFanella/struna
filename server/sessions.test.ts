@@ -23,6 +23,9 @@ test("clean tempo parsing", () => {
   assert.equal(parseLog("Practice Log - 2026-11-13.md", log("- **Clean working tempo:** 84 BPM, eighth notes")).cleanTempo, 84);
   assert.equal(parseLog("Practice Log - 2026-11-13.md", log("- **Clean working tempo:** ___ BPM, ___ subdivision")).cleanTempo, null);
   assert.equal(parseLog("Practice Log - 2026-11-13.md", log("- **Clean working tempo:**")).cleanTempo, null);
+  assert.equal(parseLog("Practice Log - 2026-11-13.md", log("- **Clean working tempo:** ___ BPM, 1/16 subdivision")).cleanTempo, null);
+  assert.equal(parseLog("Practice Log - 2026-11-13.md", log("- **Clean working tempo:** about 80 BPM")).cleanTempo, null);
+  assert.equal(parseLog("Practice Log - 2026-11-13.md", log("- **Clean working tempo:** 92bpm, 16ths")).cleanTempo, 92);
 });
 
 test("session kind and pain flag", () => {

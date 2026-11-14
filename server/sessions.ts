@@ -24,7 +24,8 @@ function value(body: string, label: string): string {
 export function parseLog(file: string, text: string): LogFacts {
   const { body } = parseFrontMatter(text);
   const date = LOG_NAME.exec(file)?.[1] ?? "";
-  const tempo = /\d+/.exec(value(body, "Clean working tempo"))?.[0];
+  // The tempo must lead the line: "___ BPM, 1/16 subdivision" is still a blank tempo.
+  const tempo = /^(\d+)\s*(?:bpm\b|\b)/i.exec(value(body, "Clean working tempo"))?.[1];
   const n = tempo ? Number(tempo) : 0;
   const session = value(body, "Session").toLowerCase();
   const kind = /cross-training/.test(session) ? "cross-training" : /\bfloor\b/.test(session) ? "floor" : /\bfull\b/.test(session) ? "full" : null;

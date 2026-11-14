@@ -48,3 +48,13 @@ test("send sets the noindex header", () => {
   send(res, 200, { ok: true });
   assert.equal(headers["x-robots-tag"], "noindex, nofollow");
 });
+
+test("with an edge secret, the public host also needs the secret header Caddy adds", () => {
+  const opts = { allowedHosts: new Set([...hosts.allowedHosts, "guitar.subcult.tv"]), requireUser: "onnwee", edgeSecret: "s3cret" };
+  assert.equal(status(() => guard(req({ host: "guitar.subcult.tv", "remote-user": "onnwee" }), opts)), 403);
+  assert.equal(status(() => guard(req({ host: "guitar.subcult.tv", "remote-user": "onnwee", "x-edge-secret": "wrong" }), opts)), 403);
+  assert.equal(status(() => guard(req({ host: "guitar.subcult.tv", "remote-user": "onnwee", "x-edge-secret": "s3cret" }), opts)), undefined);
+  // Through the tunnel a client can send any Host, so with a secret configured loopback names are not trusted either.
+  assert.equal(status(() => guard(req({ host: "localhost" }), opts)), 403);
+  assert.equal(status(() => guard(req({ host: "localhost", "remote-user": "onnwee", "x-edge-secret": "s3cret" }), opts)), undefined);
+});

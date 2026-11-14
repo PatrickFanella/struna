@@ -11,6 +11,7 @@ process.env.GUITAR_VAULT_ROOT = join(tmp, "vault");
 process.env.GUITAR_STATE_DIR = join(tmp, "state");
 process.env.GUITAR_MEDIA_ROOT = join(tmp, "media");
 
+process.umask(0o002);
 const { handle } = await import("./index.ts");
 const { localDate } = await import("./logs.ts");
 
@@ -39,6 +40,8 @@ test("stores a take under Recordings/<block>/<date>-<label>.<ext>, never overwri
   const p2 = (await (await post("blockId=g-vocabulary-nine-pound-hammer-01&label=baseline&ext=webm", "second")).json()).path;
   assert.equal(p2, `Recordings/g-vocabulary-nine-pound-hammer-01/${date}-baseline-2.webm`);
   assert.equal(await readFile(join(tmp, "media", p1), "utf8"), "first");
+  const { stat } = await import("node:fs/promises");
+  assert.equal((await stat(join(tmp, "media", p1))).mode & 0o060, 0o060, "group-writable like the media folder's files");
   const p3 = (await (await post("blockId=g-vocabulary-nine-pound-hammer-01&label=weekly&ext=m4a")).json()).path;
   assert.match(p3, /-weekly\.m4a$/);
 });

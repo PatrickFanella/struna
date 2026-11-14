@@ -24,6 +24,7 @@ before(async () => {
   l.exec("CREATE TABLE streams (provider TEXT, external_id TEXT, source_page TEXT, player_url TEXT, status TEXT, relative_path TEXT, bytes INTEGER, sha256 TEXT, duration_seconds REAL, attempts INTEGER, error TEXT, completed_at TEXT)");
   l.prepare("INSERT INTO streams (provider, external_id, source_page, status, relative_path, duration_seconds) VALUES (?, ?, ?, 'completed', ?, ?)").run("vimeo", "132673069", "https://countryguitaronline.com/the-best-country-strumming-patterns/", "videos/vimeo/132673069.mp4", 312);
   l.prepare("INSERT INTO streams (provider, external_id, source_page, status, relative_path, duration_seconds) VALUES (?, ?, ?, 'completed', ?, ?)").run("vimeo", "259880969", "https://countryguitaronline.com/12-bar-blues-country-twang-guitar-lesson/", "videos/vimeo/259880969.mp4", 81.4);
+  l.exec("PRAGMA journal_mode = WAL");
   l.close();
   items = await scanLibrary(opts());
 });
@@ -37,6 +38,12 @@ test("CGO lesson copies share a group titled from the vault article note", () =>
   assert.match(folder.description, /Five strumming patterns/);
   assert.equal(folder.duration, 312);
   assert.equal(strum.find((i) => i.source === "archive")!.duration, 312);
+});
+
+test("reading the archive's WAL-mode ledger leaves no -shm or -wal files", async () => {
+  const { readdir } = await import("node:fs/promises");
+  const files = await readdir(join(tmp, "media/Source Archives/Country Guitar Online Assessment Archive - 2026-08-07/00-Reports-and-Ledgers"));
+  assert.deepEqual(files, ["stream-archive.sqlite3"]);
 });
 
 test("an archive capture without an article is titled from its source page", () => {

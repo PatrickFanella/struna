@@ -1,3 +1,4 @@
+import { chmodSync, rmSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
@@ -76,9 +77,24 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
 }
 
 if (import.meta.main) {
-  createServer(handle).listen(config.port, config.host, () => {
-    console.log(`guitar-room on http://${config.host}:${config.port}`);
+  const server = createServer(handle);
+  const started = (where: string) => () => {
+    console.log(`guitar-room on ${where}`);
     console.log(`  vault ${config.practiceDir}`);
     console.log(`  media ${config.mediaRoot}`);
-  });
+  };
+  if (config.socket) {
+    // A Unix socket in an owner-only directory: other local accounts cannot connect,
+    // unlike a loopback TCP port. The Almaz tunnel forwards to it over SSH.
+    const sock = config.socket;
+    rmSync(sock, { force: true });
+    const old = process.umask(0o177);
+    server.listen(sock, () => {
+      process.umask(old);
+      chmodSync(sock, 0o600);
+      started(`unix:${sock}`)();
+    });
+  } else {
+    server.listen(config.port, config.host, started(`http://${config.host}:${config.port}`));
+  }
 }

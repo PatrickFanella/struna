@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 export class HttpError extends Error {
@@ -12,14 +13,25 @@ export const NOINDEX = "noindex, nofollow";
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /**
- * Reject requests for unknown hosts, and, when `requireUser` is set, requests for a
- * public host that Authelia did not sign in as that user. Loopback host names are
- * only reachable on Kvant itself; the Almaz route always carries the public host.
+ * Reject requests for unknown hosts and, when `requireUser` is set, requests Authelia did
+ * not sign in as that user. With `edgeSecret` (production) every request must also carry the
+ * secret Caddy adds; without it (development) loopback host names are trusted.
  */
-export function guard(req: IncomingMessage, opts: { allowedHosts: Set<string>; requireUser?: string | undefined }): void {
+export function guard(req: IncomingMessage, opts: { allowedHosts: Set<string>; requireUser?: string | undefined; edgeSecret?: string | undefined }): void {
   const host = (req.headers.host ?? "").replace(/:\d+$/, "");
   if (!opts.allowedHosts.has(host)) throw new HttpError(403, "host not allowed");
-  if (opts.requireUser && !LOOPBACK.has(host) && req.headers["remote-user"] !== opts.requireUser) throw new HttpError(403, "user not allowed");
+  if (opts.edgeSecret) {
+    // Production: the Almaz tunnel endpoint is reachable from that host's containers, which can send
+    // any Host. Caddy adds this secret after Authelia, so every request must carry it, whatever the Host.
+    if (!same(req.headers["x-edge-secret"], opts.edgeSecret)) throw new HttpError(403, "not from the edge");
+  } else if (LOOPBACK.has(host)) return; // Development on loopback TCP.
+  if (opts.requireUser && req.headers["remote-user"] !== opts.requireUser) throw new HttpError(403, "user not allowed");
+}
+
+function same(got: string | string[] | undefined, want: string): boolean {
+  const a = Buffer.from(typeof got === "string" ? got : "");
+  const b = Buffer.from(want);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export function send(res: ServerResponse, status: number, body: unknown): void {

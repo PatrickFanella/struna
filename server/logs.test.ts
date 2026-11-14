@@ -77,6 +77,17 @@ test("names the log by the Chicago date and fills the template", async () => {
   assert.equal(facts.nextInstruction, review.next);
 });
 
+test("logs are created mode 664, like the owner's, so the shared group can edit them", async () => {
+  const old = process.umask(0);
+  try {
+    const { file } = await writeSessionLog(dir, review, now, tz);
+    const { stat } = await import("node:fs/promises");
+    assert.equal((await stat(join(dir, "Logs", file))).mode & 0o777, 0o664);
+  } finally {
+    process.umask(old);
+  }
+});
+
 test("a second save on the same date gets a suffix", async () => {
   await writeSessionLog(dir, review, now, tz);
   const { file } = await writeSessionLog(dir, review, now, tz);

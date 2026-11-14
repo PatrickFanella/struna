@@ -25,6 +25,8 @@ test("claude's tools are limited to reading, writing the Guitar thread and the v
   assert.equal(after(a, "--add-dir"), "/media/Guitar");
   assert.equal(after(a, "--permission-mode"), "dontAsk");
   assert.ok(!a.some((x) => /WebFetch|WebSearch/.test(x)));
+  // No bare Read/Glob/Grep allow rule: reads outside the vault and the media folder must be denied.
+  assert.deepEqual(allowed.split(",").filter((r) => /^(Read|Glob|Grep)$/.test(r)), []);
 });
 
 test("claude resumes only with a thread id", () => {

@@ -22,9 +22,11 @@ pnpm start        # production: serves dist/ and the API on 5182
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `HOST`, `PORT` | `127.0.0.1`, `5182` | Listen address. Keep it on loopback. |
+| `SOCKET_PATH` | (none) | Listen on this Unix socket (mode 600) instead of TCP. Production uses `$XDG_RUNTIME_DIR/guitar-room/http.sock`, so other accounts on Kvant cannot connect. |
+| `HOST`, `PORT` | `127.0.0.1`, `5182` | TCP listen address when `SOCKET_PATH` is not set (development). |
 | `ALLOWED_HOSTS` | (none) | Extra `Host` names accepted besides `localhost`, `127.0.0.1` and `[::1]`; production sets `guitar.subcult.tv`. Others get 403. |
-| `REQUIRE_USER` | (none) | When set (production: `onnwee`), requests for a non-loopback host must carry Authelia's `Remote-User` with that name, or get 403. |
+| `REQUIRE_USER` | (none) | When set (production: `onnwee`), requests must carry Authelia's `Remote-User` with that name, or get 403. Without `EDGE_SECRET_FILE`, loopback host names are exempt (development). |
+| `EDGE_SECRET_FILE` | (none) | A file holding the secret the Almaz Caddy site sends as `X-Edge-Secret`. When set, every request must carry it, whatever its `Host`: the tunnel endpoint on Almaz is reachable from that host's containers, and only Caddy, after Authelia, adds the secret. |
 | `GUITAR_VAULT_ROOT` | `~/Work/Vaults/Ars Malefica` | Vault root. Point it at a scratch copy when testing log writes or chat writes. |
 | `GUITAR_MEDIA_ROOT` | `~/Documents/Reference Library/Ars Malefica/Guitar` | Guitar media folder; recordings go under `Recordings/`. |
 | `GUITAR_STATE_DIR` | `~/.local/state/guitar-room` | SQLite database: settings, tempos, conversations. |
@@ -67,19 +69,19 @@ The Tabs screen indexes `Restricted or Rights Review/Guitar Pro Tabs and Wiring/
 
 Chat runs the signed-in CLIs as child processes with `ANTHROPIC_*`, `CLAUDE_CODE_*` (except `CLAUDE_CODE_OAUTH_TOKEN`), `OPENAI_*` and `CODEX_API_KEY` removed from their environment, so both fall back to the stored subscription logins (Claude.ai and ChatGPT). If Claude reports an API key source anyway, the panel shows a notice. A signed-out or rate-limited CLI shows its own error text; there is no API-key fallback.
 
-- **Claude** runs from the vault root as `claude -p --output-format stream-json` with `--tools Read,Glob,Grep,Edit,Write,Bash`, Edit and Write allowed only under `001 Projects/Threads/Guitar/`, Bash allowed only for the coach's validator (`python3 .agents/skills/guitar-practice-coach/scripts/validate-practice-system.py`), `--permission-mode dontAsk`, no settings sources, no MCP servers and no web tools. It may read the media folder (`--add-dir`). Conversations resume with `--resume`.
+- **Claude** runs from the vault root as `claude -p --output-format stream-json` with `--tools Read,Glob,Grep,Edit,Write,Bash`, Edit and Write allowed only under `001 Projects/Threads/Guitar/`, Bash allowed only for the coach's validator (`python3 .agents/skills/guitar-practice-coach/scripts/validate-practice-system.py`, with arguments; redirections, `;` and `$(...)` after it are denied), `--permission-mode dontAsk`, no settings sources, no MCP servers and no web tools. It reads only the vault and the media folder (`--add-dir`): there is no Read, Glob or Grep allow rule, so in `dontAsk` mode a read anywhere else is denied. Conversations resume with `--resume`.
 - **Codex** runs `codex exec --json` with the Guitar thread folder as its working directory, `--ignore-user-config --ignore-rules`, a `workspace-write` sandbox with network off and `approval_policy="never"`. The thread folder (and `/tmp`) is the only writable place; the rest of the vault, its `.git` and the media folder are read-only. Conversations resume with `codex exec resume`.
 
 Both get the same instructions: read the vault's `AGENTS.md`, follow `.agents/skills/guitar-practice-coach/SKILL.md` when reviewing or planning practice, write only inside the Guitar thread, never commit or push, and list Super Productivity changes for the owner instead of making them. Each message is prefixed with a short context block: screen, block, week and session, stage, fragment, metronome tempo and the next instruction.
 
 ## Deployment
 
-- **Kvant:** user unit `guitar-room.service` (copy in `deploy/`), running this checkout with `NODE_ENV=production`, `PORT=5182`, `ALLOWED_HOSTS=guitar.subcult.tv` and `REQUIRE_USER=onnwee`. After a code change: `pnpm build && systemctl --user restart guitar-room.service`.
-- **Almaz:** user unit `guitar-room-edge-tunnel.service` forwards `172.20.0.1:34948` to Kvant `127.0.0.1:5182` over SSH (`ControlMaster=no`, `ControlPath=none`). `sites/guitar.Caddyfile` in `/opt/server/management/config/caddy/` serves `http://guitar.subcult.tv` behind the shared `authelia` snippet, imported at the end of the main Caddyfile. Validate with `docker exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`, then `caddy reload` the same way.
+- **Kvant:** user unit `guitar-room.service` (copy in `deploy/`), running this checkout with `NODE_ENV=production` on the Unix socket `/run/user/1000/guitar-room/http.sock` (runtime directory mode 700), `ALLOWED_HOSTS=guitar.subcult.tv`, `REQUIRE_USER=onnwee` and `EDGE_SECRET_FILE=~/.config/guitar-room/edge-secret` (mode 600, 64 hex characters, created with `openssl rand -hex 32`). After a code change: `pnpm build && systemctl --user restart guitar-room.service`. Local check: `curl --unix-socket $XDG_RUNTIME_DIR/guitar-room/http.sock -H 'Host: localhost' -H "X-Edge-Secret: $(cat ~/.config/guitar-room/edge-secret)" -H 'Remote-User: onnwee' http://x/api/health`.
+- **Almaz:** user unit `guitar-room-edge-tunnel.service` forwards `172.20.0.1:34948` to that socket over SSH (`ControlMaster=no`, `ControlPath=none`). `sites/guitar.Caddyfile` in `/opt/server/management/config/caddy/` (root, mode 640, because it holds the secret) serves `http://guitar.subcult.tv` behind the shared `authelia` snippet and adds `X-Edge-Secret`; it is imported at the end of the main Caddyfile. `deploy/guitar.Caddyfile` is the template; install it with the placeholder replaced by the secret file's contents, never by pasting the secret into a terminal. Validate with `docker exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`, then `caddy reload` the same way. To rotate the secret, write a new one on Kvant, reinstall the site file, reload Caddy, then restart `guitar-room.service`.
 
 Rollback:
 
-1. Kvant: `systemctl --user disable --now guitar-room.service`, then remove `~/.config/systemd/user/guitar-room.service`.
+1. Kvant: `systemctl --user disable --now guitar-room.service`, then remove `~/.config/systemd/user/guitar-room.service` and `~/.config/guitar-room/edge-secret`.
 2. Almaz: remove the `# Guitar Room (Kvant)` comment and its `import` line from the main Caddyfile (the prior copy is `Caddyfile.before-guitar-room-20261114T032908Z`), delete `sites/guitar.Caddyfile`, validate and reload Caddy, then `systemctl --user disable --now guitar-room-edge-tunnel.service` and remove the unit.
 
 Logs, recordings and the state database stay where they are.

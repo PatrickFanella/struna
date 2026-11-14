@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, extname, join, relative } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { parseFrontMatter, str } from "../frontmatter.ts";
@@ -80,7 +81,11 @@ async function readArticles(vaultRoot: string, threadRel: string): Promise<Artic
 function readStreamLedger(mediaRoot: string): Map<string, { page: string; duration: number | null }> {
   const out = new Map<string, { page: string; duration: number | null }>();
   try {
-    const db = new DatabaseSync(join(mediaRoot, ARCHIVE, "00-Reports-and-Ledgers/stream-archive.sqlite3"), { readOnly: true });
+    // immutable=1: the ledger is in WAL mode, and even a read-only open would create -shm and -wal
+    // files beside it in the owner-only archive.
+    const url = pathToFileURL(join(mediaRoot, ARCHIVE, "00-Reports-and-Ledgers/stream-archive.sqlite3"));
+    url.search = "immutable=1";
+    const db = new DatabaseSync(url, { readOnly: true });
     try {
       for (const r of db.prepare("SELECT provider, external_id, source_page, duration_seconds FROM streams").all() as { provider: string; external_id: string; source_page: string; duration_seconds: number | null }[]) {
         out.set(`${r.provider.toLowerCase()}:${r.external_id}`, { page: r.source_page, duration: r.duration_seconds ?? null });

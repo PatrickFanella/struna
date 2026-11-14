@@ -5,7 +5,7 @@ export const VALIDATOR = "python3 .agents/skills/guitar-practice-coach/scripts/v
 
 /**
  * Claude Code in print mode, signed in with a Claude.ai subscription, run from the vault root.
- * Tools: read anything it can reach, edit only the Guitar thread, run only the coach's validator.
+ * Tools: read the vault and the media folder, edit only the Guitar thread, run only the coach's validator.
  * No user or project settings (hooks, plugins, extra permissions), no MCP servers, no web tools.
  */
 export function claudeArgs(o: { system: string; threadId?: string | undefined; model?: string | undefined; vaultRoot: string; threadRel: string; mediaRoot: string }): string[] {
@@ -15,7 +15,9 @@ export function claudeArgs(o: { system: string; threadId?: string | undefined; m
     "--verbose",
     "--include-partial-messages",
     "--tools", "Read,Glob,Grep,Edit,Write,Bash",
-    "--allowedTools", ["Read", "Glob", "Grep", `Edit(${o.threadRel}/**)`, `Write(${o.threadRel}/**)`, `Bash(${VALIDATOR}:*)`].join(","),
+    // No Read/Glob/Grep allow rules: reads inside the working directory and --add-dir need no
+    // permission, and in dontAsk mode a read anywhere else (onnwee's home, keys, tokens) is denied.
+    "--allowedTools", [`Edit(${o.threadRel}/**)`, `Write(${o.threadRel}/**)`, `Bash(${VALIDATOR}:*)`].join(","),
     "--permission-mode", "dontAsk",
     "--setting-sources", "",
     "--strict-mcp-config",
