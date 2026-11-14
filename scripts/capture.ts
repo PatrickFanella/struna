@@ -72,6 +72,7 @@ export const VIEWS: Record<string, (page: Page) => Promise<void>> = {
   },
   tuner: async (page) => {
     await page.getByRole("button", { name: "Tuner", exact: true }).click();
+    await page.waitForTimeout(2500);
   },
   metronome: async (page) => {
     await page.getByRole("button", { name: "Tuner", exact: true }).click();
@@ -94,7 +95,7 @@ const SIZES = [
 ];
 
 const server = await startServer();
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", ...(process.env.CAPTURE_AUDIO ? [`--use-file-for-fake-audio-capture=${process.env.CAPTURE_AUDIO}`] : [])] });
 try {
   for (const size of SIZES) {
     for (const scheme of ["light", "dark"] as const) {
