@@ -51,7 +51,7 @@ export function App() {
       <main>
         <div className="wrap">
           <section className={`view${section === "practice" && !tool ? " on" : ""}`} aria-label="Practice">
-            <Practice openTool={setTool} />
+            <Practice openTool={setTool} closeTools={() => setTool(null)} openChat={() => setChat(true)} />
           </section>
           <section className={`view${section === "library" && !tool ? " on" : ""}`} aria-label="Library">
             <Empty title="Library" text="Coming soon: lesson videos, PDFs and books." />

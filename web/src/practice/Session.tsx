@@ -1,0 +1,268 @@
+import { useEffect, useRef, useState } from "react";
+
+import { api } from "../api.ts";
+import { audio } from "../audio/context.ts";
+import { MicDenied, micUsers } from "../audio/mic.ts";
+import { metronome, type Subdivision } from "../audio/metronome.ts";
+import { type Take, TakeRecorder } from "../audio/record.ts";
+import { type HelperState, type Suggestion, tempoHelper } from "../audio/tempo.ts";
+import { useMetronome } from "../audio/useMetronome.ts";
+import { blockName, type Stage, type Today, todayLine } from "../types.ts";
+import { Material, type PaneItem } from "./Material.tsx";
+import { SHORT, StageBar } from "./StageBar.tsx";
+import { TempoRow } from "./TempoRow.tsx";
+
+export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
+export type SessionState = {
+  kind: "full" | "floor";
+  cross: string | null;
+  stage: number;
+  /** Milliseconds spent on the current stage before the last resume. */
+  elapsedBefore: number;
+  /** Epoch ms of the last resume, or null while paused. */
+  resumedAt: number | null;
+  startBpm: number;
+  subdivision: Subdivision;
+  helper: HelperState;
+  passes: number;
+  suggestion: Suggestion | null;
+  metThree: boolean;
+  recording: RecordingRef | null;
+  pain: boolean;
+  materialKey: string | null;
+};
+
+function fmt(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function chime() {
+  const ctx = audio();
+  const t = ctx.currentTime;
+  for (const [f, d] of [[880, 0], [1320, 0.18]] as const) {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0, t + d);
+    g.gain.linearRampToValueAtTime(0.18, t + d + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + d + 1.2);
+    o.connect(g).connect(ctx.destination);
+    o.start(t + d);
+    o.stop(t + d + 1.3);
+  }
+}
+
+/** Keep the screen on during a session; re-acquire after the tab returns. */
+function useWakeLock() {
+  useEffect(() => {
+    let lock: WakeLockSentinel | null = null;
+    const get = async () => {
+      try {
+        if (document.visibilityState === "visible" && "wakeLock" in navigator) lock = await navigator.wakeLock.request("screen");
+      } catch {
+        /* not allowed here */
+      }
+    };
+    void get();
+    const vis = () => void get();
+    document.addEventListener("visibilitychange", vis);
+    return () => {
+      document.removeEventListener("visibilitychange", vis);
+      void lock?.release().catch(() => {});
+    };
+  }, []);
+}
+
+function instruction(stage: Stage, today: Today, cross: string | null): string {
+  const week = today.block?.weeks[today.position.week - 1];
+  if (stage.key === "target") return today.next.text;
+  if (cross && stage.weekField) return cross;
+  if (week && stage.weekField === "music") return `${week.music} Improvisation constraint: ${week.improvisation}`;
+  if (week && stage.weekField) return week[stage.weekField];
+  if (week && stage.key === "prepare") return `${stage.output}. ${week.mechanism}`;
+  return stage.output;
+}
+
+/** Long block paragraphs fold to a few lines so the stand view keeps the clock and controls on screen. */
+function Instruction({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 140;
+  return (
+    <>
+      <p className={`instr${long && !open ? " clamp" : ""}`}>{cap(text)}</p>
+      {long && <button className="linkbtn more" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? "Less" : "More"}</button>}
+    </>
+  );
+}
+
+export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+export function Session({ today, state, setState, items, material, onPickMaterial, onFinish, closeTools }: {
+  today: Today;
+  state: SessionState;
+  setState: (fn: (s: SessionState) => SessionState) => void;
+  items: PaneItem[];
+  material: PaneItem | null;
+  onPickMaterial: (key: string) => void;
+  onFinish: () => void;
+  closeTools: () => void;
+}) {
+  useWakeLock();
+  const m = useMetronome();
+  const stages = today.stages[state.kind];
+  const stage = stages[state.stage]!;
+  const total = stage.minutes * 60_000;
+  const [now, setNow] = useState(Date.now());
+  const elapsed = state.elapsedBefore + (state.resumedAt ? now - state.resumedAt : 0);
+  const chimed = useRef(-1);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (elapsed >= total && chimed.current !== state.stage && state.resumedAt) {
+      chimed.current = state.stage;
+      chime();
+    }
+  }, [elapsed, total, state.stage, state.resumedAt]);
+
+  // Recording.
+  const rec = useRef<TakeRecorder | null>(null);
+  const [recording, setRecording] = useState<number | null>(null);
+  const [take, setTake] = useState<Take | null>(null);
+  const [takeLabel, setTakeLabel] = useState<RecordingRef["label"]>(today.position.number === 1 ? "baseline" : "weekly");
+  const [purpose, setPurpose] = useState("");
+  const [recError, setRecError] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => () => rec.current?.cancel(), []);
+
+  const startTake = async () => {
+    setRecError("");
+    closeTools(); // The tuner and the recorder never share the microphone.
+    micUsers.dispatchEvent(new Event("recording"));
+    const r = new TakeRecorder();
+    try {
+      await r.start();
+      rec.current = r;
+      setRecording(Date.now());
+    } catch (e) {
+      setRecError(e instanceof MicDenied ? "Microphone access is off. Allow it in the browser settings and try again." : String((e as Error).message ?? e));
+    }
+  };
+  const stopTake = async () => {
+    const r = rec.current;
+    rec.current = null;
+    setRecording(null);
+    if (r) setTake(await r.stop());
+  };
+  const saveTake = async () => {
+    if (!take || !today.block) return;
+    setSaving(true);
+    setRecError("");
+    try {
+      const res = await fetch(`/api/recordings?blockId=${encodeURIComponent(today.block.id)}&label=${takeLabel}&ext=${take.ext}`, {
+        method: "POST",
+        headers: { "x-guitar-room": "1", "content-type": take.blob.type || "application/octet-stream" },
+        body: take.blob,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? res.statusText);
+      setState((s) => ({ ...s, recording: { path: data.path, label: takeLabel, purpose } }));
+      setTake(null);
+      setPurpose("");
+    } catch (e) {
+      setRecError(`The take was not saved: ${(e as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const next = () => {
+    if (state.stage + 1 >= stages.length) return onFinish();
+    setState((s) => ({ ...s, stage: s.stage + 1, elapsedBefore: 0, resumedAt: Date.now() }));
+  };
+  const pause = () =>
+    setState((s) => (s.resumedAt ? { ...s, elapsedBefore: s.elapsedBefore + Date.now() - s.resumedAt, resumedAt: null } : { ...s, resumedAt: Date.now() }));
+  const log = (event: "clean" | "miss") =>
+    setState((s) => {
+      const r = tempoHelper(s.helper, event);
+      const passes = event === "miss" ? 0 : s.passes >= 3 ? 1 : s.passes + 1;
+      return { ...s, helper: r.state, passes, suggestion: r.suggestion, metThree: s.metThree || r.suggestion?.kind === "raise" };
+    });
+  const apply = (sg: Suggestion) => {
+    metronome.set({ bpm: m.bpm + sg.delta });
+    setState((s) => ({ ...s, suggestion: null, passes: 0 }));
+  };
+
+  const left = total - elapsed;
+  const nextStage = stages[state.stage + 1];
+  const b = today.block!;
+  return (
+    <>
+      <dl className="meta">
+        <dt>Block</dt>
+        <dd>{blockName(b)}</dd>
+        <dt>Today</dt>
+        <dd>{state.cross ? "Cross-training day (not counted)" : todayLine(today)}</dd>
+      </dl>
+      <div className="stagehd">
+        <span><b>Stage {state.stage + 1} of {stages.length}</b></span>
+        <span>{state.kind === "full" ? "45-minute session" : "15-minute session"}</span>
+      </div>
+      <StageBar stages={stages} current={state.stage} progress={elapsed / total} />
+      <div className="stagebody">
+        <div>
+          <h1>{stage.title}</h1>
+          <Instruction key={state.stage} text={instruction(stage, today, state.cross)} />
+        </div>
+        <button className="clock" onClick={pause} aria-label={state.resumedAt ? "Pause the stage timer" : "Resume the stage timer"}>
+          <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
+          <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} minutes` : `over ${stage.minutes} minutes`) : "paused, tap to resume"}</span>
+        </button>
+      </div>
+      <Material items={items} current={material} onPick={onPickMaterial} />
+      <div className="push">
+        <TempoRow passes={state.passes} suggestion={state.suggestion} onClean={() => log("clean")} onMiss={() => log("miss")} onApply={apply} />
+        {take ? (
+          <div className="takebox">
+            <p className="grp">Save this take (<span className="num">{Math.round(take.seconds)}</span> s)</p>
+            <div className="seg mini words" role="radiogroup" aria-label="Take label">
+              {(["baseline", "weekly", "midpoint", "final"] as const).map((l) => (
+                <button key={l} role="radio" aria-checked={takeLabel === l} className={takeLabel === l ? "on" : ""} onClick={() => setTakeLabel(l)}>{l[0]!.toUpperCase() + l.slice(1)}</button>
+              ))}
+            </div>
+            <input className="input" placeholder="Purpose, in one line" value={purpose} onChange={(e) => setPurpose(e.target.value)} aria-label="Purpose" />
+            <div className="row2">
+              <button className="btn outline" disabled={saving} onClick={saveTake}>{saving ? "Saving" : "Save take"}</button>
+              <button className="btn quiet" onClick={() => setTake(null)}>Discard</button>
+            </div>
+          </div>
+        ) : (
+          <div className="row2">
+            <button className="btn primary nextb" onClick={next}>
+              <span>{nextStage ? "Next stage" : "Finish"}</span>
+              <small>{nextStage ? `Up next: ${SHORT[nextStage.key]}` : "Write the log"}</small>
+            </button>
+            {recording ? (
+              <button className="btn quiet recording" onClick={stopTake}>
+                <span className="rec now" aria-hidden="true" />Stop take <span className="num">{fmt(now - recording)}</span>
+              </button>
+            ) : (
+              <button className="btn quiet" onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
+            )}
+          </div>
+        )}
+        {state.recording && !take && <p className="srcnote">Saved take: {state.recording.path}</p>}
+        {recError && <p className="notice" role="alert">{recError}</p>}
+        <button className="linkbtn stoppain" onClick={() => {
+          rec.current?.cancel();
+          setState((s) => ({ ...s, pain: true }));
+          onFinish();
+        }}>Stop: pain or tension</button>
+      </div>
+    </>
+  );
+}

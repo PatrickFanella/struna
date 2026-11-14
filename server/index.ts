@@ -6,11 +6,13 @@ import { config } from "./config.ts";
 import { openDb } from "./db.ts";
 import { fail, guard, HttpError, match, NOINDEX, route, send } from "./http.ts";
 import { practiceRoutes } from "./practice.ts";
+import { recordingRoutes } from "./recordings.ts";
 
 export const db = openDb(config.stateDir);
 
 route("GET", "/api/health", (_req, res) => send(res, 200, { ok: true }));
 practiceRoutes(config, db);
+recordingRoutes(config);
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
