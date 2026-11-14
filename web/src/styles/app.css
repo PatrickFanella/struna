@@ -111,3 +111,42 @@ textarea.input{resize:vertical;line-height:1.4}
 @media (min-width:700px){.instr.clamp{-webkit-line-clamp:4;line-clamp:4}.met{flex-wrap:wrap;gap:12px 20px}.passrow{margin-left:auto}}
 @media (max-width:699px){.pdf .pdfpage{max-height:24vh}}
 @media (min-width:700px){.pdf .pdfpage{max-height:30vh}}
+
+/* Coach: a slide-over panel from any screen. */
+.chatwrap{position:fixed;inset:0;z-index:40;pointer-events:none}
+.chatwrap .scrim{position:absolute;inset:0;background:rgba(0,0,0,.28);opacity:0;transition:opacity .2s}
+.chatwrap.open{pointer-events:auto}
+.chatwrap.open .scrim{opacity:1}
+.chat{position:absolute;top:0;right:0;bottom:0;width:min(100%,520px);display:flex;flex-direction:column;background:var(--page);border-left:1px solid var(--rule);transform:translateX(100%);transition:transform .22s ease-out;padding:max(10px,env(safe-area-inset-top)) var(--gap) max(12px,env(safe-area-inset-bottom))}
+.chatwrap.open .chat{transform:none}
+.chatwrap:not(.open) .chat{visibility:hidden;transition:transform .22s ease-out,visibility 0s .22s}
+.chathd{display:flex;align-items:center;gap:10px;padding-bottom:8px}
+.chathd h2{margin:0;font-family:var(--serif);font-weight:700;font-size:var(--fs-name)}
+.chathd .seg{flex:1;margin:0}
+.chathd .sheetdone{height:44px}
+.chatbar{display:flex;justify-content:space-between;border-bottom:1px solid var(--rule);margin-bottom:8px}
+.chatbar .linkbtn{font-size:var(--fs-meta)}
+.chatlog{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:12px;padding:4px 0 12px}
+.chatempty{color:var(--graphite);font-size:var(--fs-label);line-height:1.45}
+.msg p{margin:0;white-space:pre-wrap;line-height:1.45}
+.msg.user{align-self:flex-end;max-width:88%;background:var(--wash);border-radius:var(--r);padding:10px 12px}
+.msg.assistant{font-size:var(--fs-label);line-height:1.5}
+.msg.assistant .md>:first-child{margin-top:0}.msg.assistant .md>:last-child{margin-bottom:0}
+.msg.assistant .md h1,.msg.assistant .md h2,.msg.assistant .md h3{font-family:var(--serif);font-size:1.1em;margin:12px 0 4px}
+.msg.assistant .md ul,.msg.assistant .md ol{padding-left:1.3em}
+.msg.assistant .md code{background:var(--wash);padding:1px 4px;border-radius:4px}
+.msg.assistant .md pre{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:8px;overflow:auto}
+.msg.assistant .md table{border-collapse:collapse}.msg.assistant .md td,.msg.assistant .md th{border:1px solid var(--rule);padding:4px 6px}
+.msg.error p{color:var(--ink);border-left:4px solid var(--pencil);padding:6px 10px;background:var(--panel);border-radius:6px;font-size:var(--fs-meta)}
+.msg.notice p{color:var(--graphite);font-size:var(--fs-meta)}
+.thinking{margin:0}
+.composer{display:flex;gap:8px;align-items:flex-end;border-top:1px solid var(--rule);padding-top:10px}
+.composer .input{flex:1;min-height:52px;max-height:30vh}
+.composer .btn{height:52px;padding:0 18px;font-size:var(--fs-label)}
+.convlist{list-style:none;margin:0;padding:0;flex:1;overflow:auto}
+.convlist li{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.convopen{background:none;border:0;padding:0;text-align:left;display:flex;flex-direction:column;gap:2px;font-size:var(--fs-label)}
+.convopen small{color:var(--graphite);font-size:var(--fs-meta)}
+.convacts{display:flex;gap:16px}
+.convacts .linkbtn{font-size:var(--fs-meta);padding:4px 0}
+.linkbtn:disabled{opacity:.4}

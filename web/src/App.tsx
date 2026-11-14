@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { Chat } from "./chat/Chat.tsx";
 import { Icon, IconSprite } from "./icons.tsx";
 import { Practice } from "./practice/Practice.tsx";
 import { ToolsSheet } from "./tools/ToolsSheet.tsx";
@@ -62,6 +63,8 @@ export function App() {
           {tool && <ToolsSheet tool={tool} onSwitch={setTool} onClose={() => setTool(null)} />}
         </div>
       </main>
+
+      <Chat open={chat} onClose={() => setChat(false)} />
 
       <nav className="tabs" aria-label="Sections">
         <div className="wrap">

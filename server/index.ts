@@ -2,7 +2,9 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
 
+import { chatRoutes } from "./chat.ts";
 import { config } from "./config.ts";
+import { conversations } from "./conversations.ts";
 import { openDb } from "./db.ts";
 import { fail, guard, HttpError, match, NOINDEX, route, send } from "./http.ts";
 import { practiceRoutes } from "./practice.ts";
@@ -13,6 +15,7 @@ export const db = openDb(config.stateDir);
 route("GET", "/api/health", (_req, res) => send(res, 200, { ok: true }));
 practiceRoutes(config, db);
 recordingRoutes(config);
+chatRoutes(config, db, conversations(db));
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
