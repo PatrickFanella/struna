@@ -98,3 +98,14 @@ test("zip entries stream by name, including ｜ and #", async () => {
   assert.match(o.headers.get("content-disposition") ?? "", /filename\*=UTF-8''Song/);
   assert.equal((await fetch(`${base}/api/media/${bookId}/entry`)).status, 404);
 });
+
+test("a lesson's companions and thumbnail are served", async () => {
+  const strum = searchLibrary(db, { q: "strumming", kind: "video", limit: 5, offset: 0 }).items[0]!;
+  const c = await (await fetch(`${base}/api/library/${strum.id}/companions`)).json();
+  assert.deepEqual(c.map((x: any) => x.kind).sort(), ["audio", "pdf"]);
+  const t = await fetch(`${base}/api/media/${strum.id}/thumb`);
+  assert.equal(t.status, 200);
+  assert.equal(t.headers.get("content-type"), "image/jpeg");
+  assert.equal((await fetch(`${base}/api/media/${bookId}/thumb`)).status, 404);
+  assert.equal((await fetch(`${base}/api/library/nope/companions`)).status, 404);
+});

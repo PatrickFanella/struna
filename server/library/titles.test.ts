@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { artistWorksTitle, bookTitle, cgoGroupKey, fileTitle, slugTitle } from "./titles.ts";
+import { artistWorksTitle, bookTitle, cgoGroupKey, fileTitle, slugTitle, titleMatch } from "./titles.ts";
 
 test("ArtistWorks titles drop the number, initials and suffix", () => {
   assert.equal(artistWorksTitle("05a_BS_You Are My Sunshine_Rhythm_Intro_ArtistWorks.mp4"), "You Are My Sunshine Rhythm Intro");
@@ -22,4 +22,12 @@ test("book and slug titles", () => {
   assert.equal(bookTitle("Tony Rice Collection Tab Book (Marcel Ardans).pdf"), "Tony Rice Collection Tab Book (Marcel Ardans)");
   assert.equal(fileTitle("blues-scale-charts-cgo-member-download-65e52dbd.pdf"), "blues scale charts cgo member download");
   assert.equal(slugTitle("https://countryguitaronline.com/12-bar-bluegrass-in-g-creekside-lesson/"), "12 bar bluegrass in g creekside lesson");
+});
+
+test("titleMatch pairs a sheet with its lesson, not a lesson in another key", () => {
+  assert.equal(titleMatch("12 Bar Blues with a Country Twang", "12 bar blues country twang guitar lesson"), 1);
+  assert.ok(titleMatch("Red River Valley", "red river valley guitar lesson") >= 0.75);
+  assert.equal(titleMatch("Country & Bluegrass Guitar Solo in G", "how to play a solo in c for bluegrass and country"), 0);
+  assert.equal(titleMatch("1 G lick to play over D chord", "Tony Rice Style G Lick to Play Over C Chord"), 0);
+  assert.equal(titleMatch("Gold", "gold rush guitar lesson"), 0);
 });

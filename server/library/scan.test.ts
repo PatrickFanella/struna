@@ -6,13 +6,13 @@ import { DatabaseSync } from "node:sqlite";
 import { after, before, test } from "node:test";
 
 import { openDb } from "../db.ts";
-import { searchLibrary, writeIndex } from "./index-db.ts";
-import { type Item, scanLibrary } from "./scan.ts";
+import { companions, searchLibrary, writeIndex } from "./index-db.ts";
+import { type Item, pdftotextTitle, scanLibrary } from "./scan.ts";
 
 const fx = join(import.meta.dirname, "../fixtures");
 let tmp = "";
 let items: Item[] = [];
-const opts = () => ({ mediaRoot: join(tmp, "media"), vaultRoot: join(fx, "vault"), threadRel: "001 Projects/Threads/Guitar", calibreReceipt: join(fx, "calibre-receipt.json") });
+const opts = () => ({ mediaRoot: join(tmp, "media"), vaultRoot: join(fx, "vault"), threadRel: "001 Projects/Threads/Guitar", calibreReceipt: join(fx, "calibre-receipt.json"), pdfTitle: pdftotextTitle });
 
 before(async () => {
   tmp = await mkdtemp(join(tmpdir(), "guitar-scan-"));
@@ -77,13 +77,13 @@ test("other sources", () => {
 test("search finds the lesson, once, preferring the lesson-folder copy", () => {
   const db = openDb(join(tmp, "state"));
   writeIndex(db, items);
-  const r = searchLibrary(db, { q: "strumming", limit: 20, offset: 0 });
+  const r = searchLibrary(db, { q: "strumming", kind: "video", limit: 20, offset: 0 });
   assert.equal(r.total, 1);
   assert.equal(r.items[0]!.source, "cgo");
   assert.equal(r.items[0]!.title, "The Best Country Strumming Patterns");
   assert.equal(searchLibrary(db, { q: "strumming", source: "archive", limit: 20, offset: 0 }).total, 0);
   assert.ok(searchLibrary(db, { source: "sheets", limit: 20, offset: 0 }).total === 2);
-  assert.ok(searchLibrary(db, { kind: "audio", limit: 20, offset: 0 }).total === 1);
+  assert.equal(searchLibrary(db, { kind: "audio", limit: 20, offset: 0 }).total, 3);
   db.close();
 });
 
@@ -94,6 +94,32 @@ test("titles with ｜, # and ⧸ round-trip and are searchable", () => {
   assert.equal(r.items[0]?.title, "Smooth Flowing Bass Line w⧸ Hammer-Ons ｜ 12 Bar Workout #bluegrass");
   assert.equal(searchLibrary(db, { q: 'draft "#2', limit: 20, offset: 0 }).items[0]?.entry, "Music Sheets/Mine/Song ｜ Draft #2.odt");
   assert.equal(searchLibrary(db, { q: "\"unbalanced (", limit: 20, offset: 0 }).total, 0);
+  db.close();
+});
+
+test("archive PDFs are titled from their first line", () => {
+  assert.ok(items.some((i) => i.source === "archive" && i.kind === "pdf" && i.title === "12 Bar Blues with a Country Twang"), JSON.stringify(items.filter((i) => i.kind === "pdf" && i.source === "archive").map((i) => i.title)));
+});
+
+test("videos carry their thumbnail", () => {
+  const strum = items.find((i) => i.source === "cgo" && i.group === "vimeo:132673069")!;
+  assert.match(strum.thumb ?? "", /\[132673069\]\.jpg$/);
+});
+
+test("companions: lesson downloads, ArtistWorks charts and tracks, and archive sheets by title", async () => {
+  const db = openDb(join(tmp, "state4"));
+  await writeIndex(db, items);
+  const id = (pred: (i: Item) => boolean) => items.find(pred)!.id;
+  const titles = (vid: string) => companions(db, vid).map((c) => `${c.kind}:${c.title}`).sort();
+  // The lesson folder's downloads folder, found from either copy of the lesson.
+  assert.deepEqual(titles(id((i) => i.source === "cgo" && i.group === "vimeo:132673069")), ["audio:PREVIEW strum", "pdf:strumming pattern chart"]);
+  assert.deepEqual(titles(id((i) => i.source === "archive" && i.group === "vimeo:132673069")), ["audio:PREVIEW strum", "pdf:strumming pattern chart"]);
+  // ArtistWorks: same instructor, the song name leads the video title.
+  assert.deepEqual(titles(id((i) => i.source === "artistworks" && i.kind === "video")), ["audio:You Are My Sunshine", "pdf:You Are My Sunshine BasicRhythm"]);
+  // An archive sheet whose first line names the lesson.
+  assert.deepEqual(titles(id((i) => i.group === "vimeo:259880969")), ["pdf:12 Bar Blues with a Country Twang"]);
+  // Nothing loosely related: "Rye Whiskey" names no lesson in the fixtures.
+  assert.ok(!items.filter((i) => i.kind === "video").some((v) => titles(v.id).some((t) => t.includes("Rye"))));
   db.close();
 });
 

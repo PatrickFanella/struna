@@ -1,16 +1,17 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import { HttpError, route, send } from "../http.ts";
-import { probeCache, scannedAt, searchLibrary, writeIndex } from "./index-db.ts";
-import { ffprobeDuration, type Kind, scanLibrary, type ScanOptions, type Source } from "./scan.ts";
+import { companions, itemById, pdfTitleCache, probeCache, scannedAt, searchLibrary, writeIndex } from "./index-db.ts";
+import { ffprobeDuration, type Kind, pdftotextTitle, scanLibrary, type ScanOptions, type Source } from "./scan.ts";
 
 const SOURCES = new Set<Source>(["artistworks", "cgo", "archive", "vault", "books", "music-books", "sheets"]);
 const KINDS = new Set<Kind>(["video", "audio", "pdf", "epub", "zip-entry"]);
 const PAGE = 50;
 const DAY = 24 * 3600_000;
 
-export function libraryRoutes(opts: Omit<ScanOptions, "probe"> & { autoScan: boolean; onScan?: () => void }, db: DatabaseSync): void {
+export function libraryRoutes(opts: Omit<ScanOptions, "probe" | "pdfTitle"> & { autoScan: boolean; onScan?: () => void }, db: DatabaseSync): void {
   const cache = probeCache(db);
+  const titles = pdfTitleCache(db);
   let running: Promise<void> | null = null;
   let lastError: string | null = null;
 
@@ -26,6 +27,13 @@ export function libraryRoutes(opts: Omit<ScanOptions, "probe"> & { autoScan: boo
           const d = await ffprobeDuration(path);
           cache.put(path, size, mtime, d);
           return d;
+        },
+        pdfTitle: async (path, size, mtime) => {
+          const hit = titles.get(path, size, mtime);
+          if (hit) return hit.title;
+          const t = await pdftotextTitle(path);
+          titles.put(path, size, mtime, t);
+          return t;
         },
       });
       await writeIndex(db, items, { batch: 200 });
@@ -49,6 +57,11 @@ export function libraryRoutes(opts: Omit<ScanOptions, "probe"> & { autoScan: boo
     if (kind && !KINDS.has(kind as Kind)) throw new HttpError(400, "unknown kind");
     const r = searchLibrary(db, { q: q.slice(0, 200), ...(source ? { source: source as Source } : {}), ...(kind ? { kind: kind as Kind } : {}), limit: PAGE, offset });
     send(res, 200, { ...r, scannedAt: scannedAt(db), scanning: Boolean(running), scanError: lastError });
+  });
+
+  route("GET", "/api/library/:id/companions", (_req, res, { params }) => {
+    if (!itemById(db, params.id!)) throw new HttpError(404, "not found");
+    send(res, 200, companions(db, params.id!));
   });
 
   route("POST", "/api/library/scan", (_req, res) => {

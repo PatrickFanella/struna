@@ -81,6 +81,12 @@ export function mediaRoutes(opts: { mediaRoot: string; vaultRoot: string; cacheD
     await sendFile(req, res, path);
   });
 
+  route("GET", "/api/media/:id/thumb", async (req, res, { params }) => {
+    const item = itemById(db, params.id!);
+    if (!item?.thumb) throw new HttpError(404, "not found");
+    await sendFile(req, res, await resolveInside(opts.mediaRoot, item.thumb));
+  });
+
   route("GET", "/api/media/:id/entry", async (req, res, { params }) => {
     const item = itemById(db, params.id!);
     if (!item || item.kind !== "zip-entry" || !item.entry) throw new HttpError(404, "not found");

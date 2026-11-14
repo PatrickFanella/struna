@@ -2,7 +2,8 @@ import type { DatabaseSync } from "node:sqlite";
 
 import type { Item } from "./scan.ts";
 
-const COLUMNS = "id TEXT PRIMARY KEY, source TEXT, kind TEXT, title TEXT, description TEXT, path TEXT, url TEXT, entry TEXT, size INTEGER, duration REAL, grp TEXT, alt TEXT, calibre_id INTEGER, pref INTEGER";
+const COLUMNS = "id TEXT PRIMARY KEY, source TEXT, kind TEXT, title TEXT, description TEXT, path TEXT, url TEXT, entry TEXT, size INTEGER, duration REAL, grp TEXT, alt TEXT, calibre_id INTEGER, pref INTEGER, thumb TEXT";
+const LINKS = "item_id TEXT, companion_id TEXT";
 const FTS = "USING fts5(title, description, item_id UNINDEXED, tokenize = 'unicode61 remove_diacritics 2')";
 
 export function ensureLibrarySchema(db: DatabaseSync): void {
@@ -10,8 +11,13 @@ export function ensureLibrarySchema(db: DatabaseSync): void {
     CREATE TABLE IF NOT EXISTS items (${COLUMNS});
     CREATE VIRTUAL TABLE IF NOT EXISTS items_fts ${FTS};
     CREATE TABLE IF NOT EXISTS library_meta (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE IF NOT EXISTS item_links (${LINKS});
     CREATE TABLE IF NOT EXISTS probe_cache (path TEXT PRIMARY KEY, size INTEGER, mtime REAL, duration REAL);
+    CREATE TABLE IF NOT EXISTS pdf_title_cache (path TEXT PRIMARY KEY, size INTEGER, mtime REAL, title TEXT);
   `);
+  // Indexes built before thumbnails existed get the column on first use.
+  const cols = (db.prepare("PRAGMA table_info(items)").all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("thumb")) db.exec("ALTER TABLE items ADD COLUMN thumb TEXT");
 }
 
 /** Lower is preferred when a lesson has several copies: the lesson folder, then the archive's lesson videos, then stream captures. */
@@ -29,16 +35,18 @@ function pref(i: Item): number {
  */
 export async function writeIndex(db: DatabaseSync, items: Item[], opts: { batch?: number } = {}): Promise<void> {
   ensureLibrarySchema(db);
-  db.exec(`DROP TABLE IF EXISTS items_next; DROP TABLE IF EXISTS items_fts_next;
-    CREATE TABLE items_next (${COLUMNS}); CREATE VIRTUAL TABLE items_fts_next ${FTS};`);
-  const ins = db.prepare("INSERT OR REPLACE INTO items_next (id, source, kind, title, description, path, url, entry, size, duration, grp, alt, calibre_id, pref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  db.exec(`DROP TABLE IF EXISTS items_next; DROP TABLE IF EXISTS items_fts_next; DROP TABLE IF EXISTS item_links_next;
+    CREATE TABLE items_next (${COLUMNS}); CREATE VIRTUAL TABLE items_fts_next ${FTS}; CREATE TABLE item_links_next (${LINKS});`);
+  const ins = db.prepare("INSERT OR REPLACE INTO items_next (id, source, kind, title, description, path, url, entry, size, duration, grp, alt, calibre_id, pref, thumb) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  const lnk = db.prepare("INSERT INTO item_links_next (item_id, companion_id) VALUES (?, ?)");
   const fts = db.prepare("INSERT INTO items_fts_next (title, description, item_id) VALUES (?, ?, ?)");
   const size = opts.batch ?? items.length;
   for (let start = 0; start < items.length; start += size) {
     db.exec("BEGIN");
     try {
       for (const i of items.slice(start, start + size)) {
-        ins.run(i.id, i.source, i.kind, i.title, i.description, i.path, i.url, i.entry, i.size, i.duration, i.group, i.alt, i.calibreId, pref(i));
+        ins.run(i.id, i.source, i.kind, i.title, i.description, i.path, i.url, i.entry, i.size, i.duration, i.group, i.alt, i.calibreId, pref(i), i.thumb ?? null);
+        for (const c of i.links ?? []) lnk.run(i.id, c);
         fts.run(i.title, i.description, i.id);
       }
       db.exec("COMMIT");
@@ -51,7 +59,8 @@ export async function writeIndex(db: DatabaseSync, items: Item[], opts: { batch?
   db.exec("BEGIN IMMEDIATE");
   try {
     db.exec(`DROP TABLE items; ALTER TABLE items_next RENAME TO items;
-      DROP TABLE items_fts; ALTER TABLE items_fts_next RENAME TO items_fts;`);
+      DROP TABLE items_fts; ALTER TABLE items_fts_next RENAME TO items_fts;
+      DROP TABLE item_links; ALTER TABLE item_links_next RENAME TO item_links;`);
     db.prepare("INSERT INTO library_meta (key, value) VALUES ('scannedAt', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(new Date().toISOString());
     db.exec("COMMIT");
   } catch (e) {
@@ -74,12 +83,35 @@ export function ftsQuery(q: string): string | null {
 /** Browsing order: lessons first, the raw archive last. */
 const SOURCE_ORDER = "CASE b.source WHEN 'cgo' THEN 0 WHEN 'artistworks' THEN 1 WHEN 'vault' THEN 2 WHEN 'books' THEN 3 WHEN 'music-books' THEN 4 WHEN 'sheets' THEN 5 ELSE 6 END,";
 
-type Row = { id: string; source: Item["source"]; kind: Item["kind"]; title: string; description: string; path: string | null; url: string | null; entry: string | null; size: number | null; duration: number | null; grp: string | null; alt: string | null; calibre_id: number | null; copies: number };
+type Row = { id: string; source: Item["source"]; kind: Item["kind"]; title: string; description: string; path: string | null; url: string | null; entry: string | null; size: number | null; duration: number | null; grp: string | null; alt: string | null; calibre_id: number | null; thumb: string | null; copies: number };
 
 const toItem = (r: Row): Item & { copies: number } => ({
   id: r.id, source: r.source, kind: r.kind, title: r.title, description: r.description, path: r.path, url: r.url, entry: r.entry,
-  size: r.size, duration: r.duration, group: r.grp, alt: r.alt, calibreId: r.calibre_id, copies: r.copies,
+  size: r.size, duration: r.duration, group: r.grp, alt: r.alt, calibreId: r.calibre_id, thumb: r.thumb ?? null, links: [], copies: r.copies,
 });
+
+/** Sheet music and audio attached to any copy of this item's lesson: PDFs first, then audio. */
+export function companions(db: DatabaseSync, id: string): (Item & { copies: number })[] {
+  ensureLibrarySchema(db);
+  const rows = db.prepare(`
+    SELECT DISTINCT c.*, 1 AS copies FROM items c
+    JOIN item_links l ON l.companion_id = c.id
+    JOIN items v ON v.id = l.item_id
+    WHERE COALESCE(v.grp, v.id) = (SELECT COALESCE(grp, id) FROM items WHERE id = ?)
+    ORDER BY CASE c.kind WHEN 'pdf' THEN 0 WHEN 'zip-entry' THEN 1 ELSE 2 END, c.title COLLATE NOCASE`).all(id) as Row[];
+  return rows.map(toItem);
+}
+
+/** Printed PDF titles cached by path, size and mtime. */
+export function pdfTitleCache(db: DatabaseSync) {
+  ensureLibrarySchema(db);
+  const get = db.prepare("SELECT title FROM pdf_title_cache WHERE path = ? AND size = ? AND mtime = ?");
+  const put = db.prepare("INSERT INTO pdf_title_cache (path, size, mtime, title) VALUES (?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET size = excluded.size, mtime = excluded.mtime, title = excluded.title");
+  return {
+    get: (path: string, size: number, mtime: number) => get.get(path, size, mtime) as { title: string | null } | undefined,
+    put: (path: string, size: number, mtime: number, title: string | null) => void put.run(path, size, mtime, title),
+  };
+}
 
 /** One row per lesson group, preferring the lesson-folder copy; filters apply to that preferred copy. */
 export function searchLibrary(db: DatabaseSync, o: { q?: string; source?: Item["source"]; kind?: Item["kind"]; limit: number; offset: number }): { items: (Item & { copies: number })[]; total: number } {
