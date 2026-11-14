@@ -2,7 +2,8 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { api } from "../api.ts";
 import type { ActionId, ActionMode, AutoAction, Prompt } from "../generic.ts";
-import { askCoach, openCoach } from "./Chat.tsx";
+import { askCoach, coachReady, openCoach } from "./Chat.tsx";
+import { unavailable } from "./providers.ts";
 import { fillAction, loadPrompts, setPrompts, usePrompts } from "./prompts.ts";
 
 type Toast = { key: number; id: ActionId; message: string; offer?: { label: string; text: string } };
@@ -48,9 +49,13 @@ function show(t: Omit<Toast, "key">): void {
   if (!t.offer) setTimeout(() => dismiss(key), WORKING_MS);
 }
 
+const FAILED = "The coach could not do that: open the coach to see why.";
+
 function run(a: AutoAction, text: string): void {
-  askCoach(text, { auto: a.id });
+  const done = askCoach(text, { auto: a.id });
   show({ id: a.id, message: WORKING[a.id] ?? "The coach is working on it." });
+  // A coach that is signed in can still fail (rate limits, errors): say so instead of letting "working" stand.
+  void done.then((ok) => ok || show({ id: a.id, message: FAILED }));
 }
 
 /**
@@ -62,6 +67,9 @@ export async function coachAction(id: ActionId, vars?: Record<string, string>): 
   const { actions } = await loadPrompts();
   const a = actions.find((x) => x.id === id);
   if (!a || a.mode === "off") return;
+  // No signed-in coach: queuing the request would only leave an error in the conversation.
+  const ready = await coachReady();
+  if (!ready.ok) return show({ id, message: unavailable(id, ready.detail) });
   const text = fillAction(a.text, vars);
   if (a.mode === "auto") run(a, text);
   else show({ id, message: HAPPENED[id] ?? a.when, offer: { label: a.offer, text } });
@@ -82,7 +90,7 @@ export function CoachToasts() {
               const a = actions.find((x) => x.id === t.id);
               dismiss(t.key);
               if (a) run(a, offer.text);
-              else askCoach(offer.text, { auto: t.id });
+              else void askCoach(offer.text, { auto: t.id });
             }}>{t.offer.label}</button>
           ) : (
             <button className="btn outline" onClick={() => {

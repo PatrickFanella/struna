@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { claudeArgs } from "./claude.ts";
-import { codexArgs } from "./codex.ts";
+import { chmodSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { codexArgs, codexInstallDir } from "./codex.ts";
 
 const base = { system: "be a coach", vaultRoot: "/v", threadRel: "001 Projects/Threads/Guitar", mediaRoot: "/media/Guitar" };
 const after = (args: string[], flag: string) => args[args.indexOf(flag) + 1];
@@ -46,4 +50,22 @@ test("codex runs exec with a workspace-write sandbox and no network", () => {
   const r = codexArgs({ system: "s", threadId: "t-1" });
   assert.deepEqual(r.slice(0, 3), ["exec", "resume", "t-1"]);
   assert.equal(r.at(-1), "-");
+});
+
+test("codex's install folder is the one above its bin/, never one holding the home folder", async () => {
+  const root = mkdtempSync(join(tmpdir(), "codex-install-"));
+  const install = join(root, "installs", "codex", "1.0.0");
+  mkdirSync(join(install, "bin"), { recursive: true });
+  writeFileSync(join(install, "bin", "codex"), "#!/bin/sh\n");
+  chmodSync(join(install, "bin", "codex"), 0o755);
+  const home = join(root, "home");
+  mkdirSync(join(home, "bin"), { recursive: true });
+  symlinkSync(join(install, "bin", "codex"), join(home, "bin", "link"));
+  assert.equal(await codexInstallDir(join(home, "bin", "link"), {}, home), install);
+  assert.equal(await codexInstallDir("codex", { PATH: join(install, "bin") }, home), install);
+  // A wrapper script in ~/bin would make the home folder the "install folder": refused.
+  writeFileSync(join(home, "bin", "codex"), "#!/bin/sh\n");
+  chmodSync(join(home, "bin", "codex"), 0o755);
+  assert.equal(await codexInstallDir(join(home, "bin", "codex"), {}, home), null);
+  assert.equal(await codexInstallDir("nothing-here", { PATH: join(root, "none") }, home), null);
 });

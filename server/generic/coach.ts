@@ -1,14 +1,21 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { join, sep } from "node:path";
 
 import type { AfterTurn, Changed, CoachProfile, Screen } from "../chat.ts";
-import { materialsFingerprint, reconcileLinks } from "./materials.ts";
+import { localDate } from "../logs.ts";
+import { materialsFingerprint, pendingSaves, reconcileLinks } from "./materials.ts";
 import { genericToday, PLAN_REL, PLAN_SCHEMA, readPlan, type Studio } from "./studio.ts";
+import { webFetchSettings } from "./webfetch-guard.ts";
 
 const WEB_TOOLS = ["WebSearch", "WebFetch"];
 /** Building a plan with a web search for materials takes longer than the personal coach's five minutes. */
 const TURN_MS = 900_000;
+/** How long a reply waits for its link downloads before they carry on in the background. */
+const LINK_WAIT_MS = 3000;
+/** One pass of link downloads stops starting new ones after this; the rest wait for a later pass. */
+const LINK_PASS_MS = 15 * 60_000;
 /** The only places the coach may write. Logs and recordings are the player's record and stay read-only. */
 export const WRITABLE = ["plan/**", "materials/**", "coach-notes.md", "profile.json"];
 
@@ -20,10 +27,10 @@ export function genericSystem(o: { appName: string; web: boolean; libraryDirs: s
   const web = o.web
     ? `Finding material on the web: search, open the page and read it, and only then add it to materials/links.json. Never add a URL you have not opened.
 - Each entry gets the page's real title, a one-line note on what it is and how to use it, and "level" saying who it suits.
-- Prefer free, legal, reputable teaching sources and official artist or publisher pages. Link to copyrighted songs, tabs and books; never copy them out into a file or a reply.
+- Prefer free, legal, reputable teaching sources and official artist or publisher pages. For a full song, link to an official or licensed chart, tab or lesson (the artist's or publisher's page, or a licensed tab site) instead of copying it.
 - Set "save": true only on a direct link to a file (PDF, audio, Guitar Pro, MusicXML) that is clearly free to download; the app then keeps a copy in materials/. A web page stays a link.
 - YouTube links are fine and play inside the app.`
-    : `You have no web access here. Do not invent links; work from the player's own materials and write lesson sheets yourself. If the player gives you a URL, you may add it to materials/links.json as they describe it.`;
+    : `You have no web access here. Do not invent links; work from the player's own materials and write lesson sheets yourself. If the player gives you a URL, you may add it to materials/links.json as they describe it. For a full song, ask the player to add their own copy to materials/, or teach it from short excerpts.`;
   const library = o.libraryDirs.length
     ? `\nThe player's own library is in these read-only folders; read from them and name the files, but do not write there:\n${o.libraryDirs.map((d) => `- ${d}`).join("\n")}`
     : "";
@@ -34,7 +41,8 @@ Your working directory is the player's studio folder. Before you advise or chang
 The player
 - profile.json holds their level (new, beginner, intermediate, advanced), instrument, styles, goals, the songs or artists they want, minutes per session, days per week, what they can read, their playing hand and anything to plan around.
 - Match your words and pace to the level. For "new": no term without a one-line explanation, very small steps, and something that sounds like music in the first sessions. For "advanced": be direct and specific.
-- Respect "limits" (injuries, hand size, hearing), "hand" (a left-handed player frets with the right hand: describe hands as fretting and picking, and say that chord boxes may need mirroring) and "reads" (do not hand notation to someone who reads only tab or chord names).
+- Respect "limits" (injuries, hand size, hearing) and "hand": "left" means they fret with the right hand on a left-handed guitar, so describe hands as fretting and picking and say that chord boxes may need mirroring. If their messages or logs suggest a standard guitar, or a right-handed guitar turned over without restringing (thinnest string on top), ask once, note the answer in coach-notes.md and do not assume mirrored boxes.
+- "reads" lists what they can already read. Use only those formats without explanation. If you use tab, chord boxes or notation they do not list, or the list is empty, explain how to read it in a line or two the first time, and prefer a format they read.
 - Keep what you learn about the player in coach-notes.md: short dated lines, such as what works, what they dislike and what you agreed.
 
 The studio folder
@@ -52,7 +60,7 @@ ${PLAN_SCHEMA}
 - A phase lasts for a number of counted sessions, not a number of weeks. A session counts when its log is dated on or after "started" and was not stopped for pain.
 - Give two or three session kinds sized around the player's minutes per session: the usual length first, then a shorter one, then a 5 to 10 minute one for busy days. Every kind must be worth doing on its own.
 - "next" is exactly what to do first next time. The newest log's "Next instruction" replaces it until you change "next" again, so after you review a session, set "next".
-- When you only adjust the plan, edit the file and keep its "id" and "started". When you replace it with a new plan, first copy the old file to plan/archive/<old id>.json, then write the new one with a new "id" and today's date as "started".
+- When you only adjust the plan, edit the file and keep its "id" and "started". When you replace it with a new plan, first copy the old file to plan/archive/<old id>.json, then write the new one with a new "id" and the date on the context block's "Today:" line as "started".
 - A material in the plan must exist: "file" is a path under materials/, "url" is a link you opened.
 - After changing the plan, say what you changed in one or two lines.
 
@@ -66,20 +74,24 @@ Materials
 - Read what is in materials/ before recommending anything; PDFs and images can be read directly. Turn the player's own material into plan items: name the file, the page or bar range, and what to do with it.
 - Write your own lesson sheets as Markdown files in materials/, one topic per file with a plain title. Put chord boxes and tab in fenced code blocks so they keep their spacing, and say which string is which.
 - materials/links.json is a JSON array of { "url", "title", "note", "level", "save" } objects. Keep the entries that are there, including any "file", "saveError" and "added" fields the app set; add yours at the end.
+- Copyrighted songs: for teaching you may write out a short excerpt, such as a riff, a few bars, a chord progression or a strumming pattern, in a lesson sheet or a reply. Never copy out a whole song's tab, notation or lyrics.
 ${web}
 
 Safety
-- Pain, numbness, tingling or tension that stays after playing means stop for today. Advise rest, shorter sessions, a lighter touch and a check of posture and setup, and lighten the plan. If it persists or returns, they should see a doctor or physiotherapist. Do not diagnose.
+- Stop for today if playing causes sharp pain, joint pain, numbness or tingling, even if it eases when the hand relaxes, or if pain or tension stays after playing. Advise rest, shorter sessions, a lighter touch and a check of posture and setup, and lighten the plan. If it persists or returns, they should see a doctor or physiotherapist. Do not diagnose.
 - Sore fingertips in the first weeks are normal; sharp or joint pain is not.
 
 How to answer
 - The player usually has a guitar in their hands. Be short and concrete: tempos, bars, strings, frets and fingers, and what to listen for.
+- The app's tuner offers six-string guitar tunings (standard, drop D, double drop D) string by string, and a free mode that reads any note from about 60 to 1100 Hz. A player on another instrument should use the free mode, or an outside tuner if an open string is below about 60 Hz (a bass's low E and A).
 - Ask at most one question at a time, and only when the answer changes what you would do.
 - Some messages are sent by the app when something happens (a session was logged, material was added, the setup form was saved). Treat them as the player's request and keep the reply to a few lines.
 - Each message starts with a [Guitar Room] block describing what the player is looking at. It is context only: never repeat or imitate it in your reply.`;
 }
 
 type TodayLike = {
+  /** The date in the app's time zone. */
+  today?: string;
   block: { title: string; id: string } | null;
   line: string;
   next: { text: string };
@@ -88,8 +100,10 @@ type TodayLike = {
   error?: string;
 };
 
-export function genericContext(screen: Screen, t: TodayLike): string {
+export function genericContext(screen: Screen, t: TodayLike, timeZone?: string): string {
   const lines = ["[Guitar Room]", `Screen: ${screen.view}`];
+  // The CLIs take their date from the server's clock, which may be in another zone than the logs.
+  if (t.today) lines.push(`Today: ${t.today}${timeZone ? ` (${timeZone})` : ""}`);
   if (t.profile) lines.push(`Level: ${t.profile.level}`);
   else lines.push("Profile: not set up yet");
   if (t.block) lines.push(`Plan: ${t.block.title} (${t.block.id})`);
@@ -130,17 +144,75 @@ async function linksProblem(home: string): Promise<string | null> {
 export type CoachDeps = {
   readPlan: typeof readPlan;
   genericToday: (s: Studio) => Promise<TodayLike>;
-  reconcileLinks: typeof reconcileLinks;
+  reconcileLinks: (s: Studio, save?: undefined, signal?: AbortSignal) => ReturnType<typeof reconcileLinks>;
+  pendingSaves: typeof pendingSaves;
   prints: (s: Studio) => Promise<Prints>;
+  now: () => Date;
+  /** How long a reply waits for link downloads; tests shorten it. */
+  linkWaitMs: number;
 };
 
-/** The generic mode's coach: works in the studio folder, may search the web, and has its plan checked after each turn. */
-export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}): CoachProfile {
-  const d: CoachDeps = { readPlan, genericToday, reconcileLinks, prints, ...deps };
+const isUnder = (dir: string, root: string) => dir === root || dir.startsWith(root.endsWith(sep) ? root : root + sep);
+
+/**
+ * The Codex permission profile for the studio, as a TOML inline table. Unlike the `workspace-write`
+ * sandbox (which limits only writes), it denies reads outside the studio: commands Codex runs see the
+ * studio, the library folders, Codex's own install folder and the system's runtime paths (`:minimal`),
+ * not the home folder with its logins and keys. `logs/` and `Recordings/` are read-only, as for Claude,
+ * and the shell has no network. Checked with codex-cli 0.167.2 (`codex sandbox`): ~/.ssh, ~/.codex and
+ * /tmp unreadable, logs/ and the library folders read-only, plan/ writable, no DNS.
+ */
+export function codexProfile(o: { libraryDirs: string[]; codexInstall: string }): string {
+  const q = JSON.stringify; // A JSON string is a valid TOML basic string.
+  // A deny on /tmp also hides read rules for folders under it, so a library folder there keeps /tmp open.
+  const tmpRoots = ["/tmp", tmpdir()];
+  const keepTmp = o.libraryDirs.some((d) => tmpRoots.some((t) => isUnder(d, t)));
+  const fs = [
+    `":root"="deny"`,
+    `":minimal"="read"`,
+    ...(keepTmp ? [] : [`":tmpdir"="deny"`, `":slash_tmp"="deny"`]),
+    `${q(o.codexInstall)}="read"`,
+    ...o.libraryDirs.map((d) => `${q(d)}="read"`),
+    `":workspace_roots"={"."="write", "logs"="read", "Recordings"="read"}`,
+  ];
+  return `{extends=":workspace", filesystem={${fs.join(", ")}}, network={enabled=false}}`;
+}
+
+/**
+ * The generic mode's coach: works in the studio folder, may search the web, and has its plan checked
+ * after each turn. `codexInstall` is the folder of the real Codex binary; without it Codex falls back
+ * to the `workspace-write` sandbox, which cannot limit reads.
+ */
+export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { codexInstall?: string | null } = {}): CoachProfile {
+  const d: CoachDeps = { readPlan, genericToday, reconcileLinks: (st, _save, signal) => reconcileLinks(st, undefined, signal), pendingSaves, prints, now: () => new Date(), linkWaitMs: LINK_WAIT_MS, ...deps };
+  /** Failures from link downloads that finished after their reply; told on the next turn. */
+  const late: string[] = [];
+  /** The turn that last started downloads: its follow-up pass does not start them again. */
+  let downloadsFor: unknown;
+
+  /** Start the link downloads; wait a moment, so quick ones are part of this reply, and let slow ones go on. */
+  const saveLinks = async (changed: Changed, notices: string[]) => {
+    const pass = d.reconcileLinks(s, undefined, AbortSignal.timeout(LINK_PASS_MS));
+    let wait: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<"later">((r) => {
+      wait = setTimeout(() => r("later"), d.linkWaitMs);
+    });
+    const r = await Promise.race([pass, timeout]).finally(() => clearTimeout(wait));
+    if (r === "later") {
+      notices.push("Copies of the coach's links are still downloading; they appear under Materials when they are done.");
+      pass.then(
+        (done) => late.push(...done.failed.map((f) => `Could not save a copy: ${f}`)),
+        (e) => late.push(`Could not save copies of the new links: ${(e as Error).message}`),
+      );
+      return;
+    }
+    if (r.saved.length) changed.materials = true;
+    for (const f of r.failed) notices.push(`Could not save a copy: ${f}`);
+  };
 
   const afterTurn = async (before: unknown, pass?: { final: boolean }): Promise<AfterTurn> => {
     const was = before as Prints | undefined;
-    const notices: string[] = [];
+    const notices: string[] = late.splice(0);
     const now = await d.prints(s);
     const changed: Changed = was
       ? { plan: now.plan !== was.plan, materials: now.materials !== was.materials, profile: now.profile !== was.profile }
@@ -150,6 +222,11 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}): CoachPro
     if (changed.plan) {
       const { plan, errors } = await d.readPlan(s);
       if (!plan) problems.push(errors.length ? `${PLAN_REL} is not valid: ${errors.join("; ")}.` : `${PLAN_REL} is missing: write the active plan there (earlier plans belong in plan/archive/).`);
+      else {
+        // A "started" after today hides that day's sessions from the plan; the coach's clock may be in another zone.
+        const today = localDate(d.now(), s.timeZone);
+        if (plan.started > today) problems.push(`${PLAN_REL}: "started" is ${plan.started}, after today (${today}); use today's date.`);
+      }
     }
     if (changed.materials) {
       const p = await linksProblem(s.home);
@@ -158,12 +235,18 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}): CoachPro
 
     // Saving copies only makes sense once links.json can be read, and it changes materials/ itself.
     if (!problems.some((p) => p.startsWith("materials/links.json"))) {
-      try {
-        const r = await d.reconcileLinks(s);
-        if (r.saved.length) changed.materials = true;
-        for (const f of r.failed) notices.push(`Could not save a copy: ${f}`);
-      } catch (e) {
-        notices.push(`Could not save copies of the new links: ${(e as Error).message}`);
+      if (!s.web) {
+        // Without web access the app does not fetch what the coach asks for: a coach misled by a page or a
+        // file could put what it read into an address. The player can still save each copy by hand.
+        const n = changed.materials ? await d.pendingSaves(s).catch(() => 0) : 0;
+        if (n) notices.push(`The coach suggested saving ${n === 1 ? "a copy of 1 link" : `copies of ${n} links`}. Copies are only made when you press "Save a copy" under Materials.`);
+      } else if (downloadsFor !== before || before === undefined) {
+        downloadsFor = before;
+        try {
+          await saveLinks(changed, notices);
+        } catch (e) {
+          notices.push(`Could not save copies of the new links: ${(e as Error).message}`);
+        }
       }
     }
 
@@ -177,7 +260,7 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}): CoachPro
     system: genericSystem(s),
     context: async (screen) => {
       try {
-        return genericContext(screen, await d.genericToday(s));
+        return genericContext(screen, await d.genericToday(s), s.timeZone);
       } catch {
         return `[Guitar Room]\nScreen: ${screen.view}\n[/Guitar Room]`;
       }
@@ -189,10 +272,17 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}): CoachPro
       // plan/plan.json is written; logs/, Recordings/, the library folders and paths outside are refused).
       allowed: [...WRITABLE.flatMap((p) => [`Edit(${p})`, `Write(${p})`]), ...(s.web ? WEB_TOOLS : [])],
       addDirs: s.libraryDirs,
+      // WebFetch requests come from this machine: a hook refuses private and local addresses first.
+      settings: s.web ? webFetchSettings() : undefined,
       timeoutMs: TURN_MS,
     },
-    // Codex's sandbox makes the whole studio folder writable; the instructions keep it out of logs/ and Recordings/.
-    codex: { cwd: s.home, search: s.web, skipGitCheck: true, timeoutMs: TURN_MS },
+    codex: {
+      cwd: s.home,
+      search: s.web,
+      skipGitCheck: true,
+      permissions: opts.codexInstall ? codexProfile({ libraryDirs: s.libraryDirs, codexInstall: opts.codexInstall }) : undefined,
+      timeoutMs: TURN_MS,
+    },
     beforeTurn: () => d.prints(s),
     afterTurn,
   };

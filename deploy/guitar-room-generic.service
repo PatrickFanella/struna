@@ -2,14 +2,28 @@
 # placeholders, then: systemctl --user daemon-reload && systemctl --user enable --now guitar-room-generic
 #
 #   CHECKOUT      the folder holding this repository, after `pnpm install && pnpm build`
-#   STUDIO        the player's studio folder (created at start); one player per unit
+#   STUDIO        the player's studio folder (created at start)
 #   NODE          the full path of Node 24 or later (`command -v node`)
 #
-# It listens on loopback TCP only, with no login of its own: anyone who can reach the port can
-# use the coach on this account's Claude and ChatGPT subscriptions and write to the studio folder.
-# Keep it on 127.0.0.1. To reach it from another device, put a reverse proxy with its own login in
-# front, add the public name to ALLOWED_HOSTS, and see the README for REQUIRE_USER,
-# EDGE_SECRET_FILE and SOCKET_PATH.
+# One player per unit: for a second player, copy the unit under a new name and change STUDIO,
+# GUITAR_STATE_DIR and PORT.
+#
+# Access: on loopback TCP the server has no login of its own, and any other account on this machine
+# or any container on the host network can connect to 127.0.0.1. So it answers only browsers that
+# have opened its access link once: `http://localhost:5184/?token=` followed by the contents of
+# GUITAR_STATE_DIR/access-token (mode 600, created at first start; the journal shows the command).
+# Anyone with the link can use the coach on this account's Claude and ChatGPT subscriptions and
+# change the studio folder.
+#
+# Behind a reverse proxy with its own login, use a Unix socket instead of TCP: uncomment the three
+# socket lines below (the runtime directory is owner-only), add the public name to ALLOWED_HOSTS,
+# and see the README for REQUIRE_USER and EDGE_SECRET_FILE. A socket needs no access link.
+#
+# What the coach can read: Claude reads only the studio and GUITAR_LIBRARY_DIRS. Codex runs with a
+# permission profile that hides the rest of the disk from its commands, but only when the server
+# finds Codex's install folder (set CODEX_BIN to the real binary's full path if the log warns); if it
+# cannot, Codex can read every file this account can, including CLI logins and SSH keys. Either way,
+# a dedicated account with no other secrets is the safest place to run this.
 #
 # The `claude` and `codex` CLIs must be signed in for this account and on PATH (or set CLAUDE_BIN
 # and CODEX_BIN). ffmpeg is needed only to play videos that are not MP4.
@@ -24,8 +38,13 @@ WorkingDirectory=CHECKOUT
 Environment=NODE_ENV=production
 Environment=GUITAR_MODE=generic
 Environment="GUITAR_HOME=STUDIO"
+Environment="GUITAR_STATE_DIR=%h/.local/state/guitar-room-generic"
 Environment=HOST=127.0.0.1
 Environment=PORT=5184
+# For a reverse proxy: listen on an owner-only Unix socket instead of TCP.
+#RuntimeDirectory=guitar-room-generic
+#RuntimeDirectoryMode=0700
+#Environment=SOCKET_PATH=%t/guitar-room-generic/http.sock
 # Optional; remove the leading # to use them.
 #Environment="GUITAR_LIBRARY_DIRS=/path/to/lessons:/path/to/sheet music"
 #Environment="GUITAR_TABS_DIR=/path/to/guitar pro files"
@@ -33,6 +52,7 @@ Environment=PORT=5184
 #Environment=GUITAR_COACH_WEB=0
 #Environment="GUITAR_APP_NAME=Guitar Room"
 #Environment=ALLOWED_HOSTS=guitar.example.org
+#Environment=CODEX_BIN=/full/path/to/codex
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=NODE server/index.ts
 Restart=on-failure

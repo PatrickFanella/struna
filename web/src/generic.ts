@@ -12,7 +12,7 @@ export type Profile = {
   version: 1;
   name: string;
   level: Level;
-  /** "acoustic", "electric", "classical", "bass" or anything else. */
+  /** "acoustic", "electric", "classical" or anything else the player typed. */
   instrument: string;
   styles: string[];
   goals: string;

@@ -78,3 +78,16 @@ test("logs are created exclusively: a second that day gets -2 and nothing is ove
   await writeFile(join(home, "logs/notes.md"), "not a log", "utf8");
   assert.deepEqual((await readLogs(home)).map((l) => l.file), ["2026-11-13.md", "2026-11-14.md", ...[2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `2026-11-14-${n}.md`)]);
 });
+
+test("a heading inside the next instruction stays part of it", () => {
+  const next = "Start with:\n\n## Warm-up\nplay E minor\n...then G";
+  const log = parseGenericLog("2026-11-17.md", renderGenericLog(parseGenericReview({ ...body, next }), "2026-11-17", "2026-11-17T10:00:00.000Z"));
+  assert.equal(log.next, next);
+});
+
+test("a take's line keeps the purpose and calls a weekly take a progress take", () => {
+  const text = renderGenericLog(parseGenericReview({ ...body, recording: { path: "Recordings/p/2026-11-14-weekly.webm", label: "weekly", purpose: "first strum test" } }), "2026-11-14", "2026-11-14T10:00:00.000Z");
+  assert.match(text, /- \*\*Recording:\*\* Recordings\/p\/2026-11-14-weekly\.webm — progress — first strum test\n/);
+  const bare = renderGenericLog(parseGenericReview({ ...body, recording: { path: "Recordings/p/a.webm", label: "baseline" } }), "2026-11-14", "2026-11-14T10:00:00.000Z");
+  assert.match(bare, /- \*\*Recording:\*\* Recordings\/p\/a\.webm — baseline — no purpose given\n/);
+});

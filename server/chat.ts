@@ -158,7 +158,8 @@ export async function coachTurn(o: { coach: CoachProfile; run: Run; prompt: stri
   try {
     const canFollowUp = Boolean(threadId) && !signal.aborted && errors.length === 0;
     const followUp = await after(before, !canFollowUp);
-    if (followUp) {
+    // The post-turn check can take a while; a Stop during it must not start the repair turn.
+    if (followUp && !signal.aborted) {
       if (reply) {
         reply += "\n\n";
         emit("delta", { text: "\n\n" });

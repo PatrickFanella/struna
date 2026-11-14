@@ -8,14 +8,15 @@ export const LEVELS: { id: Level; title: string; text: string }[] = [
   { id: "intermediate", title: "Intermediate", text: "Songs, barre chords, some lead." },
   { id: "advanced", title: "Advanced", text: "Comfortable across the neck; working on specifics." },
 ];
-export const INSTRUMENTS: [string, string][] = [["acoustic", "Acoustic"], ["electric", "Electric"], ["classical", "Classical"], ["bass", "Bass"]];
+/** Six-string guitars: the starter plans and the tuner are written for them. A saved "bass" still loads, as "Other". */
+export const INSTRUMENTS: [string, string][] = [["acoustic", "Acoustic"], ["electric", "Electric"], ["classical", "Classical"]];
 export const STYLES = ["Rock", "Pop", "Blues", "Folk", "Country", "Metal", "Jazz", "Classical", "Fingerstyle", "Punk", "Funk", "Soul"];
 export const MINUTES = [5, 10, 15, 20, 30, 45, 60];
 export const READS: [string, string][] = [["tab", "Tab"], ["chords", "Chord charts"], ["notation", "Standard notation"]];
 
-/** What "Skip for now" saves, and what the form starts from. */
+/** What "Skip for now" saves, and what the form starts from. Nothing is assumed readable: an empty `reads` means not known yet. */
 export function defaultProfile(): ProfileInput {
-  return { name: "", level: "beginner", instrument: "acoustic", styles: [], goals: "", wants: "", minutesPerSession: 20, daysPerWeek: 4, reads: ["tab", "chords"], hand: "right", limits: "", notes: "" };
+  return { name: "", level: "beginner", instrument: "acoustic", styles: [], goals: "", wants: "", minutesPerSession: 20, daysPerWeek: 4, reads: [], hand: "right", limits: "", notes: "" };
 }
 
 /** The setup form's fields. Styles and instrument split into the offered choices and free text. */
@@ -156,4 +157,26 @@ export function profileAction(o: { before: ProfileInput | null; after: ProfileIn
   if (o.skipped) return null;
   if (!o.before || o.skippedBefore || o.plan === "created") return "onboarding";
   return sameProfile(o.before, o.after) ? null : "profile-changed";
+}
+
+export const REVIEW_DRAFT_KEY = "guitar-room.review-draft";
+
+/**
+ * The review form after a reload: the stored draft over the fresh one, but only when it belongs to
+ * this session (same start time), so an older session's answers never leak into a new one.
+ */
+export function restoreReviewDraft<T extends object>(raw: string | null, startedAt: number | undefined, first: T): T {
+  if (!raw || startedAt === undefined) return first;
+  try {
+    const d = JSON.parse(raw) as { startedAt?: unknown; form?: unknown };
+    if (d.startedAt !== startedAt || !d.form || typeof d.form !== "object") return first;
+    const out = { ...first };
+    for (const k of Object.keys(first) as (keyof T)[]) {
+      const v = (d.form as Record<string, unknown>)[k as string];
+      if (typeof v === typeof first[k]) out[k] = v as T[keyof T];
+    }
+    return out;
+  } catch {
+    return first;
+  }
 }

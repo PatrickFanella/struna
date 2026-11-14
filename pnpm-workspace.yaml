@@ -1,0 +1,4 @@
+# Both packages come in through epubjs; their install scripts only print messages, so they are not run.
+allowBuilds:
+  core-js: false
+  es5-ext: false

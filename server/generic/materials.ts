@@ -18,11 +18,12 @@ const LIBRARY_CAP = 20_000;
 const LIBRARY_TTL = 60_000;
 const KINDS = new Set<MaterialKind>(["pdf", "video", "audio", "image", "tab", "text", "epub", "link", "other"]);
 
-/** A listed item; a link whose download failed also says why. */
-export type Listed = MaterialItem & { saveError?: string };
+/** A listed item; a link whose download failed also says why, and one being downloaded says so. */
+export type Listed = MaterialItem & { saveError?: string; saving?: true };
 export type Listing = { items: Listed[]; total: number; truncated?: true; linksError?: string };
-/** Downloads a link; tests pass their own. */
-export type Saver = (url: string, destDir: string) => Promise<{ name: string }>;
+/** Downloads a link; tests pass their own. `signal` ends the download early. */
+export type Saver = (url: string, destDir: string, signal?: AbortSignal) => Promise<{ name: string }>;
+const defaultSaver: Saver = (url, destDir, signal) => saveUrl(url, destDir, signal ? { signal } : {});
 
 const TYPES: Record<string, string> = {
   pdf: "application/pdf",
@@ -231,7 +232,7 @@ function fileItem(f: FileInfo, inPlan: boolean): Listed {
   return { id, title: titleOf(basename(f.rel)), kind: kindOf(f.rel), source: "studio", path: `materials/${f.rel}`, src: srcOf(id), url: null, youtube: null, note: "", size: f.size, added: new Date(f.mtimeMs).toISOString(), inPlan };
 }
 
-function linkItem(e: Entry, fallbackAdded: string, inPlan: boolean): Listed {
+function linkItem(home: string, e: Entry, fallbackAdded: string, inPlan: boolean): Listed {
   let host = e.url;
   try {
     host = new URL(e.url).hostname;
@@ -252,6 +253,7 @@ function linkItem(e: Entry, fallbackAdded: string, inPlan: boolean): Listed {
     added: typeof e.added === "string" && !Number.isNaN(Date.parse(e.added)) ? new Date(e.added).toISOString() : fallbackAdded,
     inPlan,
     ...(typeof e.saveError === "string" && e.saveError ? { saveError: e.saveError } : {}),
+    ...(downloading.has(downloadKey(home, e.url)) ? { saving: true as const } : {}),
   };
 }
 
@@ -278,7 +280,7 @@ export async function listMaterials(s: Pick<Studio, "home" | "libraryDirs">, opt
       saved.title = str(e.title, 300) || saved.title;
       saved.note = [str(e.note, 1000), str(e.level, 200)].filter(Boolean).join(" · ");
       saved.inPlan ||= inPlan;
-    } else own.push(linkItem(e, linksAdded, inPlan));
+    } else own.push(linkItem(s.home, e, linksAdded, inPlan));
   }
   own.sort((a, b) => b.added.localeCompare(a.added) || a.title.localeCompare(b.title));
 
@@ -360,9 +362,11 @@ const refuse = (e: unknown, status = 400): never => {
   throw e;
 };
 
-async function download(s: Pick<Studio, "home">, url: string, save: Saver): Promise<{ file: string } | { saveError: string }> {
+type Outcome = { file: string } | { saveError: string };
+
+async function download(s: Pick<Studio, "home">, url: string, save: Saver, signal?: AbortSignal): Promise<Outcome> {
   try {
-    const r = await save(url, materialsDir(s));
+    const r = await save(url, materialsDir(s), signal);
     return { file: `materials/${r.name}` };
   } catch (e) {
     if (!(e instanceof SaveError)) console.error("saving a link failed:", e);
@@ -371,7 +375,7 @@ async function download(s: Pick<Studio, "home">, url: string, save: Saver): Prom
 }
 
 /** Record a download's result on every entry for `url` that still has no copy. */
-function record(raw: unknown[], url: string, result: { file: string } | { saveError: string }): boolean {
+function record(raw: unknown[], url: string, result: Outcome): boolean {
   let changed = false;
   for (const e of raw) {
     if (!isEntry(e) || !sameUrl(e.url, url) || e.file) continue;
@@ -385,39 +389,111 @@ function record(raw: unknown[], url: string, result: { file: string } | { saveEr
 }
 
 /**
+ * The copy an entry for `url` already has, if the file is still there. An entry whose file is gone
+ * (removed outside the app) loses its `file`, so the new copy can take its place.
+ */
+async function keptCopy(home: string, raw: unknown[], url: string): Promise<string | undefined> {
+  let kept: string | undefined;
+  for (const e of raw) {
+    if (!isEntry(e) || !sameUrl(e.url, url) || typeof e.file !== "string" || !e.file) continue;
+    if (kept === e.file) continue;
+    const there = await resolveInside(home, e.file).then(
+      () => true,
+      () => false,
+    );
+    if (there) kept ??= e.file;
+    else delete e.file;
+  }
+  return kept;
+}
+
+const downloadKey = (home: string, url: string) => {
+  let href = url;
+  try {
+    href = new URL(url).href; // The same normalisation sameUrl uses.
+  } catch {
+    /* keep it as it is */
+  }
+  return `${home}\0${href}`;
+};
+/** Downloads running now, by studio and URL. A second request for the same link waits for the first. */
+const downloading = new Map<string, Promise<Outcome>>();
+
+/**
+ * Download one link and record the outcome in `links.json`, once: a second caller for the same link
+ * (another chat turn, a tap on "Save a copy") joins the running download instead of starting its own.
+ * The entry stays in `downloading` until the outcome is written, so nobody sees it half done.
+ */
+export function saveAndRecord(s: Pick<Studio, "home">, url: string, save: Saver = defaultSaver, signal?: AbortSignal): Promise<Outcome> {
+  const key = downloadKey(s.home, url);
+  const running = downloading.get(key);
+  if (running) return running;
+  const job = (async (): Promise<Outcome> => {
+    const before = await readLinks(s);
+    const had = before.error ? undefined : await keptCopy(s.home, before.raw, url);
+    if (had) return { file: had };
+    const result = await download(s, url, save, signal);
+    let outcome: Outcome = result;
+    let orphan: string | undefined;
+    await editLinks(s, async (raw) => {
+      const length = JSON.stringify(raw).length;
+      const existing = await keptCopy(s.home, raw, url);
+      if (existing && "file" in result && existing !== result.file) {
+        // Someone kept a copy meanwhile: this one is not needed.
+        orphan = result.file;
+        outcome = { file: existing };
+        return { write: false, value: null };
+      }
+      // keptCopy may have cleared a stale `file`; record then fills it with the new copy.
+      return { write: record(raw, url, result) || JSON.stringify(raw).length !== length, value: null };
+    });
+    if (orphan) await unlink(join(s.home, orphan)).catch(() => {});
+    return outcome;
+  })();
+  downloading.set(key, job);
+  // Remove the entry whatever happens; `job` itself still rejects for its callers.
+  void job.then(
+    () => downloading.delete(key),
+    () => downloading.delete(key),
+  );
+  return job;
+}
+
+/**
  * Download a copy of every link that asks for one (`"save": true`, no `file`, no
  * `saveError`) and record the result in `links.json`. The coach module calls this after
- * each chat turn. A broken `links.json` is reported in `failed` and left as it is.
+ * each chat turn when the coach has web access. A broken `links.json` is reported in `failed`
+ * and left as it is. Once `signal` aborts, no new download starts: those links stay pending
+ * for a later pass, and the one running ends with an error.
  */
-export async function reconcileLinks(s: Pick<Studio, "home">, save: Saver = saveUrl): Promise<{ saved: string[]; failed: string[] }> {
+export async function reconcileLinks(s: Pick<Studio, "home">, save: Saver = defaultSaver, signal?: AbortSignal): Promise<{ saved: string[]; failed: string[] }> {
   const saved: string[] = [];
   const failed: string[] = [];
   const links = await readLinks(s);
   if (links.error) return { saved, failed: [links.error] };
   const todo = [...new Set(links.raw.filter((e): e is Entry => isEntry(e) && e.save === true && !e.file && !e.saveError).map((e) => e.url))].slice(0, 10);
-  if (!todo.length) return { saved, failed };
-  const results = new Map<string, { file: string } | { saveError: string }>();
   for (const url of todo) {
-    const r = await download(s, url, save);
-    results.set(url, r);
-    if ("file" in r) saved.push(r.file);
-    else failed.push(`${url}: ${r.saveError}`);
-  }
-  try {
-    // Read the file again: the downloads took a while and it may have changed.
-    await editLinks(s, (raw) => {
-      let write = false;
-      for (const [url, r] of results) write = record(raw, url, r) || write;
-      return { write, value: null };
-    });
-  } catch (e) {
-    failed.push(e instanceof Error ? e.message : String(e));
+    if (signal?.aborted) break;
+    try {
+      const r = await saveAndRecord(s, url, save, signal);
+      if ("file" in r) saved.push(r.file);
+      else failed.push(`${url}: ${r.saveError}`);
+    } catch (e) {
+      failed.push(e instanceof Error ? e.message : String(e));
+    }
   }
   return { saved, failed };
 }
 
+/** How many links ask for a copy that has not been made or tried. */
+export async function pendingSaves(s: Pick<Studio, "home">): Promise<number> {
+  const links = await readLinks(s);
+  if (links.error) return 0;
+  return new Set(links.raw.filter((e): e is Entry => isEntry(e) && e.save === true && !e.file && !e.saveError).map((e) => e.url)).size;
+}
+
 export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefined; save?: Saver } = {}): void {
-  const save = extra.save ?? saveUrl;
+  const save = extra.save ?? defaultSaver;
   const dir = materialsDir(s);
   const found = async (id: string): Promise<Listed> => {
     const item = await itemById(s, id);
@@ -426,8 +502,7 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
   };
   /** Save a link's copy, record the outcome and return the item as it now lists. */
   const saveLink = async (url: string): Promise<Listed> => {
-    const result = await download(s, url, save);
-    await editLinks(s, (raw) => ({ write: record(raw, url, result), value: null }));
+    const result = await saveAndRecord(s, url, save);
     if ("saveError" in result) throw new HttpError(422, result.saveError);
     const item = (await listMaterials(s)).items.find((i) => i.path === result.file);
     if (!item) throw new HttpError(500, "the copy was saved but is not listed");

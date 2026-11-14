@@ -164,6 +164,40 @@ test("no follow-up after a failed turn, a stopped one, or one without a thread: 
   }
 });
 
+test("a Stop while the post-turn check runs starts no follow-up", async () => {
+  const p = script([{ type: "thread", id: "t" }, { type: "delta", text: "ok" }], [{ type: "delta", text: "never" }]);
+  const ac = new AbortController();
+  const passes: (boolean | undefined)[] = [];
+  const { emit } = collect();
+  const r = await coachTurn({
+    coach: profile({
+      afterTurn: async (_b, pass) => {
+        passes.push(pass?.final);
+        ac.abort(); // The player presses Stop while the files are checked and the links download.
+        return { followUp: "fix it" };
+      },
+    }),
+    run: p.run,
+    prompt: "x",
+    signal: ac.signal,
+    emit,
+  });
+  assert.deepEqual(passes, [false]);
+  assert.equal(p.seen.length, 1);
+  assert.deepEqual(r, { reply: "ok", errors: [] });
+});
+
+test("a CLI is never started on a signal that has already aborted", async () => {
+  const { jsonLines } = await import("./providers/process.ts");
+  const marker = join(dir, "spawned");
+  const lines = jsonLines(process.execPath, ["-e", `require("fs").writeFileSync(${JSON.stringify(marker)}, "x")`], { cwd: dir, input: "", signal: AbortSignal.abort(), timeoutMs: 5000 });
+  const first = await lines.next();
+  assert.deepEqual(first, { done: true, value: { code: null, stderr: "aborted" } });
+  await new Promise((r) => setTimeout(r, 300));
+  const { stat } = await import("node:fs/promises");
+  await assert.rejects(stat(marker));
+});
+
 test("an afterTurn that throws becomes a notice, and the reply is kept", async () => {
   const p = script([{ type: "thread", id: "t" }, { type: "delta", text: "ok" }]);
   const { events, emit } = collect();
@@ -226,7 +260,7 @@ test("generic chat: an invalid plan gets one fix on the same thread, in the same
 
   const [first, second] = await cliCalls();
   assert.equal(first!.cwd, home);
-  assert.match(first!.input, /^\[Guitar Room\]\nScreen: review\nProfile: not set up yet\nPlan: No plan yet\nMaterial: Em to G\n\[\/Guitar Room\]\n\nI just logged a session\. BREAK THE PLAN$/);
+  assert.match(first!.input, /^\[Guitar Room\]\nScreen: review\nToday: \d{4}-\d{2}-\d{2} \(UTC\)\nProfile: not set up yet\nPlan: No plan yet\nMaterial: Em to G\n\[\/Guitar Room\]\n\nI just logged a session\. BREAK THE PLAN$/);
   assert.ok(first!.argv.includes("Edit(plan/**),Write(plan/**),Edit(materials/**),Write(materials/**),Edit(coach-notes.md),Write(coach-notes.md),Edit(profile.json),Write(profile.json),WebSearch,WebFetch"));
   assert.ok(!first!.argv.includes("--resume"));
   assert.equal(second!.argv[second!.argv.indexOf("--resume") + 1], "sess-1");

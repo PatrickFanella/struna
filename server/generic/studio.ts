@@ -333,17 +333,17 @@ export async function readPlan(s: Studio): Promise<{ plan: Plan | null; errors: 
   let raw: string;
   try {
     const path = join(s.home, PLAN_REL);
-    if ((await stat(path)).size > 1_000_000) return { plan: null, errors: [`${PLAN_REL} is larger than 1 MB`] };
+    if ((await stat(path)).size > 1_000_000) return { plan: null, errors: ["it is larger than 1 MB"] };
     raw = await readFile(path, "utf8");
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return { plan: null, errors: [] };
-    return { plan: null, errors: [`${PLAN_REL} could not be read: ${(e as Error).message}`] };
+    return { plan: null, errors: [`it could not be read: ${(e as Error).message}`] };
   }
   let v: unknown;
   try {
     v = JSON.parse(raw);
   } catch (e) {
-    return { plan: null, errors: [`${PLAN_REL} is not valid JSON: ${(e as Error).message}`] };
+    return { plan: null, errors: [`it is not JSON: ${(e as Error).message}`] };
   }
   return validatePlan(v);
 }
@@ -353,6 +353,8 @@ export async function readPlan(s: Studio): Promise<{ plan: Plan | null; errors: 
 export type Stage = { key: string; title: string; minutes: number; output: string; instruction: string };
 export type MaterialRef = { label: string; key: string; kind: MaterialKind; src: string | null; url?: string; youtube?: string; missing?: true; note?: string };
 export type GenericToday = {
+  /** The date in the app's time zone, which log dates and the plan's "started" use. */
+  today: string;
   block: { id: string; title: string; path: typeof PLAN_REL; started: string; targetSessions: number; goal: string; weeks: []; materials: []; crossTraining: string[] } | null;
   position: { week: number; sessionInWeek: number; type: string; number: number };
   weekOverride: null;
@@ -462,6 +464,7 @@ export async function genericToday(s: Studio, now = new Date()): Promise<Generic
   const daysSinceLast = stats.last ? Math.max(0, dayNumber(today) - dayNumber(stats.last)) : null;
   if (!plan) {
     return {
+      today,
       block: null,
       position: { week: 1, sessionInWeek: 1, type: "", number: 1 },
       weekOverride: null,
@@ -496,7 +499,8 @@ export async function genericToday(s: Studio, now = new Date()): Promise<Generic
     label: k.label,
     minutes: minutesOf(k),
     stages: k.stages.map((st, i): Stage => {
-      const parts = [st.task, phase.focus[st.key] ?? ""];
+      // Only the phase's own keys: a stage keyed "constructor" must not pick up Object.prototype.
+      const parts = [st.task, Object.hasOwn(phase.focus, st.key) ? phase.focus[st.key]! : ""];
       if (i === 0 && next.text) parts.push(`Today: ${next.text}`);
       return { key: st.key, title: st.title, minutes: st.minutes, output: st.task, instruction: parts.filter(Boolean).join("\n\n") };
     }),
@@ -510,6 +514,7 @@ export async function genericToday(s: Studio, now = new Date()): Promise<Generic
   const line = `Phase ${index + 1} of ${of}: ${phase.title}, ${done ? `session ${sessionInPhase} (plan complete)` : `session ${sessionInPhase} of ${phase.sessions}`}`;
 
   return {
+    today,
     block: { id: plan.id, title: plan.title, path: PLAN_REL, started: plan.started, targetSessions, goal: plan.goal, weeks: [], materials: [], crossTraining: plan.extras },
     position: { week: index + 1, sessionInWeek: sessionInPhase, type: phase.title, number: counted.length + 1 },
     weekOverride: null,

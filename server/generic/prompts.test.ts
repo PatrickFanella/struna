@@ -90,3 +90,22 @@ test("bad custom prompts and action modes are refused", () => {
   assert.throws(() => parseActionModes({ pain: "maybe" }), /auto, ask or off/);
   assert.throws(() => parseActionModes([]), /object/);
 });
+
+test("a prompt saved without a name is labelled by its first words, never cut mid-word", async () => {
+  const { autoLabel } = await import("./prompts.ts");
+  const text = "Pick one song from my wants list and tell me the first two bars to learn.";
+  const [p] = parseCustom({ prompts: [{ label: "", text }] });
+  assert.equal(p!.label, "Pick one song from my wants list and tell me the first two…");
+  assert.ok(p!.label.length <= 60);
+  assert.equal(autoLabel("Short one."), "Short one.");
+  assert.equal(autoLabel("x".repeat(100)), `${"x".repeat(59)}…`);
+});
+
+test("one-tap plan prompts change today, not the plan, without evidence from the logs", () => {
+  const text = (id: string) => PROMPTS.find((p) => p.id === id)!.text;
+  for (const id of ["easier", "harder"]) assert.match(text(id), /Do not change the plan's phases for one day/);
+  assert.match(text("build-plan"), /do not replace it yet.*wait for my answer/s);
+  assert.notEqual(PROMPTS.filter((p) => p.screens.includes("start"))[0]!.id, "build-plan");
+  assert.match(text("hand-hurts"), /tell me to stop for today first/);
+  assert.doesNotMatch(text("exercise") + text("teach"), /in tab with|diagram or tab and/);
+});

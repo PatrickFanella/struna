@@ -37,6 +37,8 @@ export async function* jsonLines(
   args: string[],
   opts: { cwd: string; input: string; signal: AbortSignal; timeoutMs: number },
 ): AsyncGenerator<Record<string, any>, { code: number | null; stderr: string }> {
+  // An abort that already happened never fires its event again: do not start a CLI nothing could stop.
+  if (opts.signal.aborted) return { code: null, stderr: "aborted" };
   const child = spawn(bin, args, { cwd: opts.cwd, env: subscriptionEnv(), stdio: ["pipe", "pipe", "pipe"] });
   let stderr = "";
   child.stderr.on("data", (b: Buffer) => {

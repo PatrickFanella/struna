@@ -249,13 +249,20 @@ export type SaveOptions = {
   maxBytes?: number;
   /** Connect and idle timeout. Default 20 s. */
   timeoutMs?: number;
-  /** Whole-download limit. Default 15 min. */
+  /** Whole-download limit, from the first connection to the last byte, redirects included. Default 15 min. */
   totalMs?: number;
   maxRedirects?: number;
+  /** Ends the download early, for example when a pass of saves runs out of time. */
+  signal?: AbortSignal;
 };
 export type Saved = { name: string; path: string; size: number; type: string; url: string };
 
-function get(u: URL, address: string, timeoutMs: number, t: Internals): Promise<IncomingMessage> {
+/** Why the whole download was ended: its time ran out, or the caller stopped it. */
+function ended(signal: AbortSignal): SaveError {
+  return (signal.reason as Error)?.name === "TimeoutError" ? new SaveError("the download took too long") : new SaveError("the download was stopped");
+}
+
+function get(u: URL, address: string, timeoutMs: number, t: Internals, signal: AbortSignal): Promise<IncomingMessage> {
   const secure = u.protocol === "https:";
   const port = u.port ? Number(u.port) : secure ? 443 : 80;
   const host = hostOf(u);
@@ -268,11 +275,13 @@ function get(u: URL, address: string, timeoutMs: number, t: Internals): Promise<
       method: "GET",
       path: `${u.pathname}${u.search}`,
       agent: false,
+      // Aborts the connect, the wait for headers and the body alike; the socket timeout below only catches idleness.
+      signal,
       headers: { host: u.host, accept: "*/*", "accept-encoding": "identity", "user-agent": "GuitarRoom/1 (saves a file the player asked for)" },
       ...(secure && !isIP(host) ? { servername: host } : {}),
     });
     req.setTimeout(timeoutMs, () => req.destroy(new SaveError("the server took too long to answer")));
-    req.on("error", (e) => reject(e instanceof SaveError ? e : new SaveError(`could not connect: ${e.message}`)));
+    req.on("error", (e) => reject(e instanceof SaveError ? e : signal.aborted ? ended(signal) : new SaveError(`could not connect: ${e.message}`)));
     req.on("response", resolve);
     req.end();
   });
@@ -288,10 +297,14 @@ export async function saveUrl(raw: string, destDir: string, opts: SaveOptions = 
   const maxBytes = opts.maxBytes ?? 200 * 1024 * 1024;
   const timeoutMs = opts.timeoutMs ?? 20_000;
   const maxRedirects = opts.maxRedirects ?? 3;
-  const deadline = Date.now() + (opts.totalMs ?? 15 * 60_000);
+  const total = AbortSignal.timeout(opts.totalMs ?? 15 * 60_000);
+  const signal = opts.signal ? AbortSignal.any([total, opts.signal]) : total;
   let u = parseTarget(raw);
   for (let hop = 0; ; hop++) {
-    const res = await get(u, await vetHost(u, t), timeoutMs, t);
+    if (signal.aborted) throw ended(signal);
+    const address = await vetHost(u, t);
+    if (signal.aborted) throw ended(signal);
+    const res = await get(u, address, timeoutMs, t, signal);
     const status = res.statusCode ?? 0;
     if ([301, 302, 303, 307, 308].includes(status)) {
       res.destroy();
@@ -309,14 +322,14 @@ export async function saveUrl(raw: string, destDir: string, opts: SaveOptions = 
     }
     try {
       if (status !== 200) throw new SaveError(`the server answered ${status}`);
-      return await store(res, u, destDir, maxBytes, deadline);
+      return await store(res, u, destDir, maxBytes, signal);
     } finally {
       res.destroy();
     }
   }
 }
 
-async function store(res: IncomingMessage, u: URL, destDir: string, maxBytes: number, deadline: number): Promise<Saved> {
+async function store(res: IncomingMessage, u: URL, destDir: string, maxBytes: number, signal: AbortSignal): Promise<Saved> {
   const encoding = (res.headers["content-encoding"] ?? "identity").toLowerCase();
   if (encoding !== "identity") throw new SaveError("the server sent the file compressed; it was not saved");
   const { stem, ext } = nameFor(u, res.headers["content-type"], res.headers["content-disposition"]);
@@ -335,7 +348,9 @@ async function store(res: IncomingMessage, u: URL, destDir: string, maxBytes: nu
       done(size > maxBytes ? tooLarge : null, chunk);
     },
   });
-  const timer = setTimeout(() => res.destroy(new SaveError("the download took too long")), Math.max(0, deadline - Date.now()));
+  const stop = () => res.destroy(ended(signal));
+  if (signal.aborted) stop();
+  signal.addEventListener("abort", stop, { once: true });
   try {
     await pipeline(res, check, createWriteStream(tmp, { flags: "wx", mode: 0o664 }));
     if (!res.complete) throw new SaveError("the download was cut off");
@@ -344,7 +359,7 @@ async function store(res: IncomingMessage, u: URL, destDir: string, maxBytes: nu
     await unlink(tmp).catch(() => {});
     throw e instanceof SaveError ? e : new SaveError(`the download failed: ${(e as Error).message}`);
   } finally {
-    clearTimeout(timer);
+    signal.removeEventListener("abort", stop);
   }
   const name = await placeFile(tmp, destDir, stem, ext);
   return { name, path: join(destDir, name), size, type: (res.headers["content-type"] ?? "").split(";")[0]!.trim().toLowerCase(), url: u.href };

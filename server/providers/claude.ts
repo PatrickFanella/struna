@@ -12,6 +12,8 @@ export type ClaudeOptions = {
   allowed: string[];
   /** Extra readable folders. */
   addDirs: string[];
+  /** Settings JSON for `--settings` (the generic coach's WebFetch hook); loads even with no setting sources. */
+  settings?: string | undefined;
   timeoutMs?: number | undefined;
 };
 
@@ -31,7 +33,7 @@ export function personalClaude(o: { vaultRoot: string; threadRel: string; mediaR
  * There are no Read/Glob/Grep allow rules: reads inside the working directory and --add-dir need no
  * permission, and in dontAsk mode a read anywhere else (the home folder, keys, tokens) is denied.
  */
-export function claudeCommand(o: { system: string; threadId?: string | undefined; model?: string | undefined; options: Pick<ClaudeOptions, "tools" | "allowed" | "addDirs"> }): string[] {
+export function claudeCommand(o: { system: string; threadId?: string | undefined; model?: string | undefined; options: Pick<ClaudeOptions, "tools" | "allowed" | "addDirs" | "settings"> }): string[] {
   const args = [
     "-p",
     "--output-format", "stream-json",
@@ -43,6 +45,7 @@ export function claudeCommand(o: { system: string; threadId?: string | undefined
     "--setting-sources", "",
     "--strict-mcp-config",
     ...o.options.addDirs.flatMap((d) => ["--add-dir", d]),
+    ...(o.options.settings ? ["--settings", o.options.settings] : []),
     "--append-system-prompt", o.system,
   ];
   if (o.threadId) args.push("--resume", o.threadId);

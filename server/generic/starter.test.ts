@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { sessionSizes, starterPlan } from "./starter.ts";
+import { isSixString, sessionSizes, starterPlan } from "./starter.ts";
 import { LEVELS, normalizeProfile, validatePlan } from "./studio.ts";
 
 const profile = (level: string, minutesPerSession: number) => normalizeProfile({ level, minutesPerSession }, "2026-11-14T00:00:00.000Z");
@@ -57,4 +57,15 @@ test("a five-minute plan keeps only focus lines for stages it has", () => {
 test("the plan for someone who has never played avoids unexplained jargon", () => {
   const text = JSON.stringify(starterPlan(profile("new", 20), "2026-11-14")).toLowerCase();
   for (const word of ["barre", "pentatonic", "arpeggio", "bpm", "metronome", "subdivision", "triad"]) assert.ok(!text.includes(word), word);
+});
+
+test("a plan for an instrument that is not a six-string guitar says so in its goal and next step", () => {
+  for (const instrument of ["acoustic", "electric", "classical", "guitar", "12-string", "baritone guitar", "steel-string acoustic", "nylon-string"]) assert.equal(isSixString(instrument), true, instrument);
+  for (const instrument of ["bass", "bass guitar", "electric bass", "ukulele", "lap steel", "pedal steel", "7-string guitar", "mandolin"]) assert.equal(isSixString(instrument), false, instrument);
+  const bass = starterPlan(normalizeProfile({ level: "new", minutesPerSession: 20, instrument: "bass" }, "2026-11-14T00:00:00.000Z"), "2026-11-14");
+  assert.match(bass.goal, /^This starter plan is written for six-string guitar\. Ask the coach to rewrite it for your bass\. /);
+  assert.match(bass.next, /^This starter plan is written for six-string guitar\./);
+  assert.deepEqual(validatePlan(JSON.parse(JSON.stringify(bass))).errors, []);
+  const guitar = starterPlan(normalizeProfile({ level: "new", minutesPerSession: 20, instrument: "electric" }, "2026-11-14T00:00:00.000Z"), "2026-11-14");
+  assert.ok(!/six-string/.test(guitar.goal + guitar.next));
 });

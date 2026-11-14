@@ -71,18 +71,23 @@ function LinkBody({ item }: { item: PaneItem }) {
   );
 }
 
+/** An image, or a note when it cannot be shown (deleted since the pane was opened, or not an image). */
+function ImageBody({ src, label }: { src: string; label: string }) {
+  const [bad, setBad] = useState(false);
+  if (bad) return <p className="matnote">The image could not be shown. The file may have been removed.</p>;
+  return (
+    <div className="panescroll imgpane">
+      <img src={src} alt={label} onError={() => setBad(true)} />
+    </div>
+  );
+}
+
 /** What a pane shows for a file, a link or a tab file. Also the body of the Materials screen's viewer. */
 export function FileBody({ item, onOpen, open }: { item: PaneItem; onOpen?: (c: PaneContent) => void; open?: Set<string> }) {
   const generic = useApp().mode === "generic";
   if (item.missing) return <p className="matnote">Material missing: {item.note ?? item.label}. {generic ? "The plan names a file that is not in your materials. Add it, or ask the coach to fix the plan." : "Check the link in the block note."}</p>;
   if (item.kind === "link") return <LinkBody item={item} />;
-  if (item.kind === "image" && item.src) {
-    return (
-      <div className="panescroll imgpane">
-        <img src={item.src} alt={item.label} />
-      </div>
-    );
-  }
+  if (item.kind === "image" && item.src) return <ImageBody key={item.src} src={item.src} label={item.label} />;
   if (item.kind === "text" && item.src) return <TextView src={item.src} label={item.label} />;
   if (item.kind === "tabfile" && item.src) return <TabPlayer src={item.src} title={item.label} />;
   if (item.kind === "epub" && item.src) return <EpubView src={item.src} storageKey={item.key} />;

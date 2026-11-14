@@ -110,3 +110,23 @@ test("the break prompt is offered once per gap", () => {
   assert.ok(!breakDue(6, stats, null));
   assert.ok(!breakDue(null, undefined, null));
 });
+
+test("the setup form offers six-string guitars and assumes nothing readable", async () => {
+  const { INSTRUMENTS } = await import("./genericLogic.ts");
+  assert.deepEqual(INSTRUMENTS.map(([id]) => id), ["acoustic", "electric", "classical"]);
+  assert.deepEqual(defaultProfile().reads, []);
+  // A profile saved as "bass" before still loads, as Other with its text kept.
+  const f = toForm({ ...defaultProfile(), instrument: "bass" });
+  assert.deepEqual([f.instrument, f.instrumentOther], ["other", "bass"]);
+});
+
+test("a review draft comes back after a reload, only for the same session", async () => {
+  const { restoreReviewDraft } = await import("./genericLogic.ts");
+  const first = { material: "", struggled: "", minutes: "3", nextEdited: false };
+  const stored = JSON.stringify({ startedAt: 111, form: { material: "G to C", struggled: "wrist ached on barre", minutes: 5, nextEdited: true, extra: "x" } });
+  assert.deepEqual(restoreReviewDraft(stored, 111, first), { material: "G to C", struggled: "wrist ached on barre", minutes: "3", nextEdited: true });
+  assert.equal(restoreReviewDraft(stored, 222, first), first);
+  assert.equal(restoreReviewDraft("{nope", 111, first), first);
+  assert.equal(restoreReviewDraft(null, 111, first), first);
+  assert.equal(restoreReviewDraft(stored, undefined, first), first);
+});

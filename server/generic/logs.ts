@@ -5,7 +5,6 @@ import { parseFrontMatter, str } from "../frontmatter.ts";
 import { HttpError } from "../http.ts";
 import { localDate } from "../logs.ts";
 import { value } from "../sessions.ts";
-import { sections } from "../vault.ts";
 
 export const DIFFICULTY = ["too easy", "about right", "too hard"] as const;
 export type Difficulty = (typeof DIFFICULTY)[number];
@@ -87,7 +86,14 @@ export function parseGenericReview(input: any): GenericReview {
   const minutes = Number(input.minutes ?? 0);
   if (!Number.isFinite(minutes) || minutes < 0) throw new HttpError(400, "minutes must be a number, 0 or more");
   const rec = input.recording;
-  const recording = typeof rec === "string" ? rec : rec && typeof rec === "object" && rec.path ? [s(rec.path, 500), s(rec.label, 40)].filter(Boolean).join(" — ") : "";
+  // The take box calls a "weekly" take "Progress"; the log says what the player saw, and keeps their purpose.
+  const label = rec && typeof rec === "object" ? s(rec.label, 40).trim() : "";
+  const recording =
+    typeof rec === "string"
+      ? rec
+      : rec && typeof rec === "object" && rec.path
+        ? [s(rec.path, 500), label === "weekly" ? "progress" : label, s(rec.purpose, 500).trim() || "no purpose given"].filter(Boolean).join(" — ")
+        : "";
   return {
     planId: s(input.planId, 100),
     planTitle: s(input.planTitle, 300),
@@ -104,7 +110,7 @@ export function parseGenericReview(input: any): GenericReview {
     wentWell: s(input.wentWell),
     struggled: s(input.struggled),
     pain: input.pain === true,
-    recording: recording.slice(0, 600),
+    recording: recording.slice(0, 1100),
     notes: s(input.notes, 4000),
     next: s(input.next, 4000),
   };
@@ -164,7 +170,9 @@ export function parseGenericLog(file: string, text: string): GenericLog {
   const session = (m?.[1] ?? "").toLowerCase();
   const tempo = /^(\d+)/.exec(value(body, "Clean tempo"))?.[1];
   const difficulty = value(body, "Difficulty").toLowerCase();
-  const next = sections(body).find((s) => /^Next instruction/i.test(s.heading))?.text.trim() ?? "";
+  // The app writes this section last, so it runs to the end: a "## " line inside the instruction stays part of it.
+  const heading = /^##\s+Next instruction\s*$/im.exec(body);
+  const next = heading ? body.slice(heading.index + heading[0].length).trim() : "";
   return {
     file,
     date: LOG_NAME.exec(file)?.[1] ?? "",

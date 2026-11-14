@@ -15,8 +15,8 @@ import { readItem, uploadFile } from "./upload.ts";
 
 export { materialPane } from "./item.ts";
 
-/** A link whose copy could not be saved says why. */
-type Listed = MaterialItem & { saveError?: string };
+/** A link whose copy could not be saved says why; one being downloaded says so. */
+type Listed = MaterialItem & { saveError?: string; saving?: true };
 type Result = { items: Listed[]; total?: number; truncated?: boolean; linksError?: string };
 type Upload = { id: number; name: string; state: "waiting" | "sending" | "done" | "failed"; fraction: number; error?: string };
 
@@ -35,7 +35,9 @@ function facts(i: MaterialItem): string {
   return [where, i.url && i.src ? `saved from ${hostOf(i.url)}` : ""].filter(Boolean).join(", ");
 }
 
-const hasFiles = (e: React.DragEvent) => [...e.dataTransfer.types].includes("Files");
+const hasFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes("Files");
+/** Links and pasted text added one after another are told to the coach together, after this quiet time. */
+const ADDED_QUIET_MS = 45_000;
 
 /** The player's own materials: uploads, web links, pasted text, the coach's lesson sheets and any library folders. */
 export function Materials({ active }: { active: boolean }) {
@@ -113,10 +115,27 @@ export function Materials({ active }: { active: boolean }) {
     };
   }, [active, opened]);
 
-  const added = (items: MaterialItem[]) => {
+  // What was added and not yet told to the coach. Uploads are told at once, as one batch; links and
+  // pasted text wait until the Add panel closes or nothing new arrives for a while, so five links in a
+  // row make one coach turn, not five.
+  const pendingNames = useRef<string[]>([]);
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const flushAdded = useCallback(() => {
+    clearTimeout(addedTimer.current);
+    const names = pendingNames.current.splice(0);
+    if (names.length) void coachAction("material-added", { names: nameList(names) }).catch(() => {});
+  }, []);
+  const added = (items: MaterialItem[], now = true) => {
     void load();
-    if (items.length) void coachAction("material-added", { names: nameList(items.map((i) => i.title)) }).catch(() => {});
+    pendingNames.current.push(...items.map((i) => i.title));
+    clearTimeout(addedTimer.current);
+    if (now) flushAdded();
+    else addedTimer.current = setTimeout(flushAdded, ADDED_QUIET_MS);
   };
+  useEffect(() => {
+    if (!add || !active) flushAdded();
+  }, [add, active, flushAdded]);
+  useEffect(() => flushAdded, [flushAdded]);
 
   /** Upload a batch one file at a time, then tell the coach once about everything that arrived. */
   const sendFiles = (files: File[]) => {
@@ -188,7 +207,7 @@ export function Materials({ active }: { active: boolean }) {
     e.preventDefault();
     const input = want.trim();
     if (!input) return;
-    askCoach(await findPrompt(input), { open: true });
+    void askCoach(await findPrompt(input), { open: true });
     setWant("");
     setFinding(false);
   };
@@ -197,31 +216,50 @@ export function Materials({ active }: { active: boolean }) {
   const canSave = (i: MaterialItem) => !i.src && Boolean(webUrl(i.url)) && !i.youtube;
   const sending = uploads.some((u) => u.state === "waiting" || u.state === "sending");
 
-  const drop = {
-    onDragEnter: (e: React.DragEvent) => {
+  // The copy says "drop files anywhere on this screen": while the list shows, the whole window takes them.
+  const send = useRef(sendFiles);
+  send.current = sendFiles;
+  const listing = active && !opened;
+  useEffect(() => {
+    if (!listing) return;
+    const enter = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       e.preventDefault();
       dragDepth.current++;
       setDrag(true);
-    },
-    onDragOver: (e: React.DragEvent) => {
+    };
+    const over = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-    },
-    onDragLeave: (e: React.DragEvent) => {
+      e.dataTransfer!.dropEffect = "copy";
+    };
+    const leave = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       dragDepth.current = Math.max(0, dragDepth.current - 1);
       if (!dragDepth.current) setDrag(false);
-    },
-    onDrop: (e: React.DragEvent) => {
-      if (!hasFiles(e)) return;
+    };
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e) || e.defaultPrevented) return;
+      if ((e.target as Element | null)?.closest?.('input[type="file"]')) return; // The file input handles its own drop.
       e.preventDefault();
       dragDepth.current = 0;
       setDrag(false);
-      sendFiles([...e.dataTransfer.files]);
-    },
-  };
+      send.current([...(e.dataTransfer?.files ?? [])]);
+    };
+    // On the document, so these run before the app's window-level guard against stray drops.
+    document.addEventListener("dragenter", enter);
+    document.addEventListener("dragover", over);
+    document.addEventListener("dragleave", leave);
+    document.addEventListener("drop", drop);
+    return () => {
+      document.removeEventListener("dragenter", enter);
+      document.removeEventListener("dragover", over);
+      document.removeEventListener("dragleave", leave);
+      document.removeEventListener("drop", drop);
+      dragDepth.current = 0;
+      setDrag(false);
+    };
+  }, [listing]);
 
   const deleteAsk = (i: MaterialItem) =>
     confirm === i.id ? (
@@ -264,7 +302,7 @@ export function Materials({ active }: { active: boolean }) {
   const filtered = Boolean(q.trim() || kind);
   const total = data?.total ?? items.length;
   return (
-    <div className={`library materials${drag ? " dragging" : ""}`} {...drop}>
+    <div className={`library materials${drag ? " dragging" : ""}`}>
       <div className="mathd">
         <h1>Materials</h1>
         <div className="mathdacts">
@@ -296,7 +334,7 @@ export function Materials({ active }: { active: boolean }) {
           onClose={() => setAdd(null)}
           onAdded={(item, problem) => {
             setNotice(problem ?? "");
-            added([item]);
+            added([item], false);
           }}
         />
       )}
@@ -383,6 +421,7 @@ export function Materials({ active }: { active: boolean }) {
                 </span>
                 {i.note && <span className="itemnote">{i.note}</span>}
                 {i.saveError && !i.src && <span className="itemnote">A copy was not kept: {i.saveError}</span>}
+                {i.saving && !i.src && <span className="itemnote">Saving a copy…</span>}
               </span>
             </button>
             <span className="matacts">

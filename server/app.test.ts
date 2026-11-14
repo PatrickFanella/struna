@@ -51,3 +51,13 @@ test("the personal mode has no generic routes and never creates a studio folder"
   assert.equal(t.block.id, "g-vocabulary-nine-pound-hammer-01");
   assert.equal(t.sessions, undefined);
 });
+
+test("index.html carries the app info, escaped, so the first paint needs no request", async () => {
+  const { withAppInfo } = await import("./index.ts");
+  const info = { mode: "personal" as const, name: "</script><b>x", sections: ["practice" as const], web: false, profile: true };
+  const html = withAppInfo("<html><head><title>x</title></head><body></body></html>", info);
+  const m = /<script id="app-info" type="application\/json">(.*?)<\/script>\n<\/head>/.exec(html);
+  assert.ok(m, html);
+  assert.ok(!m![1]!.includes("<"));
+  assert.deepEqual(JSON.parse(m![1]!), info);
+});

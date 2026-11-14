@@ -130,6 +130,12 @@ function serve(req: IncomingMessage, res: ServerResponse): void {
     res.write("%PDF", () => res.destroy());
   } else if (path === "/stall.pdf") res.writeHead(200, { "content-type": "application/pdf" }).write("%PDF");
   else if (path === "/silent") void 0;
+  else if (path === "/slow-headers.pdf") {
+    // One header line at a time, each soon enough to keep the socket from going idle.
+    const sock = req.socket;
+    sock.write("HTTP/1.1 200 OK\r\ncontent-type: application/pdf\r\n");
+    const drip = setInterval(() => (sock.destroyed ? clearInterval(drip) : sock.write(`x-slow-${Date.now()}: 1\r\n`)), 40);
+  }
   else if (path.startsWith("/hop/")) {
     const n = Number(path.slice(5));
     res.writeHead(302, { location: n > 0 ? `/hop/${n - 1}` : "/file.pdf" }).end();
@@ -197,6 +203,18 @@ test("saveUrl times out a silent server and a stalled download", async () => {
   await assert.rejects(saveUrl("http://files.test/silent", dir, { timeoutMs: 150 }, t), /too long/);
   await assert.rejects(saveUrl("http://files.test/stall.pdf", dir, { timeoutMs: 150 }, t), SaveError);
   await assert.rejects(saveUrl("http://files.test/stall.pdf", dir, { timeoutMs: 5000, totalMs: 150 }, t), /too long/);
+  assert.deepEqual(await listing(), []);
+  await clean();
+});
+
+test("the whole-download limit covers a server that sends its headers slowly, and a caller can stop it", async () => {
+  const started = Date.now();
+  await assert.rejects(saveUrl("http://files.test/slow-headers.pdf", dir, { timeoutMs: 5000, totalMs: 250 }, t), /took too long/);
+  assert.ok(Date.now() - started < 2000, `took ${Date.now() - started} ms`);
+  const stop = new AbortController();
+  setTimeout(() => stop.abort(), 100);
+  await assert.rejects(saveUrl("http://files.test/slow-headers.pdf", dir, { timeoutMs: 5000, signal: stop.signal }, t), /was stopped/);
+  await assert.rejects(saveUrl("http://files.test/file.pdf", dir, { signal: AbortSignal.abort() }, t), /was stopped/);
   assert.deepEqual(await listing(), []);
   await clean();
 });

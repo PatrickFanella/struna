@@ -29,16 +29,20 @@ export async function ensureStarterPlan(s: Studio, profile: Profile, now = new D
   return "created";
 }
 
+/** What `/api/app` says in the generic mode; the page also carries it, so the app draws without asking. */
+export async function genericAppInfo(s: Studio, opts: { tabs?: boolean }): Promise<AppInfo> {
+  return {
+    mode: "generic",
+    name: s.appName,
+    sections: ["practice", "materials", ...(opts.tabs ? (["tabs"] as const) : [])],
+    web: s.web,
+    profile: (await readProfile(s)) !== null,
+  };
+}
+
 export function genericRoutes(s: Studio, opts: { tabs?: boolean } = {}): void {
   route("GET", "/api/app", async (_req, res) => {
-    const info: AppInfo = {
-      mode: "generic",
-      name: s.appName,
-      sections: ["practice", "materials", ...(opts.tabs ? (["tabs"] as const) : [])],
-      web: s.web,
-      profile: (await readProfile(s)) !== null,
-    };
-    send(res, 200, info);
+    send(res, 200, await genericAppInfo(s, opts));
   });
 
   route("GET", "/api/profile", async (_req, res) => send(res, 200, { profile: await readProfile(s) }));

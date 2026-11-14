@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
 
+import { type Access, checkAccess, loadAccess, TOKEN_FILE } from "./access.ts";
 import { chatRoutes } from "./chat.ts";
 import { coachOnceRoutes } from "./coach-once.ts";
 import { config } from "./config.ts";
@@ -12,30 +13,44 @@ import { fail, guard, HttpError, match, NOINDEX, route, send } from "./http.ts";
 import { genericCoach } from "./generic/coach.ts";
 import { materialsRoutes } from "./generic/materials.ts";
 import { promptRoutes } from "./generic/prompts.ts";
-import { genericRoutes } from "./generic/routes.ts";
+import { genericAppInfo, genericRoutes } from "./generic/routes.ts";
 import { ensureStudio, type Studio } from "./generic/studio.ts";
 import type { AppInfo } from "./generic/types.ts";
 import { practiceRoutes } from "./practice.ts";
 import { mediaRoutes } from "./library/media.ts";
 import { libraryRoutes } from "./library/routes.ts";
 import { recordingRoutes } from "./recordings.ts";
+import { codexInstallDir } from "./providers/codex.ts";
 import { tabsRoutes } from "./tabs.ts";
 
 export const db = openDb(config.stateDir);
+/**
+ * The generic mode on loopback TCP with no edge secret has no login in front of it: other local
+ * accounts and host-network containers could reach the port. It then needs its access token.
+ * The personal mode, a Unix socket (owner-only directory) and the edge-secret deployment do not.
+ */
+export const access: Access | null = config.mode === "generic" && !config.edgeSecret && !config.socket ? loadAccess(config.stateDir, config.port) : null;
 
 route("GET", "/api/health", (_req, res) => send(res, 200, { ok: true }));
+/** What `/api/app` answers; also written into index.html, so the first paint needs no extra round trip. */
+let appInfo: () => Promise<AppInfo>;
 if (config.mode === "generic") {
   // One studio folder instead of the vault: the profile, the plan, logs, materials and recordings.
   await ensureStudio(config.home);
   const studio: Studio = { home: config.home, db, timeZone: config.timeZone, libraryDirs: config.libraryDirs, web: config.coachWeb, appName: config.appName };
   genericRoutes(studio, { tabs: Boolean(config.tabsDir) });
+  appInfo = () => genericAppInfo(studio, { tabs: Boolean(config.tabsDir) });
   materialsRoutes(studio, { cacheDir: config.cacheDir });
   recordingRoutes({ mediaRoot: config.home, timeZone: config.timeZone });
-  chatRoutes(genericCoach(studio), db, conversations(db));
+  // Codex's sandbox must read its own install folder; with it known, commands cannot read outside the studio.
+  const codexInstall = await codexInstallDir(config.codexBin).catch(() => null);
+  if (!codexInstall) console.warn(`Could not find where ${config.codexBin} is installed, so Codex runs with the workspace-write sandbox, which lets it read any file this account can. Set CODEX_BIN to the Codex binary's full path.`);
+  chatRoutes(genericCoach(studio, {}, { codexInstall }), db, conversations(db));
   if (config.tabsDir) tabsRoutes({ root: config.tabsDir, autoScan: !process.env.GUITAR_NO_SCAN }, db);
 } else {
   const info: AppInfo = { mode: "personal", name: config.appName, sections: ["practice", "library", "tabs"], web: false, profile: true };
   route("GET", "/api/app", (_req, res) => send(res, 200, info));
+  appInfo = async () => info;
   practiceRoutes(config, db);
   recordingRoutes(config);
   chatRoutes(config, db, conversations(db));
@@ -67,8 +82,9 @@ async function serveStatic(path: string, res: ServerResponse) {
   let file = normalize(join(dist, decodeURIComponent(path)));
   if (file !== dist && !file.startsWith(dist + sep)) throw new HttpError(404, "not found");
   if (!(await stat(file).catch(() => undefined))?.isFile()) file = join(dist, "index.html");
-  const data = await readFile(file).catch(() => undefined);
+  let data = await readFile(file).catch(() => undefined);
   if (!data) throw new HttpError(404, "build the web app first: pnpm build");
+  if (file === join(dist, "index.html")) data = Buffer.from(withAppInfo(data.toString(), await appInfo()));
   const immutable = file.includes(`${sep}assets${sep}`);
   res.writeHead(200, {
     "content-type": TYPES[extname(file)] ?? "application/octet-stream",
@@ -78,10 +94,17 @@ async function serveStatic(path: string, res: ServerResponse) {
   res.end(data);
 }
 
+/** index.html with the app info in a JSON script tag (`<` escaped, so the text cannot end the tag). */
+export function withAppInfo(html: string, info: AppInfo): string {
+  const tag = `<script id="app-info" type="application/json">${JSON.stringify(info).replace(/</g, "\\u003c")}</script>`;
+  return html.includes("</head>") ? html.replace("</head>", `${tag}\n</head>`) : `${tag}${html}`;
+}
+
 export async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     guard(req, config);
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (access && checkAccess(req, res, url, access)) return;
     const method = req.method ?? "GET";
     // A custom header forces a CORS preflight, which this server never answers.
     if (method !== "GET" && method !== "HEAD" && req.headers["x-guitar-room"] !== "1") throw new HttpError(403, "missing app header");
@@ -104,6 +127,12 @@ if (import.meta.main) {
     console.log(`guitar-room on ${where}`);
     if (config.mode === "generic") {
       console.log(`  studio ${config.home}`);
+      if (access) {
+        const link = `http://${config.host === "127.0.0.1" || config.host === "::1" ? "localhost" : config.host}:${config.port}/?token=`;
+        // The token is a secret: print it only to a terminal, never into a service's journal.
+        if (process.stdout.isTTY) console.log(`  open ${link}${access.token}`);
+        else console.log(`  open ${link}$(cat ${join(config.stateDir, TOKEN_FILE)})`);
+      }
       return;
     }
     console.log(`  vault ${config.practiceDir}`);

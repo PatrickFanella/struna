@@ -109,7 +109,7 @@ export function Setup({ profile, appName, onSaved, onCancel }: {
       </div>
 
       <Pick label="Instrument" words value={f.instrument} options={[...INSTRUMENTS, ["other", "Other"]]} onChange={set("instrument")} />
-      {f.instrument === "other" && <Text label="Which instrument?" value={f.instrumentOther} onChange={set("instrumentOther")} placeholder="12-string, ukulele, lap steel" max={60} />}
+      {f.instrument === "other" && <Text label="Which instrument?" value={f.instrumentOther} onChange={set("instrumentOther")} placeholder="12-string, baritone, resonator" max={60} />}
 
       <Many label="Styles you like" hint="(any number)" value={f.styles} options={STYLES.map((s) => [s, s] as [string, string])} onChange={set("styles")} />
       <Text label="Other styles" value={f.stylesOther} onChange={set("stylesOther")} placeholder="Separate with commas" max={200} />
@@ -121,7 +121,7 @@ export function Setup({ profile, appName, onSaved, onCancel }: {
       <Pick label="Days a week you can play" value={f.daysPerWeek} options={[1, 2, 3, 4, 5, 6, 7].map((d) => [d, String(d)] as [number, string])} onChange={set("daysPerWeek")} />
 
       <Many label="What you can read" hint="(none is fine)" value={f.reads} options={READS} onChange={set("reads")} />
-      <Pick label="You play" words value={f.hand} options={[["right", "Right-handed"], ["left", "Left-handed"]]} onChange={set("hand")} />
+      <Pick label="Which hand presses the strings?" words value={f.hand} options={[["right", "Left hand (standard guitar)"], ["left", "Right hand (left-handed guitar)"]]} onChange={set("hand")} />
 
       <Text label="Anything to plan around" value={f.limits} onChange={set("limits")} area placeholder="An injury, small hands, hearing, a shared room" max={1000} />
       <Text label="Your name" hint="(optional)" value={f.name} onChange={set("name")} max={80} />

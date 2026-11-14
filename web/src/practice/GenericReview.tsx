@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { api } from "../api.ts";
 import { SUBDIVISIONS } from "../audio/metronome.ts";
 import { coachAction } from "../chat/actions.tsx";
 import { sessionKind, type Today } from "../types.ts";
-import { type Difficulty, elapsedMinutes, nextDraft, tempo } from "./genericLogic.ts";
+import { coachReady } from "../chat/Chat.tsx";
+import { type Difficulty, elapsedMinutes, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, tempo } from "./genericLogic.ts";
 import { Choice, Text } from "./Review.tsx";
 import type { SessionState } from "./Session.tsx";
 
@@ -38,8 +39,33 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
       pain: session.pain ? "yes" : "no",
       notes: "",
     };
-    return { ...first, next: draft(first), nextEdited: false };
+    const fresh = { ...first, next: draft(first), nextEdited: false };
+    // After a reload, what the player had typed for this session comes back.
+    let stored: string | null = null;
+    try {
+      stored = sessionStorage.getItem(REVIEW_DRAFT_KEY);
+    } catch {
+      /* storage unavailable */
+    }
+    return restoreReviewDraft(stored, session.startedAt, fresh);
   });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(REVIEW_DRAFT_KEY, JSON.stringify({ startedAt: session.startedAt, form: f }));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [f, session.startedAt]);
+  // Whether a coach is signed in, so the pain note does not promise a lighter plan nobody will write.
+  const [coach, setCoach] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!session.pain) return;
+    let live = true;
+    void coachReady().then((r) => live && setCoach(r.ok));
+    return () => {
+      live = false;
+    };
+  }, [session.pain]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   /** Sets a field; the next instruction follows along until the player writes their own. */
@@ -88,7 +114,8 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
       }
       onWritten(file);
       const summary = [f.struggled.trim(), f.notes.trim()].filter(Boolean).join(" ") || "no details given";
-      void coachAction(pain ? "pain" : "session-logged", { log: file, summary: `${summary} (log: ${file})` });
+      // An off-day extra is not counted and must not move the plan's next instruction; a pain stop is still reported.
+      if (pain || !session.cross) void coachAction(pain ? "pain" : "session-logged", { log: file, summary: `${summary} (log: ${file})` });
     } catch (err) {
       setError(String((err as Error).message ?? err));
     } finally {
@@ -99,7 +126,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
   return (
     <form className="review greview" onSubmit={submit}>
       <h1>{session.pain ? "Stopped: pain or tension" : "How did it go?"}</h1>
-      <p className="instr">{session.pain ? "Stop playing and rest. Note what you felt; this session will not count, and the coach will lighten the plan." : "Mostly taps, and nothing is required. The coach reads this before it plans your next session."}</p>
+      <p className="instr">{session.pain ? painNote(coach) : "Mostly taps, and nothing is required. The coach reads this before it plans your next session."}</p>
       <Text label="What you worked on" value={f.material} onChange={set("material")} placeholder="A song, an exercise, a page" />
       <Text label="Target (optional)" value={f.target} onChange={set("target")} placeholder="What you were aiming for today" />
       <div className="row2">
@@ -130,4 +157,12 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
       </div>
     </form>
   );
+}
+
+/** What the review says after a pain stop: a lighter plan is promised only when a coach can write one. */
+export function painNote(coach: boolean | null): string {
+  const base = "Stop playing and rest. Note what you felt; this session will not count.";
+  if (coach) return `${base} The coach can lighten the plan.`;
+  if (coach === false) return `${base} No coach is signed in, so the plan will not be lightened: keep the next session short and easy, and see a doctor or physiotherapist if it persists.`;
+  return base;
 }

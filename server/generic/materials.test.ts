@@ -7,7 +7,7 @@ import { after, before, test } from "node:test";
 
 import { fail, match } from "../http.ts";
 import { SaveError } from "./fetch.ts";
-import { type Listed, type Listing, listMaterials, materialsFingerprint, materialsRoutes, reconcileLinks, type Saver, youtubeId } from "./materials.ts";
+import { type Listed, type Listing, listMaterials, materialsFingerprint, materialsRoutes, pendingSaves, reconcileLinks, saveAndRecord, type Saver, youtubeId } from "./materials.ts";
 import type { Studio } from "./studio.ts";
 
 const tmp = await mkdtemp(join(tmpdir(), "guitar-materials-"));
@@ -300,4 +300,84 @@ test("the library walk stops at 20,000 files and says so", async () => {
   assert.equal(r.truncated, true);
   assert.equal(r.total, 20_000);
   assert.equal(r.items.length, 5);
+});
+
+test("overlapping saves of one link download it once and leave no orphan copy", async () => {
+  const h = { home: join(tmp, "dedupe"), libraryDirs: [] };
+  await mkdir(join(h.home, "materials"), { recursive: true });
+  await writeFile(join(h.home, "materials/links.json"), JSON.stringify([{ url: "https://files.test/a.pdf", title: "A", save: true }]));
+  let calls = 0;
+  const slow: Saver = async (url, dir) => {
+    calls++;
+    await new Promise((r) => setTimeout(r, 30));
+    return saver(url, dir);
+  };
+  // Two chat turns ending together, and a tap on "Save a copy" while they run.
+  const [a, b, c] = await Promise.all([reconcileLinks(h, slow), reconcileLinks(h, slow), saveAndRecord(h, "https://files.test/a.pdf", slow)]);
+  assert.equal(calls, 1);
+  assert.deepEqual([a.saved, b.saved, c], [["materials/a.pdf"], ["materials/a.pdf"], { file: "materials/a.pdf" }]);
+  assert.deepEqual((await readdir(join(h.home, "materials"))).sort(), ["a.pdf", "links.json"]);
+  assert.equal((await listMaterials(h)).items.length, 1);
+  // Already kept: no new download.
+  assert.deepEqual(await saveAndRecord(h, "https://files.test/a.pdf", slow), { file: "materials/a.pdf" });
+  assert.equal(calls, 1);
+});
+
+test("a copy made while another download ran is dropped, and a stale entry takes a new copy", async () => {
+  const h = { home: join(tmp, "orphan"), libraryDirs: [] };
+  const m = join(h.home, "materials");
+  await mkdir(m, { recursive: true });
+  await writeFile(join(m, "links.json"), JSON.stringify([{ url: "https://files.test/b.pdf", title: "B", save: true }]));
+  // The entry gets its copy from elsewhere while this download runs.
+  const racing: Saver = async (url, dir) => {
+    await writeFile(join(m, "kept.pdf"), "first");
+    await writeFile(join(m, "links.json"), JSON.stringify([{ url, title: "B", save: true, file: "materials/kept.pdf" }]));
+    return saver(url, dir);
+  };
+  assert.deepEqual(await saveAndRecord(h, "https://files.test/b.pdf", racing), { file: "materials/kept.pdf" });
+  assert.deepEqual((await readdir(m)).sort(), ["kept.pdf", "links.json"]);
+  // The kept file is removed outside the app: the next save replaces the entry's copy.
+  await rm(join(m, "kept.pdf"));
+  assert.deepEqual(await saveAndRecord(h, "https://files.test/b.pdf", saver), { file: "materials/b.pdf" });
+  assert.equal(JSON.parse(await readFile(join(m, "links.json"), "utf8"))[0].file, "materials/b.pdf");
+});
+
+test("a pass stops starting downloads once its signal aborts; the rest stay pending", async () => {
+  const h = { home: join(tmp, "budget"), libraryDirs: [] };
+  await mkdir(join(h.home, "materials"), { recursive: true });
+  await writeFile(join(h.home, "materials/links.json"), JSON.stringify(["c", "d", "e"].map((n) => ({ url: `https://files.test/${n}.pdf`, title: n, save: true }))));
+  assert.equal(await pendingSaves(h), 3);
+  const stop = new AbortController();
+  const seen: (AbortSignal | undefined)[] = [];
+  const first: Saver = async (url, dir, signal) => {
+    seen.push(signal);
+    stop.abort();
+    return saver(url, dir);
+  };
+  const r = await reconcileLinks(h, first, stop.signal);
+  assert.deepEqual(r, { saved: ["materials/c.pdf"], failed: [] });
+  assert.equal(seen[0], stop.signal, "the download gets the pass's signal");
+  assert.equal(await pendingSaves(h), 2);
+  const listed = await listMaterials(h);
+  assert.equal(listed.items.filter((i) => i.source === "link" && !i.saveError).length, 2);
+});
+
+test("a link being downloaded is listed as saving", async () => {
+  const h = { home: join(tmp, "saving"), libraryDirs: [] };
+  await mkdir(join(h.home, "materials"), { recursive: true });
+  await writeFile(join(h.home, "materials/links.json"), JSON.stringify([{ url: "https://files.test/f.pdf", title: "F", save: true }]));
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  const held: Saver = async (url, dir) => {
+    await gate;
+    return saver(url, dir);
+  };
+  const job = saveAndRecord(h, "https://files.test/f.pdf", held);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal((await listMaterials(h)).items[0]!.saving, true);
+  release();
+  await job;
+  const after = (await listMaterials(h)).items[0]!;
+  assert.equal(after.saving, undefined);
+  assert.equal(after.source, "studio");
 });

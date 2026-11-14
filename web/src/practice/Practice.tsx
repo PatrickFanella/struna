@@ -12,7 +12,7 @@ import { sessionKind, type Today } from "../types.ts";
 import { MAX_PANES, pane, withCompanion } from "../workspace/Workspace.tsx";
 import { GenericReview } from "./GenericReview.tsx";
 import { GenericStart } from "./GenericStart.tsx";
-import { fromForm, toForm } from "./genericLogic.ts";
+import { fromForm, REVIEW_DRAFT_KEY, toForm } from "./genericLogic.ts";
 import { type PaneItem, vaultSrc } from "./Material.tsx";
 import { Review } from "./Review.tsx";
 import { Session, type SessionState } from "./Session.tsx";
@@ -56,7 +56,10 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   const [today, setToday] = useState<Today | null>(null);
   const [loadError, setLoadError] = useState("");
   const [session, setSessionState] = useState<SessionState | null>(loadSession);
-  const [phase, setPhase] = useState<Phase>(() => (loadSession() ? { name: "session" } : { name: "start" }));
+  const [phase, setPhase] = useState<Phase>(() => {
+    const s = loadSession();
+    return s?.reviewing ? { name: "review" } : s ? { name: "session" } : { name: "start" };
+  });
   const [extra, setExtra] = useState<PaneItem | null>(libraryItem);
   const [editing, setEditing] = useState(false);
   const app = useApp();
@@ -200,6 +203,11 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     }
     setExtra(null);
     store.set("guitar-room.material-placed", null);
+    try {
+      sessionStorage.removeItem(REVIEW_DRAFT_KEY);
+    } catch {
+      /* storage unavailable */
+    }
   };
 
   if (loadError) return <div className="notice" role="alert"><p><b>Could not load today's session.</b> {loadError}</p><button className="btn outline" onClick={load}>Try again</button></div>;
@@ -266,7 +274,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
         bpm={m.bpm}
         material={material?.label ?? ""}
         onBack={() => {
-          setSession((s) => ({ ...s, pain: false, resumedAt: null }));
+          setSession(({ reviewing: _, ...s }) => ({ ...s, pain: false, resumedAt: null }));
           setPhase({ name: "session" });
         }}
         onDiscard={() => {
@@ -304,7 +312,8 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       items={items}
       material={material?.label ?? ""}
       onFinish={() => {
-        setSession((s) => ({ ...s, elapsedBefore: s.elapsedBefore + (s.resumedAt ? Date.now() - s.resumedAt : 0), resumedAt: null }));
+        // Generic mode remembers that the review is open, so a reload (or a discarded tab) comes back to it.
+        setSession((s) => ({ ...s, elapsedBefore: s.elapsedBefore + (s.resumedAt ? Date.now() - s.resumedAt : 0), resumedAt: null, ...(generic ? { reviewing: true as const } : {}) }));
         setPhase({ name: "review" });
       }}
       closeTools={closeTools}

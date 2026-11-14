@@ -59,6 +59,24 @@ export function App() {
   useEffect(() => {
     if (info) document.title = info.name;
   }, [info]);
+  // Generic mode takes file drops: one that lands outside the Materials list must not open the file in
+  // the tab and leave the app. Materials handles its own drops first (on the document).
+  const takesDrops = info?.mode === "generic";
+  useEffect(() => {
+    if (!takesDrops) return;
+    const stray = (e: DragEvent) => {
+      if (e.defaultPrevented || ![...(e.dataTransfer?.types ?? [])].includes("Files")) return;
+      if ((e.target as Element | null)?.closest?.('input[type="file"]')) return;
+      e.preventDefault();
+      if (e.type === "dragover") e.dataTransfer!.dropEffect = "none";
+    };
+    addEventListener("dragover", stray);
+    addEventListener("drop", stray);
+    return () => {
+      removeEventListener("dragover", stray);
+      removeEventListener("drop", stray);
+    };
+  }, [takesDrops]);
 
   // Nothing is drawn until the server says which app this is, so the wrong sections never flash.
   if (!info) return <div className="app"><IconSprite /></div>;
@@ -66,6 +84,18 @@ export function App() {
   const section = sectionFromHash(hash, info.sections);
   const SECTIONS = info.sections.map((id) => ({ id, ...SECTION[id] }));
   const has = (s: Section) => info.sections.includes(s);
+  const tabs = (
+    <nav className="tabs" aria-label="Sections">
+      <div className={SECTIONS.length === 3 ? "wrap" : `wrap n${SECTIONS.length}`}>
+        {SECTIONS.map((s) => (
+          <a key={s.id} href={`#${s.id}`} {...(section === s.id ? { "aria-current": "page" as const } : {})}>
+            <Icon id={s.icon} />
+            {s.label}
+          </a>
+        ))}
+      </div>
+    </nav>
+  );
 
   return (
     <div className={`app${tool ? " tools" : ""}`}>
@@ -89,7 +119,7 @@ export function App() {
             <button className="ib" aria-pressed={chat} onClick={() => setChat((c) => !c)}>
               <Icon id="i-chat" />
               Coach
-              {unread && !chat && <span className="unread" role="status" aria-label="New reply from the coach" />}
+              {generic && unread && !chat && <span className="unread" role="status" aria-label="New reply from the coach" />}
             </button>
           </span>
         </div>
@@ -120,18 +150,20 @@ export function App() {
       </main>
 
       <Chat open={chat} onClose={() => setChat(false)} />
-      {generic && <CoachToasts />}
 
-      <nav className="tabs" aria-label="Sections">
-        <div className={SECTIONS.length === 3 ? "wrap" : `wrap n${SECTIONS.length}`}>
-          {SECTIONS.map((s) => (
-            <a key={s.id} href={`#${s.id}`} {...(section === s.id ? { "aria-current": "page" as const } : {})}>
-              <Icon id={s.icon} />
-              {s.label}
-            </a>
-          ))}
-        </div>
-      </nav>
+      {generic ? (
+        <>
+          {/* The toasts sit in the page above the tab bar, taking real space, so they never cover the
+              session bar or the end of a page. The tools sheet hides the bar; there they float. */}
+          <div className="dock">
+            {!tool && <CoachToasts />}
+            {tabs}
+          </div>
+          {tool && <CoachToasts />}
+        </>
+      ) : (
+        tabs
+      )}
     </div>
   );
 }

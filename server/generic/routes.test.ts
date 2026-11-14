@@ -21,7 +21,7 @@ delete process.env.GUITAR_COACH_WEB;
 process.env.GUITAR_VAULT_ROOT = join(tmp, "no-vault");
 process.env.GUITAR_MEDIA_ROOT = join(tmp, "no-media");
 
-const { handle } = await import("../index.ts");
+const { access, handle } = await import("../index.ts");
 const { config } = await import("../config.ts");
 
 let server: Server;
@@ -36,8 +36,10 @@ after(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
-const H = { "x-guitar-room": "1", "content-type": "application/json" };
-const get = async (path: string) => (await fetch(`${base}${path}`)).json() as Promise<any>;
+// Loopback TCP with no edge secret: every request carries the access token.
+const T = { "x-guitar-room-token": access!.token };
+const H = { ...T, "x-guitar-room": "1", "content-type": "application/json" };
+const get = async (path: string) => (await fetch(`${base}${path}`, { headers: T })).json() as Promise<any>;
 const put = (path: string, body: unknown) => fetch(`${base}${path}`, { method: "PUT", headers: H, body: JSON.stringify(body) });
 const post = (path: string, body: unknown) => fetch(`${base}${path}`, { method: "POST", headers: H, body: JSON.stringify(body) });
 
@@ -56,7 +58,7 @@ test("GET /api/app describes the mode before and after setup", async () => {
 
 test("the personal mode's vault routes are not there", async () => {
   for (const path of ["/api/week-override", "/api/vault-file?path=x", "/api/library", "/api/tabs"]) {
-    const r = path === "/api/week-override" ? await put(path, { week: 2 }) : await fetch(`${base}${path}`);
+    const r = path === "/api/week-override" ? await put(path, { week: 2 }) : await fetch(`${base}${path}`, { headers: T });
     assert.equal(r.status, 404, path);
   }
   await assert.rejects(stat(join(tmp, "no-vault")));
@@ -73,7 +75,10 @@ test("today before setup says there is no plan", async () => {
 test("PUT /api/profile validates, stamps and writes a starter plan once", async () => {
   assert.equal((await put("/api/profile", { level: "wizard" })).status, 400);
   assert.equal((await put("/api/profile", [1])).status, 400);
-  assert.equal((await fetch(`${base}/api/profile`, { method: "PUT", body: "{}" })).status, 403);
+  assert.equal((await fetch(`${base}/api/profile`, { method: "PUT", headers: T, body: "{}" })).status, 403);
+  // Without the token, even a request with the app header is refused, and so is a page.
+  assert.equal((await fetch(`${base}/api/profile`, { method: "PUT", headers: { "x-guitar-room": "1" }, body: "{}" })).status, 403);
+  assert.equal((await fetch(`${base}/api/today`)).status, 403);
 
   const r = await put("/api/profile", { name: " Ana ", level: "new", minutesPerSession: 20, daysPerWeek: 9, styles: ["folk"], created: "1999-01-01T00:00:00.000Z" });
   assert.equal(r.status, 200);
@@ -168,7 +173,7 @@ test("a plan material's src is served by the materials route", async () => {
   await writeFile(join(home, "plan/plan.json"), JSON.stringify(plan));
   const [m] = (await get("/api/today")).materials;
   assert.equal(m.kind, "text");
-  const r = await fetch(`${base}${m.src}`);
+  const r = await fetch(`${base}${m.src}`, { headers: T });
   assert.equal(r.status, 200);
   assert.equal(await r.text(), "# Barre shapes\n");
 });
@@ -178,7 +183,7 @@ test("the prompt, chat-history and recording routes are registered", async () =>
   assert.ok(p.prompts.length > 0);
   assert.ok(p.actions.some((a: any) => a.id === "onboarding"));
   assert.deepEqual(await get("/api/conversations"), []);
-  const r = await fetch(`${base}/api/recordings?blockId=starter-fluent-playing&label=baseline&ext=webm`, { method: "POST", headers: { "x-guitar-room": "1" }, body: "take" });
+  const r = await fetch(`${base}/api/recordings?blockId=starter-fluent-playing&label=baseline&ext=webm`, { method: "POST", headers: { ...T, "x-guitar-room": "1" }, body: "take" });
   assert.equal(r.status, 200);
   const { path } = (await r.json()) as any;
   assert.match(path, /^Recordings\/starter-fluent-playing\/\d{4}-\d{2}-\d{2}-baseline\.webm$/);

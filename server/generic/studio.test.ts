@@ -117,7 +117,7 @@ test("readPlan: no file, broken JSON, invalid, valid", async () => {
   await writeFile(join(s.home, "plan/plan.json"), "{ nope");
   const broken = await readPlan(s);
   assert.equal(broken.plan, null);
-  assert.match(broken.errors[0]!, /^plan\/plan\.json is not valid JSON: /);
+  assert.match(broken.errors[0]!, /^it is not JSON: /);
   await writePlan(s, { ...PLAN, version: 3 });
   assert.deepEqual((await readPlan(s)).errors, ["version must be 1"]);
   await writePlan(s, PLAN);
@@ -287,4 +287,22 @@ test("plan materials resolve inside the home; missing files and links out are ma
   assert.deepEqual(m[4], { label: "Lesson", key: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", kind: "link", src: null, url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", youtube: "dQw4w9WgXcQ" });
   assert.deepEqual(m[5], { label: "Site", key: "https://example.com/lesson", kind: "link", src: null, url: "https://example.com/lesson" });
   assert.deepEqual(m[6], { label: "Your songbook", key: "label-6", kind: "other", src: null });
+});
+
+test("a stage keyed \"constructor\" gets only the phase's own focus text", async () => {
+  const s = await studio();
+  const plan = structuredClone(PLAN) as any;
+  plan.next = "";
+  plan.phases = [{ title: "One", sessions: 1, summary: "", focus: {} }];
+  plan.sessions = [{ id: "full", label: "Full", stages: [{ key: "constructor", title: "T", minutes: 5, task: "t" }] }];
+  await writePlan(s, plan);
+  const t = await genericToday(s, new Date("2026-11-14T18:00:00Z"));
+  assert.equal(t.error, undefined);
+  assert.equal(t.sessions[0]!.stages[0]!.instruction, "t");
+});
+
+test("today reports the date in the app's zone", async () => {
+  const s = await studio();
+  // 03:00 UTC on the 15th is still the 14th in Chicago.
+  assert.equal((await genericToday(s, new Date("2026-11-15T03:00:00Z"))).today, "2026-11-14");
 });

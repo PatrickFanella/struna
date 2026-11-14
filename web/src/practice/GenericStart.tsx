@@ -108,7 +108,7 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
                 askCoach(
                   today.error === NO_PLAN
                     ? "Build my practice plan. Read my profile and any logs first, write plan/plan.json, then tell me in a few lines what is in it."
-                    : `plan/plan.json is not valid: ${today.error} Fix the file, keeping what it was trying to say, and tell me what you changed.`,
+                    : `${today.error}. Fix the file, keeping what it was trying to say, and tell me what you changed.`,
                   { open: true },
                 )
               }
@@ -130,7 +130,7 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
 
       {today.overDue && b && (
         <div className="notice">
-          <p><b>You have done this plan's {b.targetSessions} sessions.</b> The coach can review them and propose what comes next.</p>
+          <p><b>You have finished this plan.</b> The coach can review your sessions and propose what comes next.</p>
           <button className="btn outline" onClick={onCoach}><Icon id="i-chat" />Open the coach</button>
         </div>
       )}

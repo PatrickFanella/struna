@@ -270,8 +270,18 @@ export function sessionSizes(minutesPerSession: number): { full: number; short: 
   return { full, short, quick };
 }
 
+/** Whether the starter plans (six-string guitar: open strings E A D G B E, guitar chord shapes) fit this instrument. */
+export function isSixString(instrument: string): boolean {
+  const i = instrument.trim().toLowerCase();
+  if (["acoustic", "electric", "classical", "guitar", ""].includes(i)) return true;
+  return /guitar|12[- ]?string|resonator|baritone|acoustic|electric|classical|nylon|flamenco|archtop/.test(i) && !/bass|[789][- ]?string|lap|pedal[- ]?steel|steel guitar|uke|ukulele/.test(i);
+}
+
 export function starterPlan(profile: Profile, today: string): Plan {
   const s = STARTERS[profile.level] ?? STARTERS.beginner;
+  // The starters are written for six-string guitar. For anything else, say so where the player sees it,
+  // so a plan the coach has not rewritten (no coach, onboarding off) is not taken for one that fits.
+  const other = isSixString(profile.instrument) ? "" : `This starter plan is written for six-string guitar. Ask the coach to rewrite it for your ${profile.instrument.trim()}. `;
   const size = sessionSizes(profile.minutesPerSession);
   const shortSet = s.stages.filter((st) => st.short);
   const sessions: PlanSession[] = [{ id: "full", label: "Full session", stages: allocate(size.full >= 10 ? s.stages : shortSet, size.full) }];
@@ -282,13 +292,13 @@ export function starterPlan(profile: Profile, today: string): Plan {
     version: 1,
     id: s.id,
     title: s.title,
-    goal: s.goal,
+    goal: other + s.goal,
     started: today,
     // A very short "full" kind drops stages; a focus line for a stage no kind has would not validate.
     phases: s.phases.map((p) => ({ ...p, focus: Object.fromEntries(Object.entries(p.focus).filter(([k]) => keys.has(k))) })),
     sessions,
     materials: [],
-    next: s.next,
+    next: other + s.next,
     extras: [...s.extras],
   };
 }

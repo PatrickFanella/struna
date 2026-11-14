@@ -23,10 +23,20 @@ export function readAppInfo(v: unknown): AppInfo {
   };
 }
 
-let loaded: AppInfo | null = null;
-let pending: Promise<AppInfo> | null = null;
+/** The app info the server wrote into the page (production), so the first paint needs no request. */
+function embedded(): AppInfo | null {
+  try {
+    const text = typeof document === "undefined" ? null : document.getElementById("app-info")?.textContent;
+    return text ? readAppInfo(JSON.parse(text)) : null;
+  } catch {
+    return null;
+  }
+}
 
-/** The mode, name and sections of this server; asked once per page load. */
+let loaded: AppInfo | null = embedded();
+let pending: Promise<AppInfo> | null = loaded ? Promise.resolve(loaded) : null;
+
+/** The mode, name and sections of this server: from the page, or asked once per page load (the dev server). */
 export function loadApp(): Promise<AppInfo> {
   pending ??= api.get<unknown>("/api/app").then(readAppInfo, () => PERSONAL).then((info) => (loaded = info));
   return pending;

@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 import { api } from "../api.ts";
 import type { ActionId, Prompt } from "../generic.ts";
 import { useApp } from "../mode.ts";
 import { screenContext } from "../screen.ts";
 import { fillPrompt, GROUPS, promptsFor, screenId, usePrompts } from "./prompts.ts";
+import { pickProvider, type ProviderId, type ProviderStatus, readiness } from "./providers.ts";
+import { REPLY_MARKDOWN } from "./reply.ts";
 
-type Provider = "claude" | "codex";
+type Provider = ProviderId;
 /** `auto` names the automatic action that sent a user message. */
 type Msg = { role: "user" | "assistant" | "error" | "notice"; text: string; streaming?: boolean; auto?: string };
 type Conv = { id: string; provider: Provider; title: string; updated: string };
-type Status = Record<Provider, { ok: boolean; detail: string }> & { last: Provider; host?: string };
-type Queued = { text: string; auto?: ActionId };
+type Status = ProviderStatus;
+/** `done` hears whether the turn ran to its end; a message dropped from the queue hears false. */
+type Queued = { text: string; auto?: ActionId; done?: (ok: boolean) => void };
 const NAMES: Record<Provider, string> = { claude: "Claude", codex: "ChatGPT" };
 
 /**
@@ -57,7 +59,7 @@ function loadProviders(fresh = false): Promise<Status | null> {
   if (fresh || !providers) {
     providers = api.get<Status>("/api/providers").then((p) => {
       if (!loadedLast && !state.conversation && !state.messages.length && !state.busy) {
-        state.provider = p.last === "codex" ? "codex" : "claude";
+        state.provider = pickProvider(p);
         emit();
       }
       loadedLast = true;
@@ -65,6 +67,18 @@ function loadProviders(fresh = false): Promise<Status | null> {
     }, () => null);
   }
   return providers;
+}
+
+/** Whether a coach can answer at all; asked before the app sends a message by itself. */
+export async function coachReady(): Promise<{ ok: boolean; detail: string }> {
+  return readiness(await loadProviders(), state.provider);
+}
+
+/** Empty the queue; each message waiting in it hears that it was not sent. */
+function dropQueue() {
+  const dropped = state.queue;
+  state.queue = [];
+  for (const q of dropped) q.done?.(false);
 }
 
 /** Returns whether the turn ran to its end without an error or a stop. */
@@ -135,8 +149,9 @@ async function pump() {
     for (let next = state.queue.shift(); next; next = state.queue.shift()) {
       emit();
       const ok = await send(next.text, next.auto);
+      next.done?.(ok);
       if (!ok && state.queue.length) {
-        state.queue = [];
+        dropQueue();
         emit();
       }
     }
@@ -156,14 +171,15 @@ export function openCoach(): void {
  * Send a message to the coach from anywhere in the app. It joins the current conversation and
  * waits its turn behind a running reply. `auto` marks a message the app sent because something happened.
  */
-export function askCoach(text: string, opts: { auto?: ActionId; open?: boolean } = {}): void {
+export function askCoach(text: string, opts: { auto?: ActionId; open?: boolean } = {}): Promise<boolean> {
   const t = text.trim();
-  if (!t) return;
+  if (!t) return Promise.resolve(false);
   state.more = false;
-  state.queue.push({ text: t, ...(opts.auto ? { auto: opts.auto } : {}) });
+  const result = new Promise<boolean>((done) => state.queue.push({ text: t, ...(opts.auto ? { auto: opts.auto } : {}), done }));
   emit();
   if (opts.open) openCoach();
   void pump();
+  return result;
 }
 
 /** Put text in the message box for the player to finish, and open the coach. */
@@ -175,7 +191,7 @@ export function fillCoach(text: string): void {
 }
 
 function stop() {
-  state.queue = [];
+  dropQueue();
   state.busy?.abort();
   emit();
 }
@@ -189,7 +205,7 @@ async function openConversation(id: string) {
 }
 
 function newConversation(provider = state.provider) {
-  state.queue = [];
+  dropQueue();
   state.busy?.abort();
   state.conversation = null;
   state.provider = provider;
@@ -202,7 +218,7 @@ function usePrompt(p: Prompt): void {
   const filled = fillPrompt(p.text, screenContext.get());
   if (!filled) return;
   if (filled.input) fillCoach(filled.text);
-  else askCoach(filled.text, { open: true });
+  else void askCoach(filled.text, { open: true });
 }
 
 function Chips({ prompts, more }: { prompts: Prompt[]; more?: (() => void) | undefined }) {
@@ -239,10 +255,10 @@ export function PromptChips({ screen, compact }: { screen: string; compact?: boo
 }
 
 /** Every prompt that can be asked from this screen, grouped. */
-function PromptSheet({ prompts, screen }: { prompts: Prompt[]; screen: string }) {
+function PromptSheet({ prompts, screen, sheetRef }: { prompts: Prompt[]; screen: string; sheetRef: React.Ref<HTMLDivElement> }) {
   const usable = promptsFor(prompts, screen, screenContext.get(), true);
   return (
-    <div className="promptsheet">
+    <div className="promptsheet" ref={sheetRef}>
       {GROUPS.map(([group, title]) => {
         const list = usable.filter((p) => p.group === group);
         return list.length ? (
@@ -267,11 +283,19 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
   const [status, setStatus] = useState<Status | null>(null);
   const log = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const sheet = useRef<HTMLDivElement>(null);
+  const shown = useRef(false);
 
   useEffect(() => {
     if (!open) return;
     void loadProviders(true).then((p) => p && setStatus(p));
-    if (onClose) setTimeout(() => input.current?.focus(), 50);
+  }, [open]);
+
+  // The slide-over closes on the prompt list: it opens next time on the conversation.
+  useEffect(() => {
+    if (open || !onClose || !state.more) return;
+    state.more = false;
+    emit();
   }, [open]);
 
   useEffect(() => {
@@ -314,7 +338,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     const t = text.trim();
     if (!t || state.busy) return;
     setText("");
-    askCoach(t);
+    void askCoach(t);
   };
   const st = status?.[state.provider];
   const screen = screenId(screenContext.get().view);
@@ -324,6 +348,23 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     state.more = on;
     emit();
   };
+
+  // Focus goes to what is showing: the prompt list's first button, or the message box. A workspace
+  // pane that appears by itself does not take focus; one the player is using does (More unmounts the box).
+  useEffect(() => {
+    if (!open) {
+      shown.current = false;
+      return;
+    }
+    const first = !shown.current;
+    shown.current = true;
+    if (first && !onClose) return;
+    const t = setTimeout(() => {
+      if (showMore) sheet.current?.querySelector<HTMLButtonElement>("button")?.focus();
+      else if (!list) input.current?.focus();
+    }, 50);
+    return () => clearTimeout(t);
+  }, [open, showMore, Boolean(list)]);
 
   return (
     <div className="chatbody">
@@ -374,7 +415,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
             ))}
           </ul>
         ) : showMore ? (
-          <PromptSheet prompts={prompts} screen={screen} />
+          <PromptSheet prompts={prompts} screen={screen} sheetRef={sheet} />
         ) : (
           <div className="chatlog" ref={log} aria-live="polite">
             {state.messages.length === 0 && (
@@ -390,7 +431,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
               <div key={i} className={`msg ${m.role}${m.auto ? " auto" : ""}`}>
                 {m.role === "assistant" ? (
                   <div className="md">
-                    <Markdown remarkPlugins={[remarkGfm]}>{m.text || "…"}</Markdown>
+                    <Markdown {...REPLY_MARKDOWN}>{m.text || "…"}</Markdown>
                   </div>
                 ) : (
                   <>

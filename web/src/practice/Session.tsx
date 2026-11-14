@@ -36,6 +36,8 @@ export type SessionState = {
   pain: boolean;
   /** What the session shows, side by side: the lesson, its sheet music or a tab, the coach. */
   panes: PaneState[];
+  /** Generic mode: the review form is open, so a reload returns to it rather than to the session. */
+  reviewing?: true;
   /** Totals for the review sheet. */
   cleanTotal?: number;
   missTotal?: number;

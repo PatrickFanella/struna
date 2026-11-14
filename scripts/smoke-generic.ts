@@ -16,6 +16,7 @@
  */
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { connect } from "node:net";
 import { join, resolve } from "node:path";
 import { deflateSync } from "node:zlib";
 
@@ -153,7 +154,17 @@ process.stdin.on("data", (d) => (input += d)).on("end", () => {
 );
 chmodSync(fake, 0o755);
 
+/** Whether something already answers on the port: another server there would get our requests. */
+const portTaken = () =>
+  new Promise<boolean>((r) => {
+    const sock = connect(port, "localhost");
+    sock.once("connect", () => (sock.destroy(), r(true)));
+    sock.once("error", () => r(false));
+  });
+const running = (c: ChildProcess) => c.exitCode === null && c.signalCode === null;
+
 async function startServer(env: string): Promise<ChildProcess> {
+  if (await portTaken()) throw new Error(`port ${port} is already in use; set SMOKE_PORT to a free one`);
   const child = spawn("node", ["server/index.ts"], {
     cwd: root,
     env: {
@@ -172,14 +183,21 @@ async function startServer(env: string): Promise<ChildProcess> {
     stdio: ["ignore", "ignore", "inherit"],
   });
   for (let i = 0; i < 50; i++) {
-    if (await fetch(`${base}/api/health`).then((r) => r.ok, () => false)) return child;
+    // Our server exited (a port taken meanwhile, a crash): whatever answers now is not ours.
+    if (!running(child)) throw new Error("the server exited before it was ready (port in use?)");
+    if (await fetch(`${base}/api/health`).then((r) => r.ok, () => false)) {
+      if (running(child)) return child;
+      break;
+    }
     await new Promise((r) => setTimeout(r, 200));
   }
-  child.kill();
+  if (running(child)) child.kill();
   throw new Error("the server did not start");
 }
 
-const json = <T>(path: string) => fetch(`${base}${path}`).then((r) => r.json() as Promise<T>);
+/** The generic mode on loopback TCP needs its access token; the server wrote it to the state folder. */
+let token = "";
+const json = <T>(path: string) => fetch(`${base}${path}`, { headers: { "x-guitar-room-token": token } }).then((r) => r.json() as Promise<T>);
 
 async function walk(page: Page, env: string) {
   const home = join(env, "home");
@@ -391,6 +409,7 @@ try {
     size = name;
     const env = join(dir, name);
     const srv = await startServer(env);
+    token = readFileSync(join(env, "state", "access-token"), "utf8").trim();
     try {
       const ctx = await browser.newContext({ viewport, deviceScaleFactor: scale, hasTouch: true, isMobile: name === "phone" });
       const page = await ctx.newPage();
@@ -399,12 +418,19 @@ try {
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(e.message));
       page.on("console", (m) => m.type() === "error" && !/favicon/.test(m.location().url) && errors.push(`${m.text()} ${m.location().url}`));
+      // Without the token the server answers nothing; the printed link stores it in a cookie.
+      check((await fetch(`${base}/api/app`)).status === 403, "the API refuses a request without the access token");
+      await page.goto(`${base}/?token=${token}`);
+      await page.waitForURL(`${base}/`);
+      check(!page.url().includes("token"), "the access link opens the app and leaves the token out of the address");
       await walk(page, env).catch((e) => check(false, `the walk stopped: ${String((e as Error).message ?? e).split("\n")[0]}`));
       check(errors.length === 0, `no page or console errors${errors.length ? `: ${errors.join(" | ")}` : ""}`);
       await ctx.close();
     } finally {
-      srv.kill();
-      await new Promise((r) => srv.once("exit", r));
+      if (running(srv)) {
+        srv.kill();
+        await new Promise((r) => srv.once("exit", r));
+      }
     }
   }
 } finally {
