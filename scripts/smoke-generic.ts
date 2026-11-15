@@ -226,6 +226,12 @@ const tooWide = (page: Page) =>
     return out.slice(0, 3).map((e) => `${e.tagName.toLowerCase()}.${e.className} +${Math.round(e.getBoundingClientRect().right - w)}px`);
   });
 
+async function startPractice(page: Page) {
+  const start = page.getByRole("button", { name: /^Start \d+ min$/ });
+  if (await start.count()) await start.click();
+  else await page.locator(".startacts .btn.primary").first().click();
+}
+
 async function walk(page: Page, env: string) {
   const home = join(env, "home");
   let n = 0;
@@ -257,7 +263,7 @@ async function walk(page: Page, env: string) {
   await page.locator(".top").getByRole("button", { name: /^Coach/ }).click();
   await page.getByRole("button", { name: "Apply plan change", exact: true }).click();
   await page.getByRole("dialog", { name: "Coach" }).getByRole("button", { name: "Done", exact: true }).click();
-  await page.locator(".gstart").getByText(COACH_NEXT, { exact: true }).waitFor({ timeout: 20_000 });
+  await page.locator(".gstart .instr").getByText(COACH_NEXT, { exact: true }).waitFor({ timeout: 20_000 });
   check(true, "Today reloaded only after explicit Apply");
   check((await page.locator(".top .unread").count()) === 0, "opening Coach clears the unread dot");
   await shot("start", true);
@@ -266,25 +272,27 @@ async function walk(page: Page, env: string) {
   await toast(/coach/i).first().getByRole("button", { name: "Dismiss" }).click();
   check((await page.locator(".coachtoast").count()) === 0, "the toast can be dismissed");
 
-  // ---- Prompt chips: one sends, one fills the message box.
-  const chips = page.locator(".gstart .promptchips button:not(.morechip)");
-  check((await chips.count()) >= 3, `the start screen offers prompt chips (${await chips.count()})`);
+  // ---- Coach opens deliberately; its drawer leads with two stage-relevant prompts.
+  await page.locator(".top").getByRole("button", { name: /^Coach/ }).click();
+  const coach = page.getByRole("dialog", { name: "Coach" });
+  const chips = coach.locator(".promptchips button:not(.morechip)");
+  check((await chips.count()) === 2, `the Coach drawer offers two relevant prompt shortcuts (${await chips.count()})`);
   const label = (await chips.first().textContent()) ?? "";
   await chips.first().click();
-  await page.getByRole("dialog", { name: "Coach" }).locator(".msg.user").last().waitFor();
+  await coach.locator(".msg.user").last().waitFor();
   await chatIdle();
   await page.waitForTimeout(400); // the panel slides in
   check(calls().length === 2, `the chip "${label}" sent a message to the coach`);
   // A picture in a reply goes through the server, never straight from the browser to the site.
-  const pic = page.getByRole("dialog", { name: "Coach" }).locator(".msg.assistant .replyimg").last();
+  const pic = coach.locator(".msg.assistant .replyimg").last();
   await pic.filter({ hasText: /pics\.example/ }).waitFor({ timeout: 10_000 });
   check(/could not be loaded \(pics\.example\)|Picture from pics\.example/.test((await pic.textContent()) ?? ""), "a reply's picture names its site");
   check(!direct.some((u) => u.includes("pics.example")), "the browser never asked the picture's site itself");
   await shot("coach-panel");
-  await page.getByRole("dialog", { name: "Coach" }).locator(".morechip").click();
+  await coach.locator(".morechip").click();
   await page.locator(".promptsheet").waitFor();
   await shot("coach-prompts");
-  const fills = page.locator(".promptsheet .promptchips button").filter({ hasText: /…$/ });
+  const fills = coach.locator(".promptsheet .promptchips button").filter({ hasText: /…$/ });
   check((await fills.count()) > 0, "the prompt list has prompts for the player to finish");
   await fills.first().click();
   const box = page.getByRole("dialog", { name: "Coach" }).locator(".composer textarea, .composer input").first();
@@ -309,8 +317,8 @@ async function walk(page: Page, env: string) {
   // ---- A session through every stage, the review, the log.
   const today = await json<{ sessions: { id: string; label: string; stages: unknown[] }[] }>("/api/today");
   const kind = today.sessions[0]!;
-  await page.locator(".startacts .btn.primary").first().click();
-  await page.locator(".stagebar, .stages").first().waitFor();
+  await startPractice(page);
+  await page.locator(".session").waitFor();
   await shot("session-stage-1", true);
   for (let i = 1; i < kind.stages.length; i++) {
     await nextStage(page);
@@ -430,7 +438,7 @@ async function walk(page: Page, env: string) {
   // Into a practice pane.
   await mat.locator(".matitem").filter({ hasText: "Strumming notes" }).getByRole("button", { name: "Use in practice" }).click();
   await page.locator(".gstart, .session, .stages").first().waitFor();
-  await page.locator(".startacts .btn.primary").first().click().catch(() => {});
+  await startPractice(page).catch(() => {});
   const inPane = await page.getByRole("region", { name: "Practice" }).locator("pre").first().waitFor({ timeout: 10_000 }).then(() => true, () => false);
   check(inPane, "a material used in practice shows in a session pane");
   await shot("session-with-material", true);

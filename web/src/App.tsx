@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { CoachToasts } from "./chat/actions.tsx";
-import { Chat } from "./chat/Chat.tsx";
+import { Chat, openCoach } from "./chat/Chat.tsx";
 import type { AppInfo } from "./generic.ts";
 import { Icon, IconSprite } from "./icons.tsx";
 import { Library } from "./library/Library.tsx";
@@ -42,14 +42,17 @@ export function App() {
   // The coach panel asks to be opened (a prompt was sent from another screen) and reports replies that finished unseen.
   useEffect(() => {
     const open = () => setChat(true);
+    const pinned = () => setChat(false);
     const mark = (e: Event) => {
       const d = (e as CustomEvent<unknown>).detail;
       setUnread(!(d === false || (typeof d === "object" && d !== null && (d as { unread?: unknown }).unread === false)));
     };
     addEventListener("struna:coach-open", open);
+    addEventListener("struna:coach-pinned", pinned);
     addEventListener("struna:coach-unread", mark);
     return () => {
       removeEventListener("struna:coach-open", open);
+      removeEventListener("struna:coach-pinned", pinned);
       removeEventListener("struna:coach-unread", mark);
     };
   }, []);
@@ -125,7 +128,7 @@ export function App() {
             <button className="ib" aria-pressed={tool === "metronome"} onClick={() => setTool("metronome")}>
               Metronome
             </button>
-            <button className="ib" aria-pressed={chat} onClick={() => setChat((c) => !c)}>
+            <button className="ib" aria-pressed={chat} onClick={openCoach}>
               <Icon id="i-chat" />
               Coach
               {generic && unread && !chat && <span className="unread" role="status" aria-label="New reply from the coach" />}
@@ -137,7 +140,7 @@ export function App() {
       <main>
         <div className="wrap">
           <section className={`view${section === "practice" && !tool ? " on" : ""}`} aria-label="Practice">
-            <Practice openTool={setTool} closeTools={() => setTool(null)} openChat={() => setChat(true)} />
+            <Practice openTool={setTool} closeTools={() => setTool(null)} openChat={openCoach} />
           </section>
           {has("library") && (
             <section className={`view${section === "library" && !tool ? " on" : ""}`} aria-label="Library">
@@ -158,7 +161,11 @@ export function App() {
         </div>
       </main>
 
-      <Chat open={chat} onClose={() => setChat(false)} />
+      <Chat open={chat} onClose={() => setChat(false)} {...(chat && window.innerWidth >= 1000 && document.querySelector(".view.on .session") && (document.querySelectorAll(".view.on .session .panes > .pane").length < 4 || document.querySelector(".view.on .session .pane-coach")) ? { onPin: () => {
+        const request = new CustomEvent("struna:pin-coach", { detail: { accepted: false } });
+        dispatchEvent(request);
+        if (request.detail.accepted) setChat(false);
+      } } : {})} />
 
       {generic ? (
         <>

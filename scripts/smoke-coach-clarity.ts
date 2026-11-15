@@ -2,6 +2,7 @@
  * node scripts/smoke-coach-clarity.ts [artifact-directory] (directory must not exist)
  */
 import assert from "node:assert/strict";
+import { nextStage } from "./practice-steps.ts";
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
@@ -16,9 +17,14 @@ import { writeFakeBin } from "./fake-coach-cli.ts";
 const dir = resolve(process.argv[2] ?? join(tmpdir(), `struna-coach-${Date.now()}`));
 assert.ok(!existsSync(dir), "use a fresh artifact directory; existing scratch data is never removed");
 mkdirSync(join(dir, "home/plan"), { recursive: true });
+mkdirSync(join(dir, "home/materials"), { recursive: true });
 const profile = normalizeProfile({ level: "beginner" }, "2026-11-14");
 writeFileSync(join(dir, "home/profile.json"), JSON.stringify(profile));
-writeFileSync(join(dir, "home/plan/plan.json"), JSON.stringify(starterPlan(profile, "2026-11-14")));
+writeFileSync(join(dir, "home/materials/reader.md"), "# Six-string reader fixture\n\nE|--0--0--0--0--|\nB|--1--1--1--1--|\nG|--0--0--0--0--|\nD|--2--2--2--2--|\nA|--3--3--3--3--|\nE|-------------|\n\n".repeat(80));
+const plan = starterPlan(profile, "2026-11-14");
+plan.materials = [{ label: "Six-string reader fixture", file: "materials/reader.md" }];
+plan.sessions[1]!.stages[0]!.material = { file: "materials/reader.md" };
+writeFileSync(join(dir, "home/plan/plan.json"), JSON.stringify(plan));
 const bin = writeFakeBin(join(dir, "fake"), "bin/codex");
 writeFileSync(join(dir, "fake/slow"), "600");
 const reservation = createServer();
@@ -41,8 +47,8 @@ try {
     await new Promise((r) => setTimeout(r, 100));
   }
   const token = readFileSync(join(dir, "state/access-token"), "utf8").trim();
-  const sizes = [[320, 700], [390, 844], [1003, 814], [502, 407]] as const;
-  for (const [width, height] of sizes) for (const theme of ["light", "dark", "device-light", "device-dark"] as const) {
+  const sizes = process.env.COACH_PIN_ONLY === "1" ? [[1440, 900]] as const : [[320, 700], [390, 844], [1003, 814], [1440, 900], [502, 407]] as const;
+  for (const [width, height] of sizes) for (const theme of (process.env.COACH_PIN_ONLY === "1" ? ["light"] : ["light", "dark", "device-light", "device-dark"]) as ("light" | "dark" | "device-light" | "device-dark")[]) {
     const label = `${width}x${height}-${theme}`;
     const context = width === 502
       ? await chromium.launchPersistentContext(join(dir, `zoom-${theme}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"], viewport: { width: 1003, height: 814 }, colorScheme: theme.endsWith("dark") ? "dark" : "light" })
@@ -139,8 +145,73 @@ try {
     await page.locator(".actionlist").waitFor();
     assert.match(await page.locator(".coachsettings").innerText(), /Auto sends the request immediately.*Ask first waits.*only Apply changes Today/s);
     await shot("automatic-actions");
+    await page.locator(".gstart").getByRole("button", { name: "Coach settings", exact: true }).click();
+    if (await page.getByRole("radio", { name: /Short session/ }).count()) {
+      await page.getByRole("radio", { name: /Short session/ }).click();
+      await page.getByRole("button", { name: /^Start \d+ min$/ }).click();
+    } else await page.getByRole("button", { name: /^Short session/ }).click();
+    await page.locator(".workspace").waitFor();
+    assert.equal(await page.locator(".pane-coach").count(), 0, "a fresh practice session does not open Coach automatically");
+    await shot("practice-default");
+    if (width === 1440 && theme === "light") {
+      const reader = page.locator(".pane .panescroll").first();
+      await reader.evaluate((e) => { e.scrollTop = 80; e.dataset.coachPinMark = "kept"; });
+      await page.locator(".top").getByRole("button", { name: "Coach", exact: true }).click();
+      await coach.getByRole("button", { name: "Pin beside music", exact: true }).click();
+      await coach.waitFor({ state: "hidden" });
+      assert.equal(await page.locator(".pane-coach").count(), 1, "direct desktop pin keeps one Coach beside music");
+      assert.equal(await reader.getAttribute("data-coach-pin-mark"), "kept", "direct pin keeps the music reader mounted");
+      assert.equal(await reader.evaluate((e) => e.scrollTop), 80, "direct pin keeps the music reading position");
+      await shot("practice-pinned");
+      await page.locator(".top").getByRole("button", { name: "Coach", exact: true }).click();
+      assert.equal(await page.getByRole("dialog", { name: "Coach", exact: true }).count(), 0, "header Coach focuses embedded owner after direct pin");
+      const embedded = page.locator(".pane-coach");
+      assert.equal(await embedded.getByRole("textbox", { name:"Message", exact:true }).evaluate(e=>e===document.activeElement),true);
+      let continuityRequests=0;
+      page.on("request",r=>{if(r.method()==="POST" && new URL(r.url()).pathname==="/api/chat") continuityRequests++;});
+      writeFileSync(join(dir,"fake/slow"),"1600");
+      await embedded.getByRole("textbox", {name:"Message",exact:true}).fill("Pin continuity stand-in request");
+      await embedded.getByRole("button", {name:"Send",exact:true}).click();
+      await embedded.getByRole("button", {name:"Stop",exact:true}).waitFor();
+      await embedded.getByRole("button", {name:"Unpin Coach",exact:true}).click();
+      await page.locator(".top").getByRole("button", {name:"Coach",exact:true}).click();
+      await coach.getByRole("button", {name:"Stop",exact:true}).waitFor();
+      await coach.getByRole("button", {name:"Stop",exact:true}).waitFor({state:"detached"});
+      assert.equal(continuityRequests,1,"unpin/reopen retains one running request");
+      assert.equal(await reader.getAttribute("data-coach-pin-mark"),"kept");
+      await coach.getByRole("textbox", {name:"Message",exact:true}).fill("Draft retained through a stage change");
+      await coach.getByRole("button", {name:"Done",exact:true}).click();
+      await nextStage(page);
+      await page.locator(".top").getByRole("button", {name:"Coach",exact:true}).click();
+      assert.equal(await coach.getByRole("textbox", {name:"Message",exact:true}).inputValue(),"Draft retained through a stage change");
+      await coach.getByRole("button", {name:"Done",exact:true}).click();
+      writeFileSync(join(dir,"fake/slow"),"600");
+    }
+    await page.getByRole("button", { name: /^(Add|Open) pane$/ }).click();
+    await page.getByRole("menuitem", { name: "Pin Coach beside music", exact: true }).click();
+    const pinned = page.locator(".pane-coach");
+    await pinned.waitFor();
+    assert.equal(await pinned.count(), 1, "pinning Coach keeps one embedded conversation owner");
+    assert.equal(await pinned.locator(".promptchips button:not(.morechip)").count(), 2, "pinned Coach leads with two shortcuts");
+    if (width >= 1180) {
+      await page.reload();
+      await page.locator(".workspace .pane-coach").waitFor();
+      assert.equal(await page.locator(".workspace .pane-coach").count(), 1, "a restored legacy Coach pane stays pinned beside music");
+    }
+    const paneComposer = pinned.getByRole("textbox", { name: "Message", exact: true });
+    await paneComposer.fill("Keep this unsent draft");
+    await pinned.getByRole("button", { name: "Unpin Coach", exact: true }).click();
+    await pinned.waitFor({ state: "detached" });
+    const headerCoach = page.locator(".top").getByRole("button", { name: "Coach", exact: true });
+    await page.waitForFunction(() => [...document.querySelectorAll<HTMLButtonElement>(".top button")].some((e) => e.textContent?.trim() === "Coach" && e === document.activeElement));
+    assert.equal(await headerCoach.evaluate((e) => e === document.activeElement), true, "Unpin returns focus to the on-demand Coach entry");
+    await headerCoach.click();
+    await coach.waitFor();
+    await shot("practice-coach-open");
+    assert.equal(await coach.getByRole("textbox", { name: "Message", exact: true }).inputValue(), "Keep this unsent draft", "unsent draft survives unpin and reopening Coach");
+    await coach.getByRole("button", { name: "Done", exact: true }).click();
     assert.deepEqual(errors, []);
-    const result = `${label}: provider identity, plan/input Draft, advice/length labels, single Send, busy/error and plan-approval and direct non-plan write disclosures passed`;
+    const result = `${label}: provider identity, plan/input Draft, advice/length labels, single Send, busy/error, Coach demand/pin and plan-approval and direct non-plan write disclosures passed`;
     results.push(result);
     console.log(result);
     await context.close();

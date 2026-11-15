@@ -43,6 +43,8 @@ const state = {
   settings: false,
   version: 0,
 };
+/** A typed message belongs to the conversation, not a particular mounted panel. */
+let draftText = "";
 const listeners = new Set<() => void>();
 const emit = () => {
   state.version++;
@@ -214,8 +216,12 @@ async function pump() {
 /** Open the coach, unless a workspace pane already shows it. */
 export function openCoach(): void {
   // A retained pane may be in another section, behind the tuner, or off the pane switcher.
-  const shown = panes && [...document.querySelectorAll<HTMLElement>(".pane-coach .chatbody")].some((el) => el.checkVisibility());
-  if (!shown) dispatchEvent(new Event("struna:coach-open"));
+  const shown = panes && [...document.querySelectorAll<HTMLElement>(".pane-coach .chatbody")].find((el) => el.checkVisibility());
+  if (shown) {
+    shown.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+    return;
+  }
+  dispatchEvent(new Event("struna:coach-open"));
 }
 
 /**
@@ -343,11 +349,11 @@ function PromptSheet({ prompts, screen, sheetRef }: { prompts: Prompt[]; screen:
 }
 
 /** The coach conversation: in the slide-over, or in a workspace pane (no Done button there). */
-export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => void) | undefined }) {
+export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (() => void) | undefined; onPin?: (() => void) | undefined }) {
   useChat();
   const generic = useApp().mode === "studio";
   const { prompts } = usePrompts();
-  const [text, setText] = useState("");
+  const text = draftText;
   const [list, setList] = useState<Conv[] | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const log = useRef<HTMLDivElement>(null);
@@ -392,7 +398,8 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     if (!open || state.draft === null) return;
     const draft = state.draft;
     state.draft = null;
-    setText(draft);
+    draftText = draft;
+    emit();
     setList(null);
     const timer = setTimeout(() => {
       if (!input.current?.checkVisibility() || input.current.closest("[inert]")) return;
@@ -411,7 +418,8 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     e?.preventDefault();
     const t = text.trim();
     if (!t || state.busy || state.queue.length) return;
-    setText("");
+    draftText = "";
+    emit();
     void askCoach(t);
   };
   const st = status?.[state.provider as "claude" | "codex"];
@@ -496,6 +504,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
         )}
         <div className="chatbar">
           <button className="linkbtn" onClick={() => (showSettings ? setSettings(false) : showMore ? setMore(false) : list ? setList(null) : void showList())} aria-expanded={Boolean(list)}>{list || showMore || showSettings ? "Back to the conversation" : "Conversations"}</button>
+          {onPin && <button className="linkbtn coach-pin" onClick={onPin}>Pin beside music</button>}
           {generic && !showSettings && <button className="linkbtn" onClick={() => {
             setList(null);
             setSettings(true);
@@ -551,7 +560,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
                   ? "Ask about today's session, a song, a chord, or what to practise next. The coach sees your plan, the stage you are on and the tempo, and can propose plan changes. Review the before/after preview and choose Apply to change Today."
                   : "Ask about today's session, a passage, or a block review. The coach sees the current block, stage and tempo."}</p>
                 {!coaches && st && !st.ok && <p className="notice">{NAMES[state.provider]} is not signed in on {status?.host ?? "Kvant"}: {st.detail}</p>}
-                {offered.length > 0 && !noCoach && <Chips prompts={offered.slice(0, 6)} more={() => setMore(true)} />}
+                {offered.length > 0 && !noCoach && <Chips prompts={offered.slice(0, 2)} more={() => setMore(true)} />}
               </div>
             )}
             {state.messages.map((m, i) => (
@@ -581,7 +590,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
         )}
         {!list && !showMore && !showSettings && !retired && !noCoach && !notReady && offered.length > 0 && state.messages.length > 0 && (
           <div className="promptrow">
-            <Chips prompts={offered.slice(0, 4)} more={() => setMore(true)} />
+          <Chips prompts={offered.slice(0, 2)} more={() => setMore(true)} />
           </div>
         )}
         {!list && !showMore && !showSettings && !retired && noCoach && (
@@ -604,7 +613,10 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
               value={text}
               placeholder={`Message ${name}`}
               aria-label="Message"
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                draftText = e.target.value;
+                emit();
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) submit(e);
               }}
@@ -621,7 +633,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
 }
 
 /** The native modal owns background inertness; the panel stays mounted to retain drafts and requests. */
-export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function Chat({ open, onClose, onPin }: { open: boolean; onClose: () => void; onPin?: (() => void) | undefined }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -654,7 +666,7 @@ export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) 
         e.preventDefault();
         controls[(at + (e.shiftKey ? -1 : 1) + controls.length) % controls.length]?.focus();
       }}>
-        <ChatPanel open={open} onClose={onClose} />
+        <ChatPanel open={open} onClose={onClose} onPin={onPin} />
       </dialog>
     </div>
   );

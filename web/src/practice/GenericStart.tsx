@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { api, store } from "../api.ts";
 import { CoachSettings, coachAction } from "../chat/actions.tsx";
-import { askCoach, PromptChips } from "../chat/Chat.tsx";
+import { askCoach } from "../chat/Chat.tsx";
 import type { LogSummary } from "../generic.ts";
 import { Icon } from "../icons.tsx";
 import { getTheme, setTheme, type ThemeChoice } from "../theme.ts";
@@ -166,8 +166,6 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
             )}
           </div>
         )}
-
-        <PromptChips screen="start" />
 
         <div className="startfoot">
           {facts.length > 0 && <p className="counts statline">{facts.join(" · ")}</p>}
