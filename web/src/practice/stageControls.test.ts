@@ -8,5 +8,6 @@ test("stage controls use supported intent, with safe custom and personal fallbac
   assert.equal(stageControls({...stage,key:"next",title:"Record and note the next step"},true),"record");
   assert.equal(stageControls({...stage,key:"custom",title:"Ear training"},true),"general");
   assert.equal(stageControls({...stage,key:"custom",title:"Loop",targetBpm:90},true),"play");
+  assert.equal(stageControls({...stage,key:"log",title:"Logging"},true),"notes");
   assert.equal(stageControls(stage,false),"general");
 });

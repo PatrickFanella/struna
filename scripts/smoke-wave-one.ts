@@ -87,6 +87,7 @@ try {
       await nextStage(page);
       await page.getByRole("button",{name:"Record take",exact:true}).waitFor();
       assert.equal(await page.getByRole("button",{name:/Log clean pass/}).count(),0,"Recording leads with recorder");
+      assert.equal(await page.locator(".stage-tempo").count(),0,"Recording has no irrelevant tempo suggestion");
     }
     await page.screenshot({path:join(dir,`${width}-${theme}-stage.png`)});
     await context.close();

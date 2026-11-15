@@ -202,7 +202,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
     setState((s) => ({ ...s, stageTempos: { ...s.stageTempos, [tempoKey]: { bpm: stageTempo.bpm, source: stageTempo.source } } }));
   };
   useEffect(() => {
-    setStageSuggestion(stageTempo && controls !== "tune" ? { bpm: stageTempo.bpm, source: stageTempo.source, use: restoreTempo } : null);
+    setStageSuggestion(stageTempo && (controls === "play" || controls === "general") ? { bpm: stageTempo.bpm, source: stageTempo.source, use: restoreTempo } : null);
     return () => setStageSuggestion(null);
   }, [tempoKey, stageTempo?.bpm, stageTempo?.source, controls]);
   const total = stage.minutes * 60_000;
@@ -412,7 +412,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
               </label>)}
             </fieldset>}
             {stage.material && <StageMaterialLink material={stage.material} />}
-            {stageTempo && controls !== "tune" && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={restoreTempo}>Use stage tempo</button></p>}
+            {stageTempo && (controls === "play" || controls === "general") && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={restoreTempo}>Use stage tempo</button></p>}
             {!generic && (
             <p className="coachline" aria-live="polite">
               <span className="coachtag">Coach</span>
