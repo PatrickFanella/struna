@@ -1,3 +1,4 @@
+import { accountCandidateRoutes } from "./planCandidates.ts";
 import { exportRoutes } from "./export.ts";
 import { guestImportRoutes } from "./guest.ts";
 import { accountCredentials } from "./credentials.ts";
@@ -71,6 +72,7 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     exportRoutes(s, identity, privateRouter.route);
     const connection = credentials.register(s, identity, privateRouter.route);
     coach.register(s, identity, privateRouter.route, connection.connection);
+    accountCandidateRoutes(s, identity, privateRouter.route, () => coach.isBusy(identity.account));
     hostedRecordingRoutes({ mediaRoot: s.home, db: s.db, assertActive: identity.assertActive }, privateRouter.route);
     materialsRoutes(s, { cacheDir: join(root, "accounts", identity.account, "cache"), assertActive: identity.assertActive }, privateRouter.route);
     return privateRouter;
@@ -82,7 +84,7 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     revoke: (session: string) => { coach.revoke(session); credentials.revoke(session); },
     async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
       // Registrations close over this request’s verified workspace, never a global owner.
-      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:account|conversations|prompts|chat|providers|guest-import)(?:\/|$)/.test(url.pathname)) {
+      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:account|conversations|prompts|chat|providers|guest-import|plan-candidates)(?:\/|$)/.test(url.pathname)) {
         return await withStudio(identity, async (s) => {
           const privateRouter = privateRoutes(s, identity);
           const found = privateRouter.match(req.method === "HEAD" ? "GET" : req.method ?? "GET", url.pathname);

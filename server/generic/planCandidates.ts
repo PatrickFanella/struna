@@ -19,7 +19,7 @@ type Proposal = { id: string; base: string | null; candidate: string; digest: st
 export type ProposalView = { id: string; before: unknown; after: unknown; beforeJson: string | null; afterJson: string; digest: string; provider: string; created: number; changes: { field: string; before: unknown; after: unknown }[] };
 
 /** Private SQLite stores exact immutable candidate bytes, never a provider-supplied path. */
-export function planCandidates(s: Studio) {
+export function planCandidates(s: Studio, options: { assertActive?: (() => void) | undefined; isBusy?: (() => boolean) | undefined } = {}) {
   s.db.exec(`CREATE TABLE IF NOT EXISTS plan_proposals (id TEXT PRIMARY KEY, base TEXT, candidate TEXT NOT NULL, digest TEXT NOT NULL, created INTEGER NOT NULL, provider TEXT NOT NULL, state TEXT NOT NULL, archive TEXT);
     CREATE TABLE IF NOT EXISTS practice_clients (id TEXT PRIMARY KEY, active INTEGER NOT NULL, updated INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS practice_revision (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL);
@@ -103,14 +103,15 @@ export function planCandidates(s: Studio) {
         return { ...state(), expiresAt: isActive ? Date.now() + leaseMs : 0 };
       });
     },
-    async recover() {
+    async recover(cleanStaging = true) {
       await safeDirs();
       for (const p of s.db.prepare("SELECT * FROM plan_proposals WHERE state='applying'").all() as Proposal[]) await recoverOne(p);
-      await rm(staging, { recursive: true, force: true });
+      if (cleanStaging) await rm(staging, { recursive: true, force: true });
       expire();
     },
     async begin(provider: string): Promise<CandidateTurn> {
       return planLock(s.home, async () => {
+        options.assertActive?.();
         if (turnBusy) throw new HttpError(409, "Another Coach turn is running. Try again when it finishes.");
         await safeDirs();
         const id = randomUUID();
@@ -141,6 +142,7 @@ export function planCandidates(s: Studio) {
         const archive = old?.id && old.id !== plan.id && PLAN_LIMITS.id.test(old.id) ? `${old.id}.json` : null;
         if (archive && await lstat(join(s.home, "plan/archive", archive)).then(() => true, () => false)) throw new HttpError(409, "The archive destination already exists. Ask for an adjustment or resolve the archive collision.");
         const p: Proposal = { id: turn.id, base: turn.base, candidate: raw, digest: hash(raw), created: Date.now(), provider: turn.provider, state: "pending", archive };
+        options.assertActive?.();
         s.db.prepare("INSERT INTO plan_proposals VALUES (?,?,?,?,?,?,?,?)").run(p.id, p.base, p.candidate, p.digest, p.created, p.provider, p.state, p.archive);
         return view(p);
       } finally { turnBusy = false; await rm(join(staging, turn.id), { recursive: true, force: true }); }
@@ -149,13 +151,14 @@ export function planCandidates(s: Studio) {
     async dismiss(id: string) { return planLock(s.home, async () => { s.db.prepare("UPDATE plan_proposals SET state='dismissed', candidate='', base=NULL WHERE id=? AND state='pending'").run(id); }); },
     async apply(id: string, digest: string, revision: number) {
       return planLock(s.home, async () => {
+        options.assertActive?.();
         expire();
         const p = row(id);
         if (!p || p.digest !== digest) throw new HttpError(404, "Proposal unavailable. Reload the proposals.");
         if (p.state === "applied") return receipt(p);
         if (p.state !== "pending") throw new HttpError(409, "This proposal is no longer pending.");
         const practice = state();
-        if (turnBusy || practice.active || practice.revision !== revision) throw new HttpError(409, "Finish or discard practice in all open tabs, then reload the preview before applying. Coach turns must also finish first.");
+        if (turnBusy || options.isBusy?.() || practice.active || practice.revision !== revision) throw new HttpError(409, "Finish or discard practice in all open tabs, then reload the preview before applying. Coach turns must also finish first.");
         await safeDirs();
         if (hash(p.candidate) !== p.digest) throw new HttpError(409, "The proposal digest changed.");
         await validate(p.candidate);
@@ -163,12 +166,14 @@ export function planCandidates(s: Studio) {
         if (p.archive && await lstat(join(s.home, "plan/archive", p.archive)).then(() => true, () => false)) throw new HttpError(409, "The archive destination changed. Nothing was applied.");
         const next = join(s.home, "plan", `.candidate-${p.id}.json`);
         const archiveSource = join(s.home, "plan", `.archive-${p.id}.json`);
+        try {
         await writePrepared(next, p.candidate);
         if (p.archive) await writePrepared(archiveSource, p.base!);
         await syncDir(join(s.home, "plan"));
+        options.assertActive?.();
         s.db.prepare("UPDATE plan_proposals SET state='applying' WHERE id=?").run(p.id);
-        try {
           if (p.archive) { await link(archiveSource, join(s.home, "plan/archive", p.archive)); await syncDir(join(s.home, "plan/archive")); }
+          options.assertActive?.();
           await rename(next, active);
           await syncDir(join(s.home, "plan"));
           s.db.prepare("UPDATE plan_proposals SET state='applied' WHERE id=?").run(p.id);

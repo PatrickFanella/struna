@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api.ts";
+import { api, privateSession } from "../api.ts";
 
 type Proposal = { id: string; digest: string; before: unknown; after: unknown; beforeJson: string | null; afterJson: string; provider: string; changes: { field: string; before: unknown; after: unknown }[] };
 type Snapshot = { proposals: Proposal[]; practice: { active: boolean; revision: number } };
@@ -25,7 +25,7 @@ export function PlanCandidates() {
     setBusy(true); setError("");
     try {
       if (apply) {
-        if (sessionStorage.getItem("struna.session")) throw new Error("Finish or discard the active session before applying.");
+        if (privateSession.getItem("struna.session")) throw new Error("Finish or discard the active session before applying.");
         await api.post(`/api/plan-candidates/${p.id}/apply`, { digest: p.digest, revision: snapshot.practice.revision, active: false });
         dispatchEvent(new CustomEvent("struna:changed", { detail: { plan: true } }));
       } else await api.del(`/api/plan-candidates/${p.id}`);
@@ -42,7 +42,7 @@ export function PlanCandidates() {
       {p.changes.map((c) => <details key={c.field} open><summary>{c.field}</summary><div className="plan-diff"><div><b>Before</b><pre>{json(c.before)}</pre></div><div><b>After</b><pre>{json(c.after)}</pre></div></div></details>)}
       <details><summary>Complete plan JSON</summary><div className="plan-diff"><div><b>Before</b><pre>{p.beforeJson ?? "No active plan"}</pre></div><div><b>After</b><pre>{p.afterJson}</pre></div></div></details>
       {snapshot.practice.active && <p className="srcnote">Apply is unavailable while a practice session is active in this or another tab.</p>}
-      <div className="row2"><button className="btn primary" disabled={busy || snapshot.practice.active || Boolean(sessionStorage.getItem("struna.session"))} onClick={() => void act(p, true)}>Apply plan change</button><button className="btn quiet" disabled={busy} onClick={() => void act(p, false)}>Dismiss proposal</button></div>
+      <div className="row2"><button className="btn primary" disabled={busy || snapshot.practice.active || Boolean(privateSession.getItem("struna.session"))} onClick={() => void act(p, true)}>Apply plan change</button><button className="btn quiet" disabled={busy} onClick={() => void act(p, false)}>Dismiss proposal</button></div>
     </article>)}
   </section>;
 }

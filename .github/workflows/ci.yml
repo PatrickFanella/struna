@@ -30,6 +30,7 @@ jobs:
       - run: node scripts/verify-visual-system.ts /tmp/struna-visual-evidence
       - run: node scripts/verify-practice-layout.ts /tmp/struna-reading-evidence
       - run: node scripts/verify-export.ts /tmp/struna-export-evidence
+      - run: node scripts/verify-plan-apply.ts /tmp/struna-plan-apply-evidence
       - run: node scripts/verify-coach-context.ts /tmp/struna-coach-context-evidence
       - run: node scripts/verify-connect-ai.ts /tmp/struna-connect-ai-evidence
       - run: node scripts/verify-hosted-isolation.ts
@@ -50,5 +51,6 @@ jobs:
             /tmp/struna-wave4-evidence
             /tmp/struna-connect-ai-evidence
             /tmp/struna-export-evidence
+            /tmp/struna-plan-apply-evidence
             /tmp/struna-coach-context-evidence
           if-no-files-found: ignore
