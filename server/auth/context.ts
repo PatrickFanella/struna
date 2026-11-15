@@ -1,5 +1,5 @@
 import type { CoachContext, CoachSelection } from "../../shared/coach-context.ts";
-import { readPlan, type Studio } from "../generic/studio.ts";
+import { genericToday, type Studio } from "../generic/studio.ts";
 import { readLogs } from "../generic/logs.ts";
 import { listMaterials } from "../generic/materials.ts";
 import { HttpError } from "../http.ts";
@@ -27,15 +27,15 @@ export async function practiceContext(s: Studio, value: unknown): Promise<CoachC
 
 async function resolveContext(s: Studio, value: unknown): Promise<CoachContext> {
   const selection = parseSelection(value);
-  const { plan } = await readPlan(s);
+  const today = await genericToday(s), plan = today.block;
   if (selection.planId && selection.planId !== plan?.id) throw new HttpError(409, "Your plan changed. Return to Today and reload before asking Coach.");
-  const kind = selection.sessionKind ? plan?.sessions.find(k => k.id === selection.sessionKind) : undefined;
+  const kind = selection.sessionKind ? today.sessions.find(k => k.id === selection.sessionKind) : undefined;
   const stage = selection.stageKey ? kind?.stages.find(st => st.key === selection.stageKey) : undefined;
   if ((selection.sessionKind && !kind) || (selection.stageKey && !stage)) throw new HttpError(409, "This stage changed. Return to Today and reload before asking Coach.");
   let material = "";
   if (selection.materialKey) {
     const key = selection.materialKey.replace(/^plan:/, "");
-    const ref = [...(plan?.materials ?? []), ...(plan?.sessions.flatMap(k => k.stages.flatMap(st => st.material ? [{ ...st.material, label: "" }] : [])) ?? [])].find(m => (m.file ?? m.url) === key);
+    const ref = [...today.materials, ...today.sessions.flatMap(k => k.stages.flatMap(st => st.material ? [st.material] : []))].find(m => m.key === key);
     if (ref) material = ref.label || key.split("/").at(-1)!;
     else {
       const listing = await listMaterials(s, { limit: 40000 });
@@ -49,7 +49,7 @@ async function resolveContext(s: Studio, value: unknown): Promise<CoachContext> 
   const summary = [
     `From: ${selection.view}`,
     ...(plan ? [`Plan: ${plan.title}`, `Practice goal: ${plan.goal}`] : []),
-    ...(stage ? [`Stage: ${stage.title}`, `Task: ${stage.task}`] : ["Stage: none active"]),
+    ...(stage ? [`Stage: ${stage.title}`, `Instruction: ${stage.instruction}`] : ["Stage: none active"]),
     `Material: ${material || "none selected"} (name only; content not read)`,
     `Click setting: ${selection.clickBpm ? `${selection.clickBpm} BPM (not a clean-pass measurement)` : "not supplied"}`,
     `Player-confirmed clean tempo: ${selection.confirmedBpm ? `${selection.confirmedBpm} BPM (player report, not audio analysis)` : "unmeasured"}`,

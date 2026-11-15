@@ -35,3 +35,20 @@ Build hashes for the combined application:
 | dist/index.html | cc359d4abe816d4dd2cd00af54edcada7e1d572e91a614d637371ad791527fca |
 | dist/assets/index-k6LoIs13.js | edf181d077b805eff536fe09f7aafc14deb481e23b1821e2384e08d5eac22782 |
 | dist/assets/index-BNrrXA4O.css | 201b86ea5dea886b794b6eb59ba0ce09ad5efbb4bcb32bc3e1eafaf7a5219d25 |
+
+## Review corrections
+
+The two P2 findings on initial head `2df87af` were valid and corrected together:
+
+- Context now reuses `genericToday` to resolve the effective stage instruction, including the active phase's focus and the first stage's current next instruction. The HTTP regression changes the counted-session phase and compares both preview and sent content against the instruction returned to practice.
+- Review forwards its current measurements with its reflection. The selected material's edited value is authoritative during Review; a blank or invalid value is unmeasured and never falls back to an old checkpoint. Identity matching handles both plan and Materials aliases. Tests cover corrected values, values with no checkpoint, explicit blanks, invalid BPMs and unrelated material IDs.
+
+Typecheck, all 366 tests and production build pass. All three focused built-browser cases (390/light, 844/dark, 1440/dark) pass. Their receipts are included under `reviewCorrections` in the durable JSON. The fixture also checks the phase-specific exercise in playing and Review, corrects a checkpoint from 60 to 54 BPM, clears it and sends an unmeasured turn, then sends the corrected value after restoring it. The full CI context matrix runs these assertions for every case.
+
+Updated application build hashes:
+
+| File | SHA-256 |
+| --- | --- |
+| dist/index.html | 62fd070ab4f0e8bc88d4522de0849dcc96add51bfe11c9613c9142795080cf1d |
+| dist/assets/index-1IgAD16-.js | 8e48f57b0fb2847aeedb8dac75509e1721f3b671ea9f131e6987978fc6383e5d |
+| dist/assets/index-BNrrXA4O.css | 201b86ea5dea886b794b6eb59ba0ce09ad5efbb4bcb32bc3e1eafaf7a5219d25 |

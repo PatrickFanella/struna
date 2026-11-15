@@ -16,7 +16,7 @@ import { sessionKind, type Today } from "../types.ts";
 import { MAX_PANES, pane, withCompanion } from "../workspace/Workspace.tsx";
 import { GenericReview } from "./GenericReview.tsx";
 import { GenericStart } from "./GenericStart.tsx";
-import { fromForm, REVIEW_DRAFT_KEY, toForm } from "./genericLogic.ts";
+import { fromForm, REVIEW_DRAFT_KEY, toForm, reviewTempo, type ReviewContext } from "./genericLogic.ts";
 import { type PaneItem, vaultSrc } from "./Material.tsx";
 import { Review } from "./Review.tsx";
 import { Session, type SessionState } from "./Session.tsx";
@@ -66,7 +66,7 @@ export function Practice({ openTool, closeTools, openChat, active = true }: { ac
     return s?.reviewing ? { name: "review" } : s ? { name: "session" } : { name: "start" };
   });
   const [extra, setExtra] = useState<PaneItem | null>(libraryItem);
-  const [reflection, setReflection] = useState("");
+  const [reviewContext, setReviewContext] = useState<ReviewContext | null>(null);
   const [editing, setEditing] = useState(false);
   const app = useApp();
   const generic = ["studio", "hosted"].includes(app.mode);
@@ -170,6 +170,7 @@ export function Practice({ openTool, closeTools, openChat, active = true }: { ac
     const stage = session ? stages[Math.min(session.stage, stages.length - 1)] : undefined;
     const setup = generic && today !== null && (today.profile === null || editing);
     const confirmed = (session?.checkpoints ?? []).filter(c => c.materialKey === material?.key).at(-1);
+    const confirmedBpm = phase.name === "review" ? reviewTempo(material?.key, reviewContext?.measurements ?? [], [...(today?.materials ?? []), ...stages.flatMap(st => st.material ? [st.material] : [])]) : confirmed?.bpm;
     screenContext.set({
       coach: {
         view: phase.name === "review" ? "Review" : phase.name === "session" ? "Playing" : "Today",
@@ -178,8 +179,8 @@ export function Practice({ openTool, closeTools, openChat, active = true }: { ac
         ...(stage ? { stageKey: stage.key } : {}),
         ...(material && phase.name !== "start" ? { materialKey: material.key } : {}),
         clickBpm: m.bpm,
-        ...(phase.name === "review" && reflection ? { reflection } : {}),
-        ...(confirmed ? { confirmedBpm: confirmed.bpm } : {}),
+        ...(phase.name === "review" && reviewContext?.reflection ? { reflection: reviewContext.reflection } : {}),
+        ...(confirmedBpm !== undefined ? { confirmedBpm } : {}),
       },
       view: setup ? "practice setup" : phase.name === "session" ? "practice session" : phase.name === "review" ? "session review" : "practice start",
       ...(stage ? { stage: stage.title } : {}),
@@ -187,7 +188,7 @@ export function Practice({ openTool, closeTools, openChat, active = true }: { ac
       bpm: m.bpm,
       subdivision: SUBDIVISIONS.find((s) => s.value === m.subdivision)!.log,
     });
-  }, [phase, session, today, material, m.bpm, m.subdivision, generic, editing, reflection, active]);
+  }, [phase, session, today, material, m.bpm, m.subdivision, generic, editing, reviewContext, active]);
 
   // "Use in practice" during a session asks first: replace the lesson's material, or add it beside.
   const [offer, setOffer] = useState<PaneItem | null>(null);
@@ -342,7 +343,7 @@ export function Practice({ openTool, closeTools, openChat, active = true }: { ac
       <View
         today={sessionToday}
         session={session}
-        {...(generic ? { onReflection: setReflection } : {})}
+        {...(generic ? { onContext: setReviewContext } : {})}
         bpm={m.bpm}
         material={material?.label ?? ""}
         onBack={() => {

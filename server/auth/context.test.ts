@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { testHosted } from "./test-server.ts";
 import { offlineResponses } from "../../scripts/offline-responses.ts";
 
@@ -51,4 +53,31 @@ test("Today, playing and review context resolve only owned metadata and reach on
   assert.equal((await h.call(`/api/conversations/${conv.id}`,b)).status,404);
   assert.equal((await h.call("/api/chat/context",a,"POST",selection)).status,401);
  } finally { await h.close(); await stub.close(); }
+});
+
+test("Coach receives the same active phase focus and next instruction displayed in practice", async () => {
+ const sent: string[] = [];
+ const h = await testHosted({ run: async function* ({ message }) { sent.push(message); yield "Offline reply"; } });
+ try {
+  const a = await h.signIn("A");
+  await h.call("/api/profile",a,"PUT",{name:"Phase player"});
+  const path=join(h.root,"accounts",a.account,"workspace/plan/plan.json");
+  const plan=JSON.parse(readFileSync(path,"utf8"));
+  const key=plan.sessions[0].stages[0].key;
+  plan.phases=[{title:"First phase",sessions:1,summary:"First",focus:{[key]:"FIRST_PHASE_EXERCISE"}},{title:"Second phase",sessions:2,summary:"Second",focus:{[key]:"SECOND_PHASE_EXERCISE"}}];
+  plan.next="FIRST_STAGE_NEXT_INSTRUCTION";
+  writeFileSync(path,JSON.stringify(plan));
+  for (const phase of ["FIRST_PHASE_EXERCISE","SECOND_PHASE_EXERCISE"]) {
+   const today=await(await h.call("/api/today",a)).json();
+   const stage=today.sessions[0].stages[0];
+   assert.match(stage.instruction,new RegExp(phase));assert.match(stage.instruction,/Today:/);
+   const context={view:"Playing",planId:plan.id,sessionKind:today.sessions[0].id,stageKey:stage.key};
+   const preview=await(await h.call("/api/chat/context",a,"POST",context)).json();
+   assert.ok(preview.summary.includes(`Instruction: ${stage.instruction}`));
+   await(await h.call("/api/chat",a,"POST",{provider:"openai",message:"Explain this exercise",context})).text();
+   assert.ok(sent.at(-1)!.includes(stage.instruction));
+   if(phase==="FIRST_PHASE_EXERCISE") await h.call("/api/sessions",a,"POST",{planId:plan.id,session:{id:today.sessions[0].id,label:"Practice"},minutes:2,next:"LOG_NEXT_INSTRUCTION"});
+   else assert.ok(!sent.at(-1)!.includes("FIRST_PHASE_EXERCISE"));
+  }
+ } finally { await h.close(); }
 });
