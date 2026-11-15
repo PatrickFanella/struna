@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium, type Page, type Browser, type BrowserContext } from "playwright-core";
@@ -26,15 +27,20 @@ const entries = [
   { url: "https://publisher.example/rag", title: "Flatpicking Guitar Magazine — November lesson: Black Mountain Rag", provider: "Flatpicking Guitar Magazine", level: "Intermediate", note: "Work through the melody slowly." },
   { url: "https://teacher.example/waltz", title: "Publisher lesson: First Waltz", shortTitle: "First Waltz", provider: "Independent Teacher" },
   { url: "https://legacy.example/lesson", title: "Legacy lesson" },
+  { url: "https://teacher.example/long", title: "A long musical exercise title with chord changes and open strings ".repeat(5) },
   ...Array.from({ length: 20 }, (_, n) => ({ url: `https://teacher.example/lesson-${n}`, title: `Practice lesson ${String(n).padStart(2, "0")}` })),
 ];
 writeFileSync(join(home, "materials/links.json"), JSON.stringify(entries));
 writeFileSync(join(home, "materials/Notes.md"), "# Notes\n\nPlay the melody slowly.");
 const fake = join(scratch, "fake.cjs");
 writeFileSync(fake, '#!/usr/bin/env node\nconsole.log("stand-in unavailable"); process.exit(1);', { mode: 0o755 });
+const reservation = createNetServer();
+await new Promise<void>((r) => reservation.listen(0, "127.0.0.1", r));
+const port = (reservation.address() as { port: number }).port;
+await new Promise<void>((r) => reservation.close(() => r()));
 const server = spawn("node", ["server/index.ts"], {
   cwd: resolve(import.meta.dirname, ".."),
-  env: { ...process.env, HOST: "127.0.0.1", PORT: process.env.SMOKE_PORT ?? "5283", SOCKET_PATH: "", EDGE_SECRET_FILE: "", REQUIRE_USER: "", NODE_ENV: "production", STRUNA_MODE: "studio", STRUNA_HOME: home, STRUNA_STATE_DIR: join(scratch, "state"), STRUNA_CACHE_DIR: join(scratch, "cache"), STRUNA_LIBRARY_DIRS: "", STRUNA_TABS_DIR: "", CLAUDE_BIN: fake, CODEX_BIN: fake },
+  env: { ...process.env, HOST: "127.0.0.1", PORT: String(port), SOCKET_PATH: "", EDGE_SECRET_FILE: "", REQUIRE_USER: "", NODE_ENV: "production", STRUNA_MODE: "studio", STRUNA_HOME: home, STRUNA_STATE_DIR: join(scratch, "state"), STRUNA_CACHE_DIR: join(scratch, "cache"), STRUNA_LIBRARY_DIRS: "", STRUNA_TABS_DIR: "", CLAUDE_BIN: fake, CODEX_BIN: fake },
   stdio: ["ignore", "pipe", "pipe"],
 });
 let output = "";
@@ -76,6 +82,9 @@ try {
       if (width === 502) assert.ok(await page.evaluate(() => innerWidth === 501 && devicePixelRatio === 2), "native desktop 200% zoom");
       const row = page.locator(".matitem").filter({ hasText: "Black Mountain Rag" });
       await row.waitFor();
+      const longRow = page.locator(".matitem").filter({ hasText: "A long musical exercise title" });
+      assert.equal(await longRow.count(), 1);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
       assert.equal(await row.locator(".itemtitle").textContent(), "Black Mountain Rag");
       assert.equal(await row.locator(".itemfacts").textContent(), "Link · Flatpicking Guitar Magazine");
       assert.doesNotMatch(await row.textContent() ?? "", /November lesson|Work through the melody|Intermediate|In your plan/);
