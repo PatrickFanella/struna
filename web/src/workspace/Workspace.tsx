@@ -185,7 +185,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setExpanded(null); }
       if (e.key === "Tab") {
-        const controls = [...dialog.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, [tabindex="0"]')].filter((el) => !el.closest('[hidden], [inert]') && !el.matches(":disabled") && el.getClientRects().length > 0);
+        const controls = [...dialog.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, iframe, video[controls], audio[controls], [tabindex]')].filter((el) => el.tabIndex >= 0 && !el.closest('[hidden], [inert]') && !el.matches(":disabled") && el.getClientRects().length > 0);
         const first = controls[0], last = controls.at(-1);
         if (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { e.preventDefault(); last?.focus(); }
         else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { e.preventDefault(); first?.focus(); }
