@@ -1,0 +1,422 @@
+[
+  {
+    "source": "auth/coach.ts",
+    "method": "GET",
+    "path": "/api/conversations",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/coach.ts",
+    "method": "GET",
+    "path": "/api/conversations/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/coach.ts",
+    "method": "PATCH",
+    "path": "/api/conversations/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/coach.ts",
+    "method": "DELETE",
+    "path": "/api/conversations/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/coach.ts",
+    "method": "POST",
+    "path": "/api/chat",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/credentials.ts",
+    "method": "GET",
+    "path": "/api/providers",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/credentials.ts",
+    "method": "GET",
+    "path": "/api/providers/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/credentials.ts",
+    "method": "PUT",
+    "path": "/api/providers/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/credentials.ts",
+    "method": "DELETE",
+    "path": "/api/providers/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/guest.ts",
+    "method": "GET",
+    "path": "/api/guest-import",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/guest.ts",
+    "method": "POST",
+    "path": "/api/guest-import",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/practice.ts",
+    "method": "PUT",
+    "path": "/api/practice-state",
+    "hosted": "account"
+  },
+  {
+    "source": "chat.ts",
+    "method": "POST",
+    "path": "/api/chat",
+    "hosted": "account"
+  },
+  {
+    "source": "chat.ts",
+    "method": "GET",
+    "path": "/api/providers",
+    "hosted": "account"
+  },
+  {
+    "source": "chat.ts",
+    "method": "GET",
+    "path": "/api/conversations",
+    "hosted": "account"
+  },
+  {
+    "source": "chat.ts",
+    "method": "GET",
+    "path": "/api/conversations/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "chat.ts",
+    "method": "PATCH",
+    "path": "/api/conversations/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "chat.ts",
+    "method": "DELETE",
+    "path": "/api/conversations/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "coach-once.ts",
+    "method": "POST",
+    "path": "/api/coach/guide",
+    "hosted": "denied"
+  },
+  {
+    "source": "coach-once.ts",
+    "method": "POST",
+    "path": "/api/coach/review",
+    "hosted": "denied"
+  },
+  {
+    "source": "generic/chat-images.ts",
+    "method": "GET",
+    "path": "/api/chat/image",
+    "hosted": "denied"
+  },
+  {
+    "source": "generic/materials.ts",
+    "method": "GET",
+    "path": "/api/materials",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/materials.ts",
+    "method": "GET",
+    "path": "/api/materials/item",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/materials.ts",
+    "method": "GET",
+    "path": "/api/materials/file",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/materials.ts",
+    "method": "POST",
+    "path": "/api/materials/upload",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/materials.ts",
+    "method": "POST",
+    "path": "/api/materials/text",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/materials.ts",
+    "method": "POST",
+    "path": "/api/materials/link",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/materials.ts",
+    "method": "POST",
+    "path": "/api/materials/:id/save",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/materials.ts",
+    "method": "DELETE",
+    "path": "/api/materials/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/planCandidates.ts",
+    "method": "GET",
+    "path": "/api/plan-candidates",
+    "hosted": "denied"
+  },
+  {
+    "source": "generic/planCandidates.ts",
+    "method": "PUT",
+    "path": "/api/practice-state",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/planCandidates.ts",
+    "method": "POST",
+    "path": "/api/plan-candidates/:id/apply",
+    "hosted": "denied"
+  },
+  {
+    "source": "generic/planCandidates.ts",
+    "method": "DELETE",
+    "path": "/api/plan-candidates/:id",
+    "hosted": "denied"
+  },
+  {
+    "source": "generic/prompts.ts",
+    "method": "GET",
+    "path": "/api/prompts",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/prompts.ts",
+    "method": "GET",
+    "path": "/api/prompts",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/prompts.ts",
+    "method": "PUT",
+    "path": "/api/prompts/custom",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/prompts.ts",
+    "method": "PUT",
+    "path": "/api/prompts/actions",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/providers.ts",
+    "method": "POST",
+    "path": "/api/coach/providers/chatgpt/login",
+    "hosted": "denied"
+  },
+  {
+    "source": "generic/providers.ts",
+    "method": "GET",
+    "path": "/api/coach/providers/chatgpt/login",
+    "hosted": "denied"
+  },
+  {
+    "source": "generic/providers.ts",
+    "method": "DELETE",
+    "path": "/api/coach/providers/chatgpt/login",
+    "hosted": "denied"
+  },
+  {
+    "source": "generic/providers.ts",
+    "method": "PUT",
+    "path": "/api/coach/providers/:id",
+    "hosted": "denied"
+  },
+  {
+    "source": "generic/providers.ts",
+    "method": "DELETE",
+    "path": "/api/coach/providers/:id",
+    "hosted": "denied"
+  },
+  {
+    "source": "generic/routes.ts",
+    "method": "GET",
+    "path": "/api/app",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/routes.ts",
+    "method": "GET",
+    "path": "/api/profile",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/routes.ts",
+    "method": "PUT",
+    "path": "/api/profile",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/routes.ts",
+    "method": "GET",
+    "path": "/api/today",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/routes.ts",
+    "method": "POST",
+    "path": "/api/sessions",
+    "hosted": "account"
+  },
+  {
+    "source": "generic/routes.ts",
+    "method": "GET",
+    "path": "/api/logs",
+    "hosted": "account"
+  },
+  {
+    "source": "index.ts",
+    "method": "GET",
+    "path": "/api/health",
+    "hosted": "public"
+  },
+  {
+    "source": "index.ts",
+    "method": "GET",
+    "path": "/api/app",
+    "hosted": "account"
+  },
+  {
+    "source": "library/media.ts",
+    "method": "GET",
+    "path": "/api/media/:id",
+    "hosted": "denied"
+  },
+  {
+    "source": "library/media.ts",
+    "method": "GET",
+    "path": "/api/media/:id/thumb",
+    "hosted": "denied"
+  },
+  {
+    "source": "library/media.ts",
+    "method": "GET",
+    "path": "/api/media/:id/entry",
+    "hosted": "denied"
+  },
+  {
+    "source": "library/routes.ts",
+    "method": "GET",
+    "path": "/api/library",
+    "hosted": "denied"
+  },
+  {
+    "source": "library/routes.ts",
+    "method": "GET",
+    "path": "/api/library/:id/companions",
+    "hosted": "denied"
+  },
+  {
+    "source": "library/routes.ts",
+    "method": "POST",
+    "path": "/api/library/scan",
+    "hosted": "denied"
+  },
+  {
+    "source": "practice.ts",
+    "method": "GET",
+    "path": "/api/tempos",
+    "hosted": "account"
+  },
+  {
+    "source": "practice.ts",
+    "method": "PUT",
+    "path": "/api/tempos",
+    "hosted": "account"
+  },
+  {
+    "source": "practice.ts",
+    "method": "GET",
+    "path": "/api/today",
+    "hosted": "account"
+  },
+  {
+    "source": "practice.ts",
+    "method": "PUT",
+    "path": "/api/week-override",
+    "hosted": "denied"
+  },
+  {
+    "source": "practice.ts",
+    "method": "POST",
+    "path": "/api/sessions",
+    "hosted": "account"
+  },
+  {
+    "source": "practice.ts",
+    "method": "GET",
+    "path": "/api/vault-file",
+    "hosted": "denied"
+  },
+  {
+    "source": "recordings.ts",
+    "method": "POST",
+    "path": "/api/recordings",
+    "hosted": "account"
+  },
+  {
+    "source": "recordings.ts",
+    "method": "GET",
+    "path": "/api/recordings",
+    "hosted": "account"
+  },
+  {
+    "source": "recordings.ts",
+    "method": "GET",
+    "path": "/api/recordings/file",
+    "hosted": "account"
+  },
+  {
+    "source": "recordings.ts",
+    "method": "DELETE",
+    "path": "/api/recordings/:id",
+    "hosted": "account"
+  },
+  {
+    "source": "recordings.ts",
+    "method": "POST",
+    "path": "/api/recordings",
+    "hosted": "account"
+  },
+  {
+    "source": "tabs.ts",
+    "method": "GET",
+    "path": "/api/tabs",
+    "hosted": "denied"
+  },
+  {
+    "source": "tabs.ts",
+    "method": "GET",
+    "path": "/api/tabs/artists",
+    "hosted": "denied"
+  },
+  {
+    "source": "tabs.ts",
+    "method": "GET",
+    "path": "/api/tabs/:id/file",
+    "hosted": "denied"
+  }
+]
