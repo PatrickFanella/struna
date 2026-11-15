@@ -72,6 +72,15 @@ try {
     assert.match(await page.locator(".stage-tempo").innerText(), /Plan target/);
     await page.getByRole("button", { name: "Tuner", exact: true }).click();
     await page.getByRole("tab", { name: "Metronome", exact: true }).click();
+    await page.getByLabel("BPM", { exact: true }).fill("91");
+    await page.getByLabel("BPM", { exact: true }).press("Enter");
+    assert.equal(await page.getByRole("button", { name: "Start", exact: true }).count(), 1, "entry does not start click");
+    await page.getByLabel("BPM", { exact: true }).fill("301");
+    await page.getByLabel("BPM", { exact: true }).press("Enter");
+    await page.getByRole("status").filter({ hasText: "Enter a whole number" }).waitFor();
+    await page.getByLabel("BPM", { exact: true }).press("Escape");
+    assert.equal(await page.getByLabel("BPM", { exact: true }).inputValue(), "91");
+    await page.getByRole("button", { name: "Use stage tempo", exact: true }).click();
     await page.getByRole("button", { name: "2 BPM faster" }).click();
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
@@ -80,7 +89,7 @@ try {
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
     await page.reload();
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
-    await page.getByRole("button", { name: "Use suggestion", exact: true }).click();
+    await page.getByRole("button", { name: "Use stage tempo", exact: true }).click();
     await page.waitForFunction(() => !document.querySelector(".stage-tempo")?.textContent?.includes("Your tempo"));
     assert.equal(await page.locator(".nextb.primary").count(), 0);
     await page.getByRole("button", { name: "Start the stage timer", exact: true }).focus();
