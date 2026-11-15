@@ -1,3 +1,4 @@
+import { sessionChecklist } from "./sessionScope.ts";
 import { useEffect, useState } from "react";
 
 import { api } from "../api.ts";
@@ -127,6 +128,10 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
     <form className="review greview" onSubmit={submit}>
       <h1>{session.pain ? "Stopped: pain or tension" : "How did it go?"}</h1>
       <p className="instr">{session.pain ? painNote(coach) : "Mostly taps, and nothing is required. The coach reads this before it plans your next session."}</p>
+      <div className="field">
+        <p className="grp">This session included</p>
+        <ul>{sessionChecklist(session.stages ?? kind.stages, session.addedActivities).map((a) => <li key={a.key}>{a.title}{session.attemptedActivities?.includes(a.key) ? " — attempted" : " — unmeasured"}</li>)}</ul>
+      </div>
       <Text label="What you worked on" value={f.material} onChange={set("material")} placeholder="A song, an exercise, a page" />
       <Text label="Target (optional)" value={f.target} onChange={set("target")} placeholder="What you were aiming for today" />
       <div className="row2">

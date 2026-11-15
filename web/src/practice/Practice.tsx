@@ -150,7 +150,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       // Replacing swaps the lesson's files; the coach and any tab stay.
       const kept = how === "replace" ? s.panes.filter((p) => p.content.type !== "file") : s.panes;
       const fresh = cs.filter((c) => !kept.some((p) => p.content.type === "file" && c.type === "file" && p.content.item.key === c.item.key));
-      return { ...s, panes: [...fresh.map(pane), ...kept].slice(0, MAX_PANES), ...(how === "replace" ? { guides: {} } : {}) };
+      return { ...s, addedActivities: [...(s.addedActivities ?? []).filter((a) => a.key !== item.key), { key: item.key, title: item.label }], panes: [...fresh.map(pane), ...kept].slice(0, MAX_PANES), ...(how === "replace" ? { guides: {} } : {}) };
     });
   };
 
@@ -162,14 +162,9 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     // On a wide screen the coach opens beside the lesson.
     const panes = [...lead.map(pane), ...(window.innerWidth >= 1180 && lead.length < 3 ? [pane({ type: "coach" })] : [])];
     if (extra) store.set("struna.material-placed", extra.key);
-    // Start from the last clean working tempo stored for this material, when there is one.
-    if (first) {
-      const tempos = await api.get<{ fragment: string; bpm: number }[]>("/api/tempos").catch(() => []);
-      const t = tempos.find((x) => x.fragment === first.label);
-      if (t) metronome.set({ bpm: t.bpm });
-    }
     const s: SessionState = {
       kind,
+      stages: sessionKind(today!, kind).stages,
       cross: cross ?? null,
       startedAt: Date.now(),
       stage: 0,
