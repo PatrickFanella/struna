@@ -287,7 +287,7 @@ function Chips({ prompts, more }: { prompts: Prompt[]; more?: (() => void) | und
   return (
     <div className="chips promptchips">
       {prompts.map((p) => (
-        <button key={p.id} type="button" disabled={Boolean(state.busy) || state.queue.length > 0} onClick={() => usePrompt(p)}>
+        <button key={p.id} type="button" aria-disabled={Boolean(state.busy) || state.queue.length > 0} onClick={() => usePrompt(p)}>
           <small>{promptAction(p)} · {promptPurpose(p)}</small>
           <span>{p.label}</span>
         </button>
