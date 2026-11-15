@@ -1,3 +1,4 @@
+import { stopTimer } from "./sessionTimer.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Tool } from "../App.tsx";
@@ -119,7 +120,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   const material = firstFile?.type === "file" ? firstFile.item : null;
 
   useEffect(() => {
-    const stages = session && today ? sessionKind(today, session.kind).stages : [];
+    const stages = session && today ? (session.stages ?? sessionKind(today, session.kind).stages) : [];
     const stage = session ? stages[Math.min(session.stage, stages.length - 1)] : undefined;
     const setup = generic && today !== null && (today.profile === null || editing);
     screenContext.set({
@@ -169,6 +170,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       startedAt: Date.now(),
       stage: 0,
       elapsedBefore: 0,
+      activeBefore: 0,
       // The timer waits: tune, read the stage, then tap it to start.
       resumedAt: null,
       startBpm: metronome.get().bpm,
@@ -308,7 +310,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       material={material?.label ?? ""}
       onFinish={() => {
         // Studio mode remembers that the review is open, so a reload (or a discarded tab) comes back to it.
-        setSession((s) => ({ ...s, elapsedBefore: s.elapsedBefore + (s.resumedAt ? Date.now() - s.resumedAt : 0), resumedAt: null, ...(generic ? { reviewing: true as const } : {}) }));
+        setSession((s) => ({ ...stopTimer(s, Date.now()), ...(generic ? { reviewing: true as const } : {}) }));
         setPhase({ name: "review" });
       }}
       closeTools={closeTools}

@@ -57,6 +57,7 @@ try {
     assert.equal(await page.locator("#scope-custom-short").innerText(), "Technique · 6 min");
     await page.getByRole("button", { name: /^Quick/ }).click();
     await page.getByRole("button", { name: /Next stage/ }).click();
+    assert.equal(await page.locator(".clock.waiting").count(), 1, "Next retains the waiting timer");
     await page.getByText("Suggested 80 BPM", { exact: false }).waitFor();
     assert.match(await page.locator(".stage-tempo").innerText(), /Plan target/);
     await page.getByRole("button", { name: "Tuner", exact: true }).click();
@@ -71,7 +72,13 @@ try {
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
     await page.getByRole("button", { name: "Use suggestion", exact: true }).click();
     await page.waitForFunction(() => !document.querySelector(".stage-tempo")?.textContent?.includes("Your tempo"));
+    await page.clock.install();
+    await page.getByRole("button", { name: "Start the stage timer", exact: true }).click();
+    await page.clock.fastForward(65_000);
     await page.getByRole("button", { name: /Next stage/ }).click();
+    assert.equal(await page.locator(".clock:not(.waiting)").count(), 1, "Next retains a running timer");
+    await page.getByRole("button", { name: "Pause the stage timer", exact: true }).click();
+    assert.match(await page.locator(".session-time").innerText(), /Active practice 1:05/);
     const checklist = page.getByRole("group", { name: "Session checklist (optional)" });
     assert.equal(await checklist.getByRole("checkbox").count(), 3);
     assert.doesNotMatch(await checklist.innerText(), /Tune practice/);
@@ -80,6 +87,7 @@ try {
     assert.equal(await page.getByRole("checkbox", { name: "Technique", exact: true }).isChecked(), true);
     await page.getByRole("button", { name: /Finish/ }).click();
     assert.match(await page.locator(".greview").innerText(), /Technique — attempted/);
+    assert.equal(await page.getByLabel("Minutes played", { exact: true }).inputValue(), "1");
     assert.doesNotMatch(await page.locator(".greview").innerText(), /Tune practice/);
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}.png`), fullPage: true });
     await context.close();

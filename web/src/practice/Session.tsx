@@ -1,3 +1,4 @@
+import { activeElapsed, moveStage, pauseTimer } from "./sessionTimer.ts";
 import { sessionChecklist, type Activity } from "./sessionScope.ts";
 import { useEffect, useRef, useState } from "react";
 
@@ -32,6 +33,8 @@ export type SessionState = {
   stage: number;
   /** Milliseconds spent on the current stage before the last resume. */
   elapsedBefore: number;
+  /** Total active time before the current resume, across all stages. */
+  activeBefore?: number;
   /** Epoch ms of the last resume, or null while paused. */
   resumedAt: number | null;
   startBpm: number;
@@ -237,12 +240,12 @@ export function Session({ today, state, setState, items, material, onFinish, clo
 
   const next = () => {
     if (state.stage + 1 >= stages.length) return onFinish();
-    setState((s) => ({ ...s, stage: s.stage + 1, furthest: Math.max(s.furthest ?? 0, s.stage + 1), elapsedBefore: 0, resumedAt: Date.now() }));
+    setState((s) => moveStage(s, s.stage + 1, Date.now()));
   };
-  // Going back shows the earlier stage with its timer reset and waiting.
-  const back = () => setState((s) => (s.stage > 0 ? { ...s, stage: s.stage - 1, elapsedBefore: 0, resumedAt: null } : s));
+  // Going back restarts the earlier stage clock, retaining the current pause state.
+  const back = () => setState((s) => (s.stage > 0 ? moveStage(s, s.stage - 1, Date.now()) : s));
   const pause = () =>
-    setState((s) => (s.resumedAt ? { ...s, elapsedBefore: s.elapsedBefore + Date.now() - s.resumedAt, resumedAt: null } : { ...s, resumedAt: Date.now() }));
+    setState((s) => pauseTimer(s, Date.now()));
   const log = (event: "clean" | "miss") =>
     setState((s) => {
       const r = tempoHelper(s.helper, event);
@@ -310,6 +313,8 @@ export function Session({ today, state, setState, items, material, onFinish, clo
           <span className="addslot" ref={setAddSlot} />
         </div>
         <StageBar stages={stages} current={at} progress={elapsed / total} />
+        <p className="srcnote session-time">Stage {at + 1} of {stages.length} · Stage elapsed {fmt(elapsed)} · Active practice {fmt(activeElapsed(state, now))}</p>
+        {state.activeBefore === undefined && state.stage > 0 && <p className="srcnote">Earlier stage times were not recorded in this older session. Active time includes only recovered timing.</p>}
         <div className="stagerow">
           <div className="stagetext">
             <h1><span className="stagecount num">{at + 1}/{stages.length}</span> {stage.title}</h1>
@@ -349,7 +354,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
             <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
             <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} min` : `over ${stage.minutes} min`) : elapsed ? "paused, tap to resume" : "tap to start the timer"}</span>
           </button>
-          {state.stage > 0 && <button className="btn quiet backb" onClick={back} disabled={Boolean(take) || recording !== null}>Back</button>}
+          {state.stage > 0 && <button className="btn quiet backb" onClick={back} title="Restart the previous stage timer; keep running or paused" disabled={Boolean(take) || recording !== null}>Back</button>}
           <button className="btn primary nextb" onClick={next} disabled={Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
             <span>{nextStage ? "Next stage" : "Finish"}</span>
             <small>{nextStage ? `Up next: ${stageShort(nextStage)}` : "Write the log"}</small>

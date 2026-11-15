@@ -1,3 +1,4 @@
+import { playedMinutes } from "./sessionTimer.ts";
 import { sessionChecklist } from "./sessionScope.ts";
 import { useEffect, useState } from "react";
 
@@ -6,7 +7,7 @@ import { SUBDIVISIONS } from "../audio/metronome.ts";
 import { coachAction } from "../chat/actions.tsx";
 import { sessionKind, type Today } from "../types.ts";
 import { coachReady } from "../chat/Chat.tsx";
-import { type Difficulty, elapsedMinutes, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, tempo } from "./genericLogic.ts";
+import { type Difficulty, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, tempo } from "./genericLogic.ts";
 import { Choice, Text } from "./Review.tsx";
 import type { SessionState } from "./Session.tsx";
 
@@ -30,7 +31,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
     const first = {
       material,
       target: "",
-      minutes: String(elapsedMinutes(session.startedAt, Date.now())),
+      minutes: String(playedMinutes(session, Date.now())),
       metronome: (clicked ? "used" : "not used") as "used" | "not used",
       startTempo: String(session.startBpm),
       cleanTempo: String(bpm),
