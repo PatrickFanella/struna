@@ -214,6 +214,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
   const [takeLabel, setTakeLabel] = useState<RecordingRef["label"]>(today.position.number === 1 ? "baseline" : "weekly");
   const [purpose, setPurpose] = useState("");
   const [recError, setRecError] = useState("");
+  const [finalizing, setFinalizing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [discarding, setDiscarding] = useState(false);
   useEffect(() => () => rec.current?.cancel(), []);
@@ -235,7 +236,10 @@ export function Session({ today, state, setState, items, material, onFinish, onD
     const r = rec.current;
     rec.current = null;
     setRecording(null);
-    if (r) setTake(await r.stop());
+    if (r) {
+      setFinalizing(true);
+      try { setTake(await r.stop()); } finally { setFinalizing(false); }
+    }
   };
   const saveTake = async () => {
     if (!take || !today.block) return;
@@ -330,21 +334,21 @@ export function Session({ today, state, setState, items, material, onFinish, onD
     <div className="session">
       {state.ending && !discarding && <SessionDialog title={state.ending.pain ? "Stop: pain or tension" : "End session?"} onClose={resume}>
         <p>{state.ending.pain ? "Stop playing and rest. A pain stop does not count toward plan progress." : "The timer is paused. Ending alone writes no log."}</p>
-        {(take || recording !== null) && <div>
-          <p>Choose what to do with your unsaved recording before leaving.</p>
-          <button className="btn outline" disabled={saving || recording !== null} onClick={() => void saveTake()}>Keep take in Recordings</button>
-          <button className="btn quiet danger" disabled={saving} onClick={() => { rec.current?.cancel(); rec.current = null; setRecording(null); setTake(null); }}>Discard unsaved take</button>
+        {(take || recording !== null || finalizing) && <div>
+          <p>{finalizing ? "Finishing the recording. Exit choices will be available when the take is ready." : "Choose what to do with your unsaved recording before leaving."}</p>
+          <button className="btn outline" disabled={saving || finalizing || recording !== null} onClick={() => void saveTake()}>Keep take in Recordings</button>
+          <button className="btn quiet danger" disabled={saving || finalizing} onClick={() => { rec.current?.cancel(); rec.current = null; setRecording(null); setTake(null); }}>Discard unsaved take</button>
           {recError && <p role="alert">{recError}</p>}
         </div>}
         <p>Already saved recordings stay in Recordings, even if you discard this session.</p>
         <div className="exit-actions">
           <button className="btn outline" autoFocus onClick={resume}>Resume session</button>
-          <button className="btn primary" disabled={saving || Boolean(take) || recording !== null} onClick={() => {
+          <button className="btn primary" disabled={saving || finalizing || Boolean(take) || recording !== null} onClick={() => {
             const pain = state.ending!.pain;
             setState(({ ending: _, ...s }) => ({ ...s, pain }));
             onFinish(!pain);
           }}>{state.ending.pain ? "Review pain stop" : "Review partial session"}</button>
-          <button className="btn quiet danger" disabled={saving || Boolean(take) || recording !== null} onClick={() => setDiscarding(true)}>Discard session</button>
+          <button className="btn quiet danger" disabled={saving || finalizing || Boolean(take) || recording !== null} onClick={() => setDiscarding(true)}>Discard session</button>
         </div>
       </SessionDialog>}
       {discarding && <ConfirmDiscard onCancel={() => setDiscarding(false)} onDiscard={onDiscard} />}

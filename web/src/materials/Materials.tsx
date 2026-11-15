@@ -275,7 +275,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
     }
   };
 
-  const canDelete = (i: MaterialItem) => i.source !== "folder";
+  const canDelete = (i: MaterialItem) => !i.planOnly && i.source !== "folder";
   const canSave = (i: MaterialItem) => !i.src && Boolean(webUrl(i.url)) && !i.youtube;
   const sending = uploads.some((u) => u.state === "waiting" || u.state === "sending");
 
