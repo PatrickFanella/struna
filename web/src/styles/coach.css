@@ -124,3 +124,8 @@
 .plan-diff pre { overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:13px var(--mono); max-height:260px; background:var(--wash); padding:8px; }
 .plan-proposal summary { min-height:44px; cursor:pointer; }
 @media(max-width:719px) { .plan-diff { grid-template-columns:minmax(0,1fr); } }
+
+/* Keep the selected context readable without displacing the message composer. */
+.coach-context{flex:none;max-height:22vh;overflow:auto;border-bottom:1px solid var(--rule);padding-bottom:6px;margin-bottom:6px}
+.coach-context summary{font-size:var(--fs-meta);cursor:pointer}
+.coach-context p{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}

@@ -57,7 +57,7 @@ function libraryItem(): PaneItem | null {
   }
 }
 
-export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Tool) => void; closeTools: () => void; openChat: () => void }) {
+export function Practice({ openTool, closeTools, openChat, active = true }: { active?: boolean; openTool: (t: Tool) => void; closeTools: () => void; openChat: () => void }) {
   const [today, setToday] = useState<Today | null>(null);
   const [loadError, setLoadError] = useState("");
   const [session, setSessionState] = useState<SessionState | null>(loadSession);
@@ -66,6 +66,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     return s?.reviewing ? { name: "review" } : s ? { name: "session" } : { name: "start" };
   });
   const [extra, setExtra] = useState<PaneItem | null>(libraryItem);
+  const [reflection, setReflection] = useState("");
   const [editing, setEditing] = useState(false);
   const app = useApp();
   const generic = ["studio", "hosted"].includes(app.mode);
@@ -164,17 +165,29 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   const material = firstFile?.type === "file" ? firstFile.item : null;
 
   useEffect(() => {
+    if (!active) return;
     const stages = session && today ? (session.stages ?? sessionKind(today, session.kind).stages) : [];
     const stage = session ? stages[Math.min(session.stage, stages.length - 1)] : undefined;
     const setup = generic && today !== null && (today.profile === null || editing);
+    const confirmed = (session?.checkpoints ?? []).filter(c => c.materialKey === material?.key).at(-1);
     screenContext.set({
+      coach: {
+        view: phase.name === "review" ? "Review" : phase.name === "session" ? "Playing" : "Today",
+        ...(today?.block ? { planId: today.block.id } : {}),
+        ...(session ? { sessionKind: session.kind } : {}),
+        ...(stage ? { stageKey: stage.key } : {}),
+        ...(material && phase.name !== "start" ? { materialKey: material.key } : {}),
+        clickBpm: m.bpm,
+        ...(phase.name === "review" && reflection ? { reflection } : {}),
+        ...(confirmed ? { confirmedBpm: confirmed.bpm } : {}),
+      },
       view: setup ? "practice setup" : phase.name === "session" ? "practice session" : phase.name === "review" ? "session review" : "practice start",
       ...(stage ? { stage: stage.title } : {}),
       ...(material && phase.name !== "start" ? { fragment: material.label } : {}),
       bpm: m.bpm,
       subdivision: SUBDIVISIONS.find((s) => s.value === m.subdivision)!.log,
     });
-  }, [phase, session, today, material, m.bpm, m.subdivision, generic, editing]);
+  }, [phase, session, today, material, m.bpm, m.subdivision, generic, editing, reflection, active]);
 
   // "Use in practice" during a session asks first: replace the lesson's material, or add it beside.
   const [offer, setOffer] = useState<PaneItem | null>(null);
@@ -329,6 +342,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       <View
         today={sessionToday}
         session={session}
+        {...(generic ? { onReflection: setReflection } : {})}
         bpm={m.bpm}
         material={material?.label ?? ""}
         onBack={() => {

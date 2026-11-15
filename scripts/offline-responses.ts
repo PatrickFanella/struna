@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 
-export async function offlineResponses() {
+export async function offlineResponses(delayMs = 1000) {
   let failNext = 0;
   const requests: { authorization: string; body: any }[] = [];
   const server = createServer(async (req, res) => {
@@ -14,7 +14,7 @@ export async function offlineResponses() {
     res.writeHead(200, { "content-type": "text/event-stream" });
     const event = (v: unknown) => res.write(`data: ${JSON.stringify(v)}\n\n`);
     event({ type: "response.output_text.delta", delta: "Offline " });
-    if (body.model === "slow-model") { await new Promise<void>(r => { const t = setTimeout(r,1000);res.once("close",()=>{clearTimeout(t);r();}); }); }
+    if (body.model === "slow-model") { await new Promise<void>(r => { const t = setTimeout(r,delayMs);res.once("close",()=>{clearTimeout(t);r();}); }); }
     if (res.destroyed) return;
     event({ type: "response.output_text.delta", delta: "answer" });
     if (body.model !== "incomplete-model") event({ type: "response.completed", response: { status: "completed" } });

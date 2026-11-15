@@ -26,6 +26,12 @@
   {
     "source": "auth/coach.ts",
     "method": "POST",
+    "path": "/api/chat/context",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/coach.ts",
+    "method": "POST",
     "path": "/api/chat",
     "hosted": "account"
   },

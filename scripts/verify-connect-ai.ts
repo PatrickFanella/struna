@@ -85,7 +85,8 @@ try {
  await page.getByRole("button",{name:"Send",exact:true}).click();
  await page.locator(".msg.assistant").filter({hasText:"Offline answer"}).waitFor();
  assert.equal(stub.requests.length,beforeSend+1);
- assert.equal(stub.requests.at(-1)!.body.input.at(-1).content,question);
+ assert.ok(stub.requests.at(-1)!.body.input.at(-1).content.startsWith(question+"\n\nPractice context"));
+ assert.match(stub.requests.at(-1)!.body.input.at(-1).content,/From: Today/);
  await page.getByRole("button",{name:"Connect your AI",exact:true}).click();
  await page.getByRole("button",{name:"Disconnect",exact:true}).click();
  await page.getByText("Connect your OpenAI API key",{exact:true}).last().waitFor();
