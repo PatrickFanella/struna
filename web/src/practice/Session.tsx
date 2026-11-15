@@ -1,5 +1,5 @@
 import type { Tool } from "../App.tsx";
-import { activeElapsed, moveStage, pauseTimer } from "./sessionTimer.ts";
+import { activeElapsed, hasIncompleteTiming, moveStage, pauseTimer } from "./sessionTimer.ts";
 import { sessionChecklist, type Activity } from "./sessionScope.ts";
 import { useEffect, useRef, useState } from "react";
 
@@ -28,6 +28,7 @@ export type SessionState = {
   attemptedActivities?: string[];
   stageTempos?: Record<string, StageTempo>;
   tempoRecords?: TempoRecord[];
+  focusRequest?: { itemKey: string; stageKey: string };
   cross: string | null;
   /** Epoch ms when the session began, for the minutes in the generic review. */
   startedAt?: number;
@@ -36,6 +37,7 @@ export type SessionState = {
   elapsedBefore: number;
   /** Total active time before the current resume, across all stages. */
   activeBefore?: number;
+  timingIncomplete?: true;
   /** Epoch ms of the last resume, or null while paused. */
   resumedAt: number | null;
   startBpm: number;
@@ -149,6 +151,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   const tempoKey = `${kind.id}:${stage.key}:${stage.material?.key ?? "unassigned"}`;
   const stageTempo = state.stageTempos?.[tempoKey];
   useEffect(() => {
+    if (!generic) return; // Personal plans keep their existing material-based click across stages.
     let active = true;
     let unsubscribe: (() => void) | undefined;
     const enter = (records: TempoRecord[]) => {
@@ -159,7 +162,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
       setState((s) => ({ ...s, tempoRecords: records, stageTempos: { ...s.stageTempos, [tempoKey]: suggestion } }));
       if (stage.material) {
         const item = refPaneItem(stage.material);
-        setState((s) => ({ ...s, panes: s.panes.some((p) => p.content.type === "file" && p.content.item.key === item.key) ? s.panes : [pane({ type: "file", item }), ...s.panes.filter((p) => p.content.type !== "file")].slice(0, 4) }));
+        setState((s) => ({ ...s, focusRequest: { itemKey: item.key, stageKey: tempoKey }, panes: s.panes.some((p) => p.content.type === "file" && p.content.item.key === item.key) ? s.panes : [pane({ type: "file", item }), ...s.panes.filter((p) => p.content.type !== "file")].slice(0, 4) }));
       }
       let previous = bpm;
       unsubscribe = metronome.subscribe(() => {
@@ -317,7 +320,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
         </div>
         <StageBar stages={stages} current={at} progress={elapsed / total} />
         <p className="srcnote session-time">Stage {at + 1} of {stages.length} · Stage elapsed {fmt(elapsed)} · Active practice {fmt(activeElapsed(state, now))}</p>
-        {state.activeBefore === undefined && state.stage > 0 && <p className="srcnote">Earlier stage times were not recorded in this older session. Active time includes only recovered timing.</p>}
+        {hasIncompleteTiming(state) && <p className="srcnote">Earlier stage times were not recorded in this older session. Active time includes only recovered timing.</p>}
         <div className="stagerow">
           <div className="stagetext">
             <h1><span className="stagecount num">{at + 1}/{stages.length}</span> {stage.title}</h1>
@@ -366,7 +369,10 @@ export function Session({ today, state, setState, items, material, onFinish, clo
         </div>
       </div>
 
-      <Workspace panes={state.panes} setPanes={(fn) => setState((s) => ({ ...s, panes: fn(s.panes) }))} materials={items} addSlot={addSlot} />
+      <Workspace onOpenContent={(content) => {
+        const activity = content.type === "file" ? { key: content.item.key, title: content.item.label } : content.type === "tab" ? { key: `tab:${content.tabId}`, title: content.title } : null;
+        if (activity) setState((s) => ({ ...s, addedActivities: [...(s.addedActivities ?? []).filter((a) => a.key !== activity.key), activity] }));
+      }} focusRequest={state.focusRequest} panes={state.panes} setPanes={(fn) => setState((s) => ({ ...s, panes: fn(s.panes) }))} materials={items} addSlot={addSlot} />
 
       <div className={`sessionbar${showTools || recording !== null || take ? " tools-visible" : ""}`}>
         <button className="btn outline session-tools-toggle" aria-expanded={showTools || recording !== null || Boolean(take)} onClick={() => setShowTools(!showTools)}>Tools</button>
