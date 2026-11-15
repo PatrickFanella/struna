@@ -9,6 +9,7 @@ import { useApp } from "../mode.ts";
 import { LIBRARY_MATERIAL_KEY } from "../practice/Practice.tsx";
 import { screenContext } from "../screen.ts";
 import { FileBody } from "../workspace/Workspace.tsx";
+import { ManagementMenu } from "./ManagementMenu.tsx";
 import { AddPanel, type AddWay } from "./Add.tsx";
 import { externalLabel, materialName, materialProvider, fillInput, FILTER_KINDS, hostOf, KIND_LABEL, materialPaneItem, nameList, uploadProblem, webUrl } from "./item.ts";
 import { findOutcome, type FindOutcome } from "./find.ts";
@@ -330,9 +331,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
         <button className="linkbtn" disabled={busy === i.id} onClick={() => void remove(i)}>{busy === i.id ? "Deleting" : "Yes, delete"}</button>
         <button className="linkbtn" onClick={() => setConfirm(null)}>Keep it</button>
       </span>
-    ) : (
-      <button className="linkbtn" onClick={() => setConfirm(i.id)}>Delete</button>
-    );
+    ) : null;
 
   if (detail && (!opened || opened.id !== openId)) {
     const missing = route.type === "missing" || openError;
@@ -358,7 +357,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
         {notice && <p className="notice" role="alert">{notice}</p>}
         <div className="vacts">
           <button className="btn outline" onClick={() => practice(opened)}>Use in practice</button>
-          {canSave(opened) && <button className="linkbtn" disabled={busy === opened.id} onClick={() => void saveCopy(opened)}>{busy === opened.id ? "Saving a copy" : "Save a copy"}</button>}
+          <ManagementMenu name={materialName(opened)} busy={busy === opened.id} onCopy={canSave(opened) ? () => void saveCopy(opened) : undefined} onDelete={canDelete(opened) ? () => setConfirm(opened.id) : undefined} />
           {url && opened.src && <a className="linkbtn" href={url} target="_blank" rel="noreferrer noopener">{externalLabel(url, opened.provider)}</a>}
           {opened.src && <a className="linkbtn" href={opened.src} download={opened.path?.split(/[/:]/).pop() ?? opened.title}>Download</a>}
           {canDelete(opened) && deleteAsk(opened)}
@@ -491,12 +490,12 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
       <ul className="items">
         {items.map((i) => (
           <li key={i.id} className="item matitem">
-            <button className="itemopen" onClick={() => openItem(i)}>
+            <button className="itemopen" aria-labelledby={`title-${i.id}`} aria-describedby={`facts-${i.id}`} onClick={() => openItem(i)}>
               <span className={`thumb kind-${i.kind}`} aria-hidden="true">{KIND_LABEL[i.kind]}</span>
               <span className="itemtext">
-                <span className="itemtitle">{materialName(i)}</span>
+                <span className="itemtitle" id={`title-${i.id}`}>{materialName(i)}</span>
                 {materialName(i) !== i.title && <span className="itemnote">{i.title}</span>}
-                <span className="itemfacts">
+                <span className="itemfacts" id={`facts-${i.id}`}>
                   <span>{facts(i)}</span>
                   {findStatus?.additions.some(added => added.id === i.id) && <span className="inplan">Added during this search</span>}
                   {i.inPlan && <span className="inplan">In your plan</span>}
@@ -509,7 +508,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
             </button>
             <span className="matacts">
               <button className="linkbtn" onClick={() => practice(i)}>Use in practice</button>
-              {canSave(i) && <button className="linkbtn" disabled={busy === i.id} onClick={() => void saveCopy(i)}>{busy === i.id ? "Saving a copy" : "Save a copy"}</button>}
+              <ManagementMenu name={materialName(i)} busy={busy === i.id} onCopy={canSave(i) ? () => void saveCopy(i) : undefined} onDelete={canDelete(i) ? () => setConfirm(i.id) : undefined} />
               {canDelete(i) && deleteAsk(i)}
             </span>
           </li>
