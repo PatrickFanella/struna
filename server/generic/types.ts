@@ -37,6 +37,9 @@ export type PlanStage = {
   minutes: number;
   /** What to do, in one or two sentences. */
   task: string;
+  /** Optional stable reference, using exactly one file or URL. */
+  material?: { file?: string; url?: string };
+  targetBpm?: number;
 };
 
 export type PlanSession = {
@@ -88,6 +91,10 @@ export type MaterialKind = "pdf" | "video" | "audio" | "image" | "tab" | "text" 
 export type MaterialItem = {
   id: string;
   title: string;
+  /** Optional musical name; title remains the original source title. */
+  shortTitle?: string;
+  provider?: string;
+  level?: string;
   kind: MaterialKind;
   /** Where it came from: an upload, the coach's own writing, a saved web copy, a link, or a read-only library folder. */
   source: "studio" | "link" | "folder";
@@ -109,6 +116,8 @@ export type MaterialItem = {
 export type LinkEntry = {
   url: string;
   title: string;
+  shortTitle?: string;
+  provider?: string;
   note?: string;
   /** Who it suits, in the coach's words. */
   level?: string;

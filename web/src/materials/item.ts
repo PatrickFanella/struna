@@ -57,6 +57,11 @@ export function hostOf(url: string): string {
   }
 }
 
+/** Display identity never changes the saved source title or URL/file identity. */
+export const materialName = (i: Pick<MaterialItem, "title" | "shortTitle">): string => i.shortTitle?.trim() || i.title;
+export const materialProvider = (i: Pick<MaterialItem, "provider" | "url" | "source">): string => i.provider?.trim() || (webUrl(i.url) ? hostOf(i.url!) : SOURCE_LABEL[i.source]);
+export const externalLabel = (url: string, provider?: string): string => `Open lesson on ${provider?.trim() || hostOf(url)} (new tab)`;
+
 const PANE_KIND: Record<MaterialKind, PaneItem["kind"]> = { pdf: "pdf", video: "video", audio: "audio", image: "image", tab: "tabfile", text: "text", epub: "epub", link: "link", other: "other" };
 
 function withLink(p: PaneItem, url: string | null | undefined, youtube: string | null | undefined, note: string | undefined): PaneItem {
@@ -71,7 +76,7 @@ function withLink(p: PaneItem, url: string | null | undefined, youtube: string |
 /** One of the player's materials as something a pane can show. A link that has a saved copy opens the copy. */
 export function materialPaneItem(i: MaterialItem): PaneItem {
   const kind = i.src ? PANE_KIND[i.kind === "link" ? "other" : i.kind] : "link";
-  return withLink({ key: `mat:${i.id}`, label: i.title, kind, src: i.src }, i.url, i.youtube, i.note || undefined);
+  return withLink({ key: `mat:${i.id}`, label: materialName(i), ...(i.provider ? { provider: i.provider } : {}), kind, src: i.src }, i.url, i.youtube, i.note || undefined);
 }
 
 /** An entry of the plan's material list (`today.materials`) as something a pane can show. */

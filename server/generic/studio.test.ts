@@ -38,6 +38,25 @@ const PLAN = {
   extras: ["Listen to a record."],
 };
 const writePlan = (s: Studio, plan: unknown) => writeFile(join(s.home, "plan/plan.json"), JSON.stringify(plan));
+
+test("optional stage material and target BPM validate and reach today", async () => {
+  const s = await studio();
+  const plan = structuredClone(PLAN) as Plan;
+  plan.sessions[0]!.stages[1]!.material = { file: "materials/roll.md" };
+  plan.sessions[0]!.stages[1]!.targetBpm = 80;
+  await writePlan(s, plan);
+  assert.deepEqual(validatePlan(plan).errors, []);
+  const t = await genericToday(s);
+  assert.equal(t.sessions[0]!.stages[1]!.targetBpm, 80);
+  assert.equal(t.sessions[0]!.stages[1]!.material!.missing, true);
+  assert.equal(t.sessions[0]!.stages[1]!.material!.key, "materials/roll.md");
+  for (const metadata of [{ material: { file: "../escape" } }, { material: { url: "file:///secret" } }, { material: {} }, { targetBpm: 400 }, { targetBpm: 79.5 }]) {
+    const bad = structuredClone(plan);
+    Object.assign(bad.sessions[0]!.stages[1]!, metadata);
+    assert.equal(validatePlan(bad).plan, null);
+  }
+  assert.match(PLAN_SCHEMA, /targetBpm/);
+});
 const log = (s: Studio, at: string, fields: Record<string, unknown> = {}) =>
   writeGenericLog(s.home, parseGenericReview({ planId: "open-chords", session: { id: "full", label: "Full session" }, minutes: 20, ...fields }), new Date(at), s.timeZone);
 

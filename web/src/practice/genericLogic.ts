@@ -97,12 +97,6 @@ function timeSpent(minutes: number): string {
   return `${h >= 10 ? Math.round(h) : Math.round(h * 10) / 10} hours played`;
 }
 
-/** Whole minutes between the session's start and now, for the review's prefill. */
-export function elapsedMinutes(startedAt: number | undefined, now: number): number {
-  if (!startedAt || now <= startedAt) return 1;
-  return Math.min(600, Math.max(1, Math.round((now - startedAt) / 60_000)));
-}
-
 export type Difficulty = "too easy" | "about right" | "too hard";
 
 /**

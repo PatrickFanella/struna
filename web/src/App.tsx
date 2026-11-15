@@ -146,7 +146,7 @@ export function App() {
           )}
           {has("materials") && (
             <section className={`view${section === "materials" && !tool ? " on" : ""}`} aria-label="Materials">
-              <Materials active={section === "materials"} />
+              <Materials active={section === "materials"} hash={hash} />
             </section>
           )}
           {has("tabs") && (
