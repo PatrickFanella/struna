@@ -129,3 +129,8 @@
 .coach-context{flex:none;max-height:22vh;overflow:auto;border-bottom:1px solid var(--rule);padding-bottom:6px;margin-bottom:6px}
 .coach-context summary{font-size:var(--fs-meta);cursor:pointer}
 .coach-context p{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+
+.proposal-option { display:flex; align-items:center; gap:8px; min-height:44px; font-size:var(--fs-label); }
+.proposal-option[hidden] { display:none; }
+.proposal-option input { flex:none; width:20px; height:20px; }
+.composer .input { min-width:0; }

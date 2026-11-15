@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, linkSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { testHosted } from "./test-server.ts";
 import { openDb } from "../db.ts";
@@ -96,4 +96,44 @@ test("direct API proposal format is strict data, has no tools or paths and never
     assert.equal(body.tools,undefined);assert.equal(body.store,false);
     assert.ok(!JSON.stringify(body).includes(h.root));assert.equal(readFileSync(path,"utf8"),before);
   }finally{await h.close();await stub.close();}
+});
+
+test("owned Apply recovery rolls back a pre-rename intent or completes a post-rename intent without touching B", async () => {
+ for (const renamed of [false,true]) {
+  const h=await testHosted({run:async function*({planBase}){yield JSON.stringify({reply:"Preview",planJson:JSON.stringify({...JSON.parse(planBase!),id:"next-owned-plan",next:"New task"})});}});
+  try {
+   const a=await h.signIn("A"),b=await h.signIn("B");
+   for(const p of [a,b])await h.call("/api/profile",p,"PUT",{name:p===a?"A":"B"});
+   const home=join(h.root,"accounts",a.account,"workspace"),bPath=join(h.root,"accounts",b.account,"workspace/plan/plan.json"),bBefore=readFileSync(bPath,"utf8");
+   await(await h.call("/api/chat",a,"POST",{provider:"openai",message:"replace",proposePlan:true})).text();
+   const p=(await(await h.call("/api/plan-candidates",a)).json()).proposals[0];
+   const db=openDb(join(h.root,"accounts",a.account,"state"));
+   const row=db.prepare("SELECT * FROM plan_proposals WHERE id=?").get(p.id)!;
+   const archive=join(home,"plan/archive",String(row.archive));
+   const source=join(home,"plan",`.archive-${p.id}.json`),next=join(home,"plan",`.candidate-${p.id}.json`);
+   writeFileSync(source,String(row.base));writeFileSync(next,String(row.candidate));linkSync(source,archive);
+   db.prepare("UPDATE plan_proposals SET state='applying' WHERE id=?").run(p.id);
+   if(renamed)renameSync(next,join(home,"plan/plan.json"));
+   const recovered=await h.call("/api/plan-candidates",a);assert.equal(recovered.status,200);
+   const state=db.prepare("SELECT state FROM plan_proposals WHERE id=?").get(p.id)!.state;
+   assert.equal(state,renamed?"applied":"pending");
+   assert.equal(readFileSync(join(home,"plan/plan.json"),"utf8"),renamed?row.candidate:row.base);
+   assert.equal(readFileSync(bPath,"utf8"),bBefore);
+   db.close();
+  }finally{await h.close();}
+ }
+});
+
+test("unjournaled archive pairs and foreign material paths cannot gain plan write authority", async () => {
+ const h=await testHosted({run:async function*({planBase}){yield JSON.stringify({reply:"Forged",planJson:JSON.stringify({...JSON.parse(planBase!),materials:[{label:"Foreign",file:"../foreign/plan.json"}]})});}});
+ try {
+  const a=await h.signIn("A");await h.call("/api/profile",a,"PUT",{name:"Alice"});
+  const home=join(h.root,"accounts",a.account,"workspace"),path=join(home,"plan/plan.json"),before=readFileSync(path,"utf8");
+  assert.match(await(await h.call("/api/chat",a,"POST",{provider:"openai",message:"direct write",proposePlan:true})).text(),/event: error/);
+  assert.equal(readFileSync(path,"utf8"),before);
+  assert.equal((await(await h.call("/api/plan-candidates",a)).json()).proposals.length,0);
+  const source=join(home,"plan",`.archive-${crypto.randomUUID()}.json`);writeFileSync(source,"UNJOURNALED");linkSync(source,join(home,"plan/archive/forged.json"));
+  assert.equal((await h.call("/api/plan-candidates",a)).status,503);
+  assert.equal(readFileSync(path,"utf8"),before);
+ }finally{await h.close();}
 });

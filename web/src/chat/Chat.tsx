@@ -376,6 +376,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
   const generic = useApp().mode === "studio" || hosted;
   const { prompts } = usePrompts();
   const ctx = useSyncExternalStore(screenContext.subscribe, screenContext.get);
+  const [proposalMode, setProposalMode] = useState(false);
   const [contextRetry, setContextRetry] = useState(0);
   const [preview, setPreview] = useState<{ selection: CoachSelection; context?: CoachContext; error?: string } | null>(null);
   useEffect(() => {
@@ -454,7 +455,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
     if (hosted && !readiness(status, state.provider).ok) { state.settings = true; emit(); return; }
     draftText = "";
     emit();
-    void askCoach(t);
+    void enqueue(t, { proposePlan: hosted && proposalMode });
   };
   const st = status?.[state.provider as "claude" | "codex"];
   const screen = screenId(ctx.view);
@@ -646,6 +647,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
           </div>
         )}
         {!list && !showMore && !showSettings && !retired && (!noCoach || hosted) && (
+          <><label className="proposal-option" hidden={!hosted}><input type="checkbox" checked={proposalMode} disabled={Boolean(state.busy)} onChange={e => setProposalMode(e.target.checked)} />Request plan preview (shares current plan)</label>
           <form className="composer" onSubmit={submit}>
             <textarea
               ref={input}
@@ -662,16 +664,12 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
                 if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) submit(e);
               }}
             />
-            {hosted && !state.busy && <button type="button" className="btn quiet" disabled={!contextReady || !text.trim() || noCoach} onClick={() => {
-              const message = draftText.trim(); if (!message) return;
-              draftText = ""; emit(); void enqueue(message, { proposePlan: true });
-            }}>Draft plan proposal</button>}
             {state.busy ? (
               <button type="button" className="btn outline" onClick={stop}>Stop</button>
             ) : (
-              <button className="btn outline" disabled={!contextReady || !text.trim()}>Send</button>
+              <button className="btn outline" disabled={!contextReady || !text.trim()}>{hosted && proposalMode ? "Draft plan proposal" : "Send"}</button>
             )}
-          </form>
+          </form></>
         )}
     </div>
   );

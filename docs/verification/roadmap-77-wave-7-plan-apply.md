@@ -1,0 +1,25 @@
+# Wave 7: account-owned Coach plan preview and Apply (#108)
+
+Prepared November 15, 2026. Hosted practice remains scratch-only: production startup refuses its enablement switch. No real inference, hosted exposure or deployment was performed.
+
+## Write authority
+
+Ordinary Send remains advice. A player checks **Request plan preview (shares current plan)**, enters a request and deliberately chooses **Draft plan proposal**. That request shares the account's complete current plan, displayed practice context and recent conversation with its own tested OpenAI API connection. A consumer ChatGPT subscription is not assumed to provide API access. The chosen model must support Responses structured output; unsupported models fail with existing provider recovery copy and no proposal. No retry silently charges another request.
+
+The adapter requests strict `text.format` JSON schema with two fields: readable `reply` and nullable `planJson` (the complete proposed plan encoded as a string). The server collects a completed bounded response, rejects malformed envelopes, validates the full plan and material references, and writes only a server-generated candidate staging path. Model output cannot choose an account, conversation, proposal id, filesystem destination, credentials, tools or endpoint. The direct hosted adapter launches no CLI and exposes no filesystem tools or writable mount. Owner CLI sandbox code is unchanged. This follows the [official Responses structured-output contract](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses); format support is documented, while actual model behavior remains unqualified without a deliberate real-provider request.
+
+A valid candidate enters the established immutable SQLite proposal lifecycle and is associated with the owning conversation. The UI displays exact old/new JSON and changed fields. Today is unchanged until deliberate Apply. Browser session state is checked through account-scoped storage; server leases/revisions, canonical base fingerprint, exact digest, archive collision and account-wide running Coach checks remain authoritative. Foreign ids return 404. Forged account/path selectors are rejected. Expired, dismissed, disconnected, deleted-conversation and stale-base candidates cannot replace the plan. A lost successful Apply response is safely retryable.
+
+All proposal reads, expiry, staging, practice leases, archiving and crash recovery resolve the same account Studio/database as the conversation. Apply rechecks session authority inside its plan lock and before the final rename. Recovery retains the existing durable intent and archive protocol: pre-rename interruption restores pending state and removes only its own archive; post-rename interruption completes the receipt. The hosted file guard permits only matching internal archive hard-link pairs long enough for journal recovery, then rechecks the full tree with links denied. Ordinary hard links and symlinks remain denied. Other-account practice activity does not block the owning account.
+
+## Verification
+
+- `pnpm typecheck`, `pnpm test` and `pnpm build`.
+- Focused two-account HTTP tests cover exact preview/no write before Apply, foreign candidate ids, forged ownership/digests, anonymous/stale/CSRF denial, shared-name independent leases, active-practice and stale-revision conflicts, competing proposals, expiry, malformed/direct-write payloads, exact archive bytes, conversation deletion, cancellation and unchanged neighbour/owner canaries.
+- Direct API transport stand-in verifies strict schema, no tools/host paths, and no canonical write from model output.
+- Two account-scoped durable-intent fixtures cover interruption before and after rename, with neighbour bytes unchanged. Existing Studio candidate/sandbox tests continue to exercise direct-write denial and recovery.
+- `node scripts/verify-plan-apply.ts /tmp/struna-wave7-plan-v2` runs the six roadmap viewports plus native desktop Chromium 200% zoom, each in light/dark/Device-light/Device-dark. Checks include explicit proposal selection, exact preview, close/reopen, another-tab practice conflict, failed Apply/reload/retry, deliberate Apply, dismissal, composer geometry, zero page errors and no horizontal overflow. It emits screenshots and receipts. CI runs the same matrix.
+
+The original three-button composer was tightened after rendered phone inspection showed too little room to type; the preview request is now a labelled checkbox above the composer. Existing Jost/Atkinson fonts, warm palette, control radii and motion remain in use. No new brand tokens were introduced.
+
+Before public hosted enablement, #108 requires owner review of model write authority and account safety; real-provider capability/cost review and #110 Safari/device/guitar/audio/assistive-speech qualification remain separate. No automatic Apply, provider purchase, support gate or paid credit system was added.

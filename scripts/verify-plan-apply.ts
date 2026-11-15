@@ -55,6 +55,7 @@ try {
  const planFile=resolve(home,"plan/plan.json"), beforePlan=readFileSync(planFile,"utf8");
  await open();
  const propose=async()=>{
+  await chat().getByRole("checkbox",{name:"Request plan preview (shares current plan)",exact:true}).check();
   await chat().getByRole("textbox",{name:"Message",exact:true}).fill("Please propose a gentler next instruction");
   await chat().getByRole("button",{name:"Draft plan proposal",exact:true}).click();
   await chat().getByRole("heading",{name:"Proposed plan change",exact:true}).waitFor();
