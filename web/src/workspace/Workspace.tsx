@@ -62,7 +62,7 @@ function LinkBody({ item }: { item: PaneItem }) {
         {item.note && <p className="matnote">{item.note}</p>}
         {url && (
           <p className="linkacts">
-            <a className={yt ? "linkbtn" : "btn outline"} href={url} target="_blank" rel="noreferrer noopener">{yt ? "Open on YouTube" : "Open in a new tab"}</a>
+            <a className={yt ? "linkbtn" : "btn outline"} href={url} target="_blank" rel="noreferrer noopener">{`Open lesson on ${item.provider || (yt ? "YouTube" : hostOf(url))} (new tab)`}</a>
             <span className="linkhost">{hostOf(url)}</span>
           </p>
         )}
@@ -370,7 +370,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
               </header>
               <div className="panebody">
                 {p.content.type === "coach" ? (
-                  <ChatPanel open />
+                  <ChatPanel open={visible} />
                 ) : p.content.type === "tab" ? (
                   <TabPlayer src={`/api/tabs/${p.content.tabId}/file`} title={paneTitle(p.content)} />
                 ) : (

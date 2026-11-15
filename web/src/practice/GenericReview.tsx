@@ -1,3 +1,4 @@
+import { hasIncompleteTiming, playedMinutes } from "./sessionTimer.ts";
 import { sessionChecklist } from "./sessionScope.ts";
 import { useEffect, useState } from "react";
 
@@ -6,7 +7,7 @@ import { SUBDIVISIONS } from "../audio/metronome.ts";
 import { coachAction } from "../chat/actions.tsx";
 import { sessionKind, type Today } from "../types.ts";
 import { coachReady } from "../chat/Chat.tsx";
-import { type Difficulty, elapsedMinutes, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, tempo } from "./genericLogic.ts";
+import { type Difficulty, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, tempo } from "./genericLogic.ts";
 import { Choice, Text } from "./Review.tsx";
 import type { SessionState } from "./Session.tsx";
 
@@ -30,7 +31,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
     const first = {
       material,
       target: "",
-      minutes: String(elapsedMinutes(session.startedAt, Date.now())),
+      minutes: String(playedMinutes(session, Date.now())),
       metronome: (clicked ? "used" : "not used") as "used" | "not used",
       startTempo: String(session.startBpm),
       cleanTempo: String(bpm),
@@ -133,6 +134,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
         <p className="grp">This session included</p>
         <ul>{sessionChecklist(session.stages ?? kind.stages, session.addedActivities).map((a) => <li key={a.key}>{a.title}{session.attemptedActivities?.includes(a.key) ? " — attempted" : " — unmeasured"}</li>)}</ul>
       </div>
+      {hasIncompleteTiming(session) && <p className="notice" role="status">Earlier stage times were not recorded in this older session. Minutes played includes only recovered timing; adjust it if you know the total.</p>}
       <Text label="What you worked on" value={f.material} onChange={set("material")} placeholder="A song, an exercise, a page" />
       <Text label="Target (optional)" value={f.target} onChange={set("target")} placeholder="What you were aiming for today" />
       <div className="row2">

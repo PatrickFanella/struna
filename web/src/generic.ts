@@ -40,6 +40,10 @@ export type MaterialKind = "pdf" | "video" | "audio" | "image" | "tab" | "text" 
 export type MaterialItem = {
   id: string;
   title: string;
+  /** Optional musical name; title remains the original source title. */
+  shortTitle?: string;
+  provider?: string;
+  level?: string;
   kind: MaterialKind;
   source: "studio" | "link" | "folder";
   /** Relative to the studio home ("materials/x.pdf") or, for `folder`, "<n>:<relative path>". */

@@ -10,7 +10,7 @@ import { LIBRARY_MATERIAL_KEY } from "../practice/Practice.tsx";
 import { screenContext } from "../screen.ts";
 import { FileBody } from "../workspace/Workspace.tsx";
 import { AddPanel, type AddWay } from "./Add.tsx";
-import { fillInput, FILTER_KINDS, hostOf, KIND_LABEL, materialPaneItem, nameList, SOURCE_LABEL, uploadProblem, webUrl } from "./item.ts";
+import { externalLabel, materialName, materialProvider, fillInput, FILTER_KINDS, hostOf, KIND_LABEL, materialPaneItem, nameList, uploadProblem, webUrl } from "./item.ts";
 import { readItem, uploadFile } from "./upload.ts";
 
 export { materialPane } from "./item.ts";
@@ -31,8 +31,8 @@ async function findPrompt(input: string): Promise<string> {
 }
 
 function facts(i: MaterialItem): string {
-  const where = i.source === "link" || (i.url && !i.src) ? hostOf(i.url ?? "") : SOURCE_LABEL[i.source];
-  return [where, i.url && i.src ? `saved from ${hostOf(i.url)}` : ""].filter(Boolean).join(", ");
+  const where = materialProvider(i);
+  return [where, i.level ?? "", i.url && i.src ? `saved from ${hostOf(i.url)}` : ""].filter(Boolean).join(", ");
 }
 
 const hasFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes("Files");
@@ -108,7 +108,7 @@ export function Materials({ active }: { active: boolean }) {
   useEffect(() => {
     if (!active) return;
     const before = screenContext.get();
-    const mine = { view: "materials", ...(opened ? { fragment: opened.title } : {}) };
+    const mine = { view: "materials", ...(opened ? { fragment: materialName(opened) } : {}) };
     screenContext.set(mine);
     return () => {
       if (screenContext.get() === mine) screenContext.set(before);
@@ -278,7 +278,8 @@ export function Materials({ active }: { active: boolean }) {
     return (
       <div className="viewer matviewer">
         <button className="linkbtn" onClick={() => (setOpenId(null), setConfirm(null))}>Back to materials</button>
-        <h1>{opened.title}</h1>
+        <h1>{materialName(opened)}</h1>
+        {materialName(opened) !== opened.title && <p className="srcnote">{opened.title}</p>}
         <p className="srcnote">
           {[KIND_LABEL[opened.kind], facts(opened), opened.size ? megabytes(opened.size) : "", opened.inPlan ? "in your plan" : ""].filter(Boolean).join(", ")}
           {opened.note ? `. ${opened.note}` : ""}
@@ -287,7 +288,7 @@ export function Materials({ active }: { active: boolean }) {
         <div className="vacts">
           <button className="btn outline" onClick={() => practice(opened)}>Use in practice</button>
           {canSave(opened) && <button className="linkbtn" disabled={busy === opened.id} onClick={() => void saveCopy(opened)}>{busy === opened.id ? "Saving a copy" : "Save a copy"}</button>}
-          {url && opened.src && <a className="linkbtn" href={url} target="_blank" rel="noreferrer noopener">Open the original</a>}
+          {url && opened.src && <a className="linkbtn" href={url} target="_blank" rel="noreferrer noopener">{externalLabel(url, opened.provider)}</a>}
           {opened.src && <a className="linkbtn" href={opened.src} download={opened.path?.split(/[/:]/).pop() ?? opened.title}>Download</a>}
           {canDelete(opened) && deleteAsk(opened)}
         </div>
@@ -413,7 +414,8 @@ export function Materials({ active }: { active: boolean }) {
             <button className="itemopen" onClick={() => (setNotice(""), setOpenId(i.id), setOpened(i))}>
               <span className={`thumb kind-${i.kind}`} aria-hidden="true">{KIND_LABEL[i.kind]}</span>
               <span className="itemtext">
-                <span className="itemtitle">{i.title}</span>
+                <span className="itemtitle">{materialName(i)}</span>
+                {materialName(i) !== i.title && <span className="itemnote">{i.title}</span>}
                 <span className="itemfacts">
                   <span>{facts(i)}</span>
                   {i.inPlan && <span className="inplan">In your plan</span>}
