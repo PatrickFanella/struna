@@ -73,7 +73,8 @@ async function settle(page: Page) {
 export const VIEWS: Record<string, (page: Page) => Promise<void>> = {
   practice: async () => {},
   "practice-session": async (page) => {
-    await page.getByRole("button", { name: /^Full session/ }).click();
+    await page.getByRole("radio", { name: /Full session/ }).click();
+    await page.getByRole("button", { name: /^Start \d+ min$/ }).click();
     await nextStage(page);
     await nextStage(page);
     await page.getByRole("button", { name: /^Log clean pass/ }).click();
@@ -86,7 +87,8 @@ export const VIEWS: Record<string, (page: Page) => Promise<void>> = {
     await page.waitForTimeout(800);
     await page.locator(".item").filter({ hasText: "Video" }).first().getByRole("button", { name: "Use in practice" }).click();
     await page.waitForTimeout(500);
-    await page.getByRole("button", { name: /^Short session/ }).click();
+    await page.getByRole("radio", { name: /Short session/ }).click();
+    await page.getByRole("button", { name: /^Start \d+ min$/ }).click();
     await page.waitForTimeout(2500);
   },
   "lesson-viewer": async (page) => {
@@ -97,7 +99,8 @@ export const VIEWS: Record<string, (page: Page) => Promise<void>> = {
     await page.waitForTimeout(2500);
   },
   "practice-review": async (page) => {
-    await page.getByRole("button", { name: /^Short session/ }).click();
+    await page.getByRole("radio", { name: /Short session/ }).click();
+    await page.getByRole("button", { name: /^Start \d+ min$/ }).click();
     for (let i = 0; i < 3; i++) await nextStage(page);
     await page.getByRole("button", { name: /^Finish/ }).click();
   },

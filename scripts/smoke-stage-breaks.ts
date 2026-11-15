@@ -46,10 +46,10 @@ try {
     await page.clock.install();
     await page.clock.pauseAt(new Date(Date.now() + 1000));
     await page.goto(`${base}/?token=${"0".repeat(64)}#practice`);
-    await page.getByRole("button", { name: /^Quick/ }).click();
+    await page.getByRole("radio", { name: /^Quick/ }).click();
+    await page.getByRole("button", { name: /^Start 10 min$/ }).click();
     await page.getByRole("button", { name: "Start the stage timer", exact: true }).click();
     await page.clock.fastForward(5_000);
-    await page.locator(".tempocol").press("Enter");
     await page.getByRole("button", { name: /^Next stage/ }).press("Enter");
     const rest = page.getByRole("dialog", { name: "Take a short break", exact: true });
     await rest.waitFor();
@@ -98,8 +98,12 @@ try {
     await page.clock.fastForward(5000);
     const recovering = await snapshot();
     await page.reload();
+    const restored = await snapshot();
+    assert.deepEqual(restored.stageBreak, recovering.stageBreak, "reload does not reset the break deadline");
+    // A restored Studio session briefly registers its existing practice lease. The controlled
+    // clock must release that effect before asserting the preserved break dialog.
+    await page.clock.fastForward(1);
     await rest.waitFor();
-    assert.deepEqual((await snapshot()).stageBreak, recovering.stageBreak, "reload does not reset the break deadline");
     await rest.getByRole("button", { name: "Skip break", exact: true }).press("Enter");
     await rest.waitFor({ state: "detached" });
     assert.equal((await snapshot()).resumedAt, null);

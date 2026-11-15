@@ -89,7 +89,7 @@ try {
   await wire(desk);
   const p = await page(desk);
   await p.goto(`${ORIGIN}/#practice`);
-  await p.getByRole("button", { name: /^Full session/ }).waitFor({ timeout: 15000 });
+  await p.getByRole("radio", { name: /Full session/ }).waitFor({ timeout: 15000 });
   check("start screen loads from the live vault", (await p.locator(".meta dd").first().textContent())?.includes("Nine Pound Hammer") ?? false, (await p.locator(".meta dd").nth(1).textContent()) ?? "");
   check("desktop has section links in the header and no bottom bar", (await p.locator(".topnav a").count()) === 3 && !(await p.locator("nav.tabs").isVisible()));
   await p.screenshot({ path: join(out, "1-start.png") });
@@ -157,7 +157,8 @@ try {
 
   // Into a session: video, sheet and coach side by side
   await p.getByRole("button", { name: "Use in practice" }).click();
-  await p.getByRole("button", { name: /^Short session/ }).click();
+  await p.getByRole("radio", { name: /Short session/ }).click();
+    await p.getByRole("button", { name: /^Start \d+ min$/ }).click();
   await p.locator(".session .pane").first().waitFor();
   await p.waitForTimeout(2500);
   const titles = await p.locator(".session .pane:not([hidden]) .panetitle").allTextContents();
@@ -296,7 +297,7 @@ try {
   await p.screenshot({ path: join(out, "8-review.png") });
   p.once("dialog", (d) => void d.accept());
   await p.getByRole("button", { name: "Discard session" }).click();
-  await p.getByRole("button", { name: /^Full session/ }).waitFor();
+  await p.getByRole("radio", { name: /Full session/ }).waitFor();
 
   // Tabs screen
   await p.locator(".topnav a", { hasText: "Tabs" }).click();
@@ -319,7 +320,8 @@ try {
     await q.getByRole("searchbox").fill("Red River Valley");
     await q.waitForTimeout(900);
     await q.locator(".item").filter({ hasText: "Video" }).first().getByRole("button", { name: "Use in practice" }).tap();
-    await q.getByRole("button", { name: /^Short session/ }).tap();
+    await q.getByRole("radio", { name: /Short session/ }).tap();
+    await q.getByRole("button", { name: /^Start \d+ min$/ }).tap();
     await q.locator(".session .pane").first().waitFor();
     await q.waitForTimeout(2500);
     const m = await q.evaluate(() => {

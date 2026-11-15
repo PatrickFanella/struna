@@ -1,0 +1,14 @@
+# Issue 63: One duration choice and one Start action
+
+The Practice landing screen now leads with Today’s practice, a short current instruction, configured duration choices, one selected-scope preview, and one Start action. Selecting a duration changes the preview and Start label only; it does not create a session or start a timer. The full goal, phase context and plan provenance moved into the native Plan details disclosure, preserving the plan text rather than truncating it.
+
+The selector renders the actual session kinds supplied by the plan. It does not assume the review mockup’s 10, 25 and 45-minute values: scratch Studio coverage uses the configured Quick (10), Full (20), and Short (6) choices. Personal mode uses its own available kinds through the same one-Start interaction. The first two configured plan materials remain direct links even if the selected duration omits one; Tune first remains separate, and Coach opens deliberately from the header.
+
+Validation on November 15, 2026 UTC:
+
+- `pnpm typecheck` and the final combined `pnpm build` passed. The build retains the existing large-bundle advisory.
+- `node scripts/smoke-stage-tempo.ts` passed all 12 width/theme/native-zoom cases. It checks configured-duration selection, no session before Start, Home/Arrow/End selection and focus with no page errors, a complete six-string tab fixture, stage-tempo override/reload, and selected-material continuity. Artifacts: `/tmp/struna-stage-tempo-y6GN8q`.
+- `STRUNA_TIMEZONE=UTC SMOKE_PORT=5196 node scripts/smoke-generic.ts` passed with fresh scratch Studio state and offline Coach stand-ins. It covers the new deliberate header Coach entry, two drawer shortcuts, More catalog, the session/log path, and Materials. Scratch: `/tmp/struna-issue63-generic-final3-rPgALq`; screenshots: `/tmp/struna-issue63-generic-final3-shots-cL7kU4`.
+- The offline personal smoke passed with fresh fixture state at `/tmp/struna-issue63-personal-4PgzOj`.
+
+The landing matrix’s baseline 10/25/45 evidence is retained at `/tmp/struna-wave-one-9Rwqbx`, `/tmp/struna-wave-one-0xECKF`, and `/tmp/struna-wave-one-dO9bIs`. The review artifact is [landing-review.html](review-ii-wave-1/landing-review.html), with [before](review-ii-wave-1/landing-before-390.png), [after at 390px](review-ii-wave-1/landing-after-390.png), [desktop](review-ii-wave-1/landing-after-desktop.png), and [native 200% zoom](review-ii-wave-1/landing-after-200-percent.png) screenshots. [Measured viewport geometry](review-ii-wave-1/landing-geometry.json) records all 24 landing cases. At 390x844 in Light, the duration group ends at y=425.38, Start ends at y=512.38, and persistent navigation begins at y=759. The owner still needs to review the final display hierarchy and wording; this evidence does not claim that checkpoint is accepted.

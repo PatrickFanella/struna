@@ -70,7 +70,8 @@ try {
   await open("Old Joe Clark", (x: any) => x.source === "cgo");
   await p.getByRole("button", { name: "Use in practice" }).click();
   await p.waitForTimeout(500);
-  await p.getByRole("button", { name: /^Short session/ }).click();
+  await p.getByRole("radio", { name: /^Short session/ }).click();
+  await p.getByRole("button", { name: /^Start 15 min$/ }).click();
   const vid = await p.locator(".mat video").waitFor({ timeout: 5000 }).then(() => 1, () => 0);
   report("Use in practice shows the video in the session", vid === 1, await p.locator(".mat .matlabel").textContent() ?? "");
   await p.screenshot({ path: `${out}-session-video.png` });
@@ -78,6 +79,7 @@ try {
   await p.getByRole("button", { name: /^Finish/ }).click();
   p.once("dialog", (d) => void d.accept());
   await p.getByRole("button", { name: "Discard session" }).click();
-  await p.getByRole("button", { name: /^Short session/ }).click();
+  await p.getByRole("radio", { name: /^Short session/ }).click();
+  await p.getByRole("button", { name: /^Start 15 min$/ }).click();
   report("next session uses the block material", (await p.locator(".mat video").count()) === 0, await p.locator(".mat .matlabel").textContent() ?? "");
 } finally { await b.close(); srv.kill(); }

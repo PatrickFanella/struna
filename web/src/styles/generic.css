@@ -35,6 +35,22 @@
 .recent li .num{flex:none;width:5.6em;color:var(--ink)}
 .recent li span:last-child{min-width:0;overflow-wrap:anywhere}
 .startlinks{display:flex;flex-wrap:wrap;gap:0 24px}
+.plan-details{margin:0 0 12px;color:var(--muted)}
+.plan-details summary{cursor:pointer;color:var(--ink);font-weight:700}
+.plan-details p{margin:8px 0 0}
+.plan-details ul{margin:8px 0 0;padding-left:20px}
+.plan-details li{margin:4px 0;overflow-wrap:anywhere}
+.today-materials{margin:0 0 12px;font-size:var(--fs-meta);line-height:1.35}
+.session-picker{display:grid;gap:8px;margin:0}
+.session-picker h2{margin:0;font:700 var(--fs-btn)/1.2 var(--sans);color:var(--ink)}
+.duration-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(6.5rem,1fr));gap:8px}
+.duration-options button{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-height:var(--btn-h);padding:8px 10px;border:1.5px solid var(--edge);border-radius:var(--r);background:var(--panel);color:var(--ink);font:inherit;text-align:left}
+.duration-options button span:last-child{color:var(--muted);font-size:var(--fs-meta);white-space:nowrap}
+.duration-options button.on{border-color:var(--ink);background:var(--wash);box-shadow:inset 0 0 0 1px var(--ink)}
+.duration-options button:focus-visible,.plan-details summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.session-picker .srcnote{margin:0}
+.session-picker .stage-materials{margin:0}
+.start-selected{margin-top:2px}
 
 /* Review: the metronome choice sits beside the minutes, bottoms aligned. */
 .greview .row2{align-items:end}

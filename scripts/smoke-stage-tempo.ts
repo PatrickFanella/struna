@@ -16,7 +16,7 @@ await mkdir(join(home, "plan"), { recursive: true });
 await mkdir(join(home, "materials"), { recursive: true });
 await mkdir(join(dir, "shots"));
 await writeFile(join(home, "profile.json"), JSON.stringify(normalizeProfile({}, new Date().toISOString())));
-await writeFile(join(home, "materials/roll.md"), "# Baseline roll\n\n```\ne|------0---|\nB|----0---0-|\nG|--0-------|\n```\n" + "\nReading position fixture.\n".repeat(100));
+await writeFile(join(home, "materials/roll.md"), "# Baseline roll\n\n```\ne|------0---|\nB|----0---0-|\nG|--0-------|\nD|----------|\nA|----------|\nE|----------|\n```\n" + "\nReading position fixture.\n".repeat(100));
 const plan = {
   version: 1, id: "wave-one", title: "Scratch practice", started: "2026-01-01", goal: "Play comfortably", next: "Tune, then play", extras: [],
   phases: [{ title: "Clean notes", summary: "Listen", sessions: 6, focus: {} }],
@@ -64,22 +64,43 @@ try {
       await settings.close();
     }
     const page = await context.newPage();
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.addInitScript((choice) => { if (choice !== "device") localStorage.setItem("struna.theme", choice); }, theme);
     await page.goto(`${base}/?token=${token}#practice`);
-    assert.match(await page.locator("#scope-custom-quick").innerText(), /Tuning · 2 min; Technique · 6 min; Logging · 2 min/);
+    assert.equal(await page.locator("#scope-custom-quick").innerText(), "Tuning · Technique · +1 stage");
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("struna.session")), null, "default duration preview creates no session");
+    await page.locator(".plan-details summary").click();
+    assert.match(await page.locator(".plan-details").innerText(), /Tuning · 2 min; Technique · 6 min; Logging · 2 min/);
     assert.doesNotMatch(await page.locator("#scope-custom-quick").innerText(), /Tune practice/);
-    assert.match(await page.locator("#scope-custom-full").innerText(), /Tune practice · 10 min/);
-    assert.equal(await page.locator("#scope-custom-short").innerText(), "Technique · 6 min");
+    await page.getByRole("radio", { name: /^Full/ }).click();
+    assert.equal(await page.locator("#scope-custom-full").innerText(), "Tuning · Technique · +2 stages");
+    assert.match(await page.locator(".plan-details").innerText(), /Tune practice · 10 min/);
+    await page.getByRole("radio", { name: /^Short/ }).click();
+    assert.equal(await page.locator("#scope-custom-short").innerText(), "Technique");
+    await page.getByRole("radio", { name: /^Short/ }).focus();
+    await page.keyboard.press("Home");
+    assert.equal(await page.getByRole("radio", { name: /^Quick/ }).evaluate((element) => element === document.activeElement), true, "Home selects and focuses the first duration");
+    await page.keyboard.press("ArrowRight");
+    assert.equal(await page.getByRole("radio", { name: /^Full/ }).evaluate((element) => element === document.activeElement), true, "Arrow keys select and focus the next duration");
+    await page.keyboard.press("End");
+    assert.equal(await page.getByRole("radio", { name: /^Short/ }).evaluate((element) => element === document.activeElement), true, "End selects and focuses the final duration");
+    assert.deepEqual(pageErrors, [], "duration keyboard selection causes no page errors");
+    await page.getByRole("radio", { name: /^Quick/ }).click();
     await page.getByRole("link", { name: "Open Baseline roll", exact: true }).first().click();
     await page.getByRole("heading", { name: "Baseline roll", exact: true, level: 1 }).waitFor();
     assert.equal(await page.evaluate(() => sessionStorage.getItem("struna.session")), null);
     await page.getByRole("button", { name: "Back to practice", exact: true }).click();
-    await page.getByRole("button", { name: /^Quick/ }).waitFor();
+    await page.getByRole("radio", { name: /^Quick/ }).waitFor();
+    const beforeStart = await page.evaluate(() => sessionStorage.getItem("struna.session"));
+    await page.getByRole("radio", { name: /^Full/ }).click();
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("struna.session")), beforeStart, "choosing a duration does not create a session");
+    assert.match(await page.getByRole("button", { name: /^Start / }).innerText(), /20 min/, "Start reflects the selected configured duration");
+    await page.getByRole("radio", { name: /^Quick/ }).click();
+    assert.equal(await page.getByRole("button", { name: /^Start / }).innerText(), "Start 10 min");
     await page.evaluate(() => sessionStorage.setItem("struna.material", JSON.stringify({ key: "extra:before", label: "Extra before start", kind: "link", src: null, url: "https://example.invalid/extra" })));
     await page.reload();
-    await page.getByRole("button", { name: /^Quick/ }).click();
-    await page.getByRole("button", { name: "Add pane", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Coach", exact: true }).click();
+    await page.getByRole("button", { name: "Start 10 min", exact: true }).click();
     await nextStage(page);
     assert.equal(await page.locator(".clock.waiting").count(), 1, "Next retains the waiting timer");
     await page.locator(".pane-file:not([hidden])").first().waitFor();
@@ -113,10 +134,7 @@ try {
     const focus = await page.locator(".clock").evaluate((el) => getComputedStyle(el).outlineStyle);
     assert.notEqual(focus, "none", "clock has visible keyboard focus");
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-session.png`), fullPage: true });
-    if (width! < 720) {
-      assert.equal(await page.getByRole("button", { name: /Log clean pass/ }).count(), 0);
-      await page.getByRole("button", { name: "Tools", exact: true }).click();
-    }
+    assert.equal(await page.getByRole("button", { name: /Log clean pass/ }).count(), 1, "Technique keeps clean-pass logging beside the current tempo at every width");
     assert.equal(await page.locator(".measurements").count(), 0, "editing the click records nothing");
     await page.getByRole("button", { name: /Log clean pass/ }).click();
     await page.getByLabel("Confirmed material tempos").getByText("Baseline roll: 80 BPM", { exact: false }).waitFor();
@@ -129,6 +147,7 @@ try {
     await page.getByRole("button", { name: /Log clean pass/ }).click();
     await page.getByLabel("Measure material", { exact: true }).selectOption(checkpoint.materialKey);
     assert.equal(await page.getByRole("img", { name: "1 of 3 clean passes", exact: true }).count(), 1);
+    await page.getByRole("button", { name: "Tools", exact: true }).click();
     await page.getByRole("button", { name: "Record take", exact: true }).click();
     await page.getByRole("button", { name: /Stop take/ }).waitFor();
     const beforeExpand = await page.evaluate(() => sessionStorage.getItem("struna.session"));
@@ -156,7 +175,10 @@ try {
     await page.clock.fastForward(65_000);
     await nextStage(page);
     assert.equal(await page.locator(".clock:not(.waiting)").count(), 1, "Next retains a running timer");
+    assert.match(await page.getByRole("heading", { level: 1 }).innerText(), /Logging/);
+    assert.equal(await page.locator(".stage-tempo:visible").count(), 0, "Logging does not repeat a technique tempo prompt");
     await page.getByRole("button", { name: "Pause the stage timer", exact: true }).click();
+    await page.locator(".session-details summary").click();
     assert.match(await page.locator(".session-time").innerText(), /Active practice 1:05/);
     const checklist = page.getByRole("group", { name: "Session checklist (optional)" });
     assert.equal(await checklist.getByRole("checkbox").count(), 5);
@@ -184,10 +206,12 @@ try {
         sessionStorage.setItem("struna.session", JSON.stringify(s));
       }, beforeReview);
       await page.reload();
+      await page.locator(".session-details summary").click();
       await page.getByText(/Earlier stage times were not recorded/).waitFor();
       await page.getByRole("button", { name: "Resume the stage timer", exact: true }).click();
       await page.getByRole("button", { name: "Pause the stage timer", exact: true }).click();
       await page.reload();
+      await page.locator(".session-details summary").click();
       await page.getByText(/Earlier stage times were not recorded/).waitFor();
       await nextStage(page);
       await page.getByRole("button", { name: /Finish/ }).press("Enter");
@@ -221,7 +245,8 @@ try {
     await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
     // A full session includes the tune, but skipping its work cannot inherit the roll's BPM.
     await page.getByRole("button", { name: "Back to today", exact: true }).click();
-    await page.getByRole("button", { name: /^Full/ }).click();
+    await page.getByRole("radio", { name: /^Full/ }).click();
+    await page.getByRole("button", { name: "Start 20 min", exact: true }).click();
     await nextStage(page);
     if (width! < 720) await page.getByRole("button", { name: "Tools", exact: true }).click();
     await page.getByRole("button", { name: /Log clean pass/ }).click();
@@ -285,7 +310,8 @@ try {
     await page.getByRole("button", { name: "Back to today", exact: true }).click();
     await page.getByText(`Baseline roll: ${bpm} BPM`, { exact: false }).first().waitFor();
     // Exercise the actual Short path too: no checkpoint, no inherited clean BPM.
-    await page.getByRole("button", { name: /^Short/ }).click();
+    await page.getByRole("radio", { name: /^Short/ }).click();
+    await page.getByRole("button", { name: "Start 6 min", exact: true }).click();
     await page.getByRole("heading", { name: /Technique$/, level: 1 }).waitFor();
     await page.getByRole("button", { name: /Finish/ }).click();
     assert.equal(await roll.inputValue(), "");
@@ -299,11 +325,12 @@ try {
     assert.deepEqual(shortLog.measurements, [{ materialKey: "materials/roll.md", materialLabel: "Baseline roll", bpm: null }]);
     await page.getByRole("button", { name: "Back to today", exact: true }).click();
     const beforeDiscard = (await readdir(join(home, "logs"))).sort();
-    await page.getByRole("button", { name: /^Quick/ }).click();
+    await page.getByRole("radio", { name: /^Quick/ }).click();
+    await page.getByRole("button", { name: "Start 10 min", exact: true }).click();
     await page.getByRole("button", { name: "End session", exact: true }).click();
     await page.getByRole("button", { name: "Discard session", exact: true }).click();
     await page.getByRole("dialog", { name: "Discard this unsaved session?", exact: true }).getByRole("button", { name: "Yes, discard session", exact: true }).click();
-    await page.getByRole("button", { name: /^Quick/ }).waitFor();
+    await page.getByRole("radio", { name: /^Quick/ }).waitFor();
     assert.deepEqual((await readdir(join(home, "logs"))).sort(), beforeDiscard);
     assert.deepEqual(await page.evaluate(() => [sessionStorage.getItem("struna.session"), sessionStorage.getItem("struna.review-draft")]), [null, null]);
     await context.close();

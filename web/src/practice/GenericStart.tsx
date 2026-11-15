@@ -8,8 +8,8 @@ import { askCoach } from "../chat/Chat.tsx";
 import type { LogSummary } from "../generic.ts";
 import { Icon } from "../icons.tsx";
 import { getTheme, setTheme, type ThemeChoice } from "../theme.ts";
-import { sessionKinds, type Today } from "../types.ts";
-import { breakDue, breakKey, kindLabel, logFacts, shortDate, statsFacts } from "./genericLogic.ts";
+import { firstSentence, sessionKinds, type Today } from "../types.ts";
+import { breakDue, breakKey, logFacts, shortDate, statsFacts } from "./genericLogic.ts";
 import { cap } from "./Session.tsx";
 
 const BREAK_KEY = "struna.break-offered";
@@ -26,6 +26,11 @@ function once(key: string, value: string): boolean {
 }
 
 const NO_PLAN = "No plan yet";
+const durationPreview = (stages: Today["stages"]["full"]) => {
+  const shown = stages.slice(0, 2).map((stage) => stage.title);
+  const more = stages.length - shown.length;
+  return `${shown.join(" · ")}${more > 0 ? ` · +${more} ${more === 1 ? "stage" : "stages"}` : ""}`;
+};
 
 /** The studio mode's start screen: the plan, what to do next, one button per session kind, and the history. */
 export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, onStarter }: {
@@ -44,9 +49,20 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
   const [starter, setStarter] = useState<{ busy: boolean; error: string }>({ busy: false, error: "" });
   const b = today.block;
   const kinds = sessionKinds(today);
+  const [selectedKind, setSelectedKind] = useState<string>("");
   const days = today.daysSinceLast ?? null;
   const away = typeof days === "number" && days >= 7;
   const facts = statsFacts(today.stats);
+  const selected = kinds.find((kind) => kind.id === selectedKind) ?? kinds[0];
+  const direction = firstSentence(today.next.text || "No instruction yet. Start a session and see how it goes.");
+  const moveDuration = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const movement = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+    const target = event.key === "Home" ? 0 : event.key === "End" ? kinds.length - 1 : movement ? (index + movement + kinds.length) % kinds.length : null;
+    if (target === null) return;
+    event.preventDefault();
+    setSelectedKind(kinds[target]!.id);
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role=radio]")[target]?.focus();
+  };
 
   useEffect(() => {
     let live = true;
@@ -139,20 +155,35 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
 
       {b && (
         <>
-          <h1>{b.goal || "Next"}</h1>
-          <p className="instr">{today.next.text ? cap(today.next.text) : "No instruction yet. Start a session and see how it goes."}</p>
-          <p className="srcnote">{today.next.source === "log" ? "From your last practice log" : "From your plan"}{today.phase?.summary ? `. This phase: ${today.phase.summary}` : ""}</p>
+          <h1>Today’s practice</h1>
+          <p className="instr">{cap(direction)}</p>
+          {today.materials && today.materials.length > 0 && <p className="today-materials">Today’s materials: {today.materials.slice(0, 2).map((material, index) => <span key={material.key}>{index > 0 && " · "}<StageMaterialLink material={material} /></span>)}</p>}
+          <details className="plan-details">
+            <summary>Plan details</summary>
+            <p><b>{b.goal || "Next"}</b></p>
+            <p>{today.next.text}</p>
+            <p className="srcnote">{today.next.source === "log" ? "From your last practice log" : "From your plan"}{today.phase?.summary ? `. This phase: ${today.phase.summary}` : ""}</p>
+            <ul>{kinds.map((kind) => <li key={kind.id}><b>{kind.label}</b>: {durationSummary(kind.stages)}</li>)}</ul>
+          </details>
         </>
       )}
 
       <div className="startacts">
-        {b && kinds.map((k, i) => (
-          <div key={k.id} className="session-choice">
-            <button className={`btn ${i === 0 ? "primary" : "outline"} full`} aria-describedby={`scope-${k.id}`} onClick={() => onStart(k.id)}>{kindLabel(k)}</button>
-            <p className="srcnote" id={`scope-${k.id}`}>{durationSummary(k.stages)}</p>
-            <ul className="stage-materials">{k.stages.filter((st) => st.material).map((st) => <li key={st.key}><span>{st.title}: </span><StageMaterialLink material={st.material!} /></li>)}</ul>
-          </div>
-        ))}
+        {b && selected && (
+          <section className="session-picker" aria-labelledby="duration-heading">
+            <h2 id="duration-heading">Choose a duration</h2>
+            <div className="duration-options" role="radiogroup" aria-label="Practice duration">
+              {kinds.map((kind, index) => (
+                <button key={kind.id} type="button" role="radio" aria-checked={selected.id === kind.id} tabIndex={selected.id === kind.id ? 0 : -1} className={selected.id === kind.id ? "on" : ""} onClick={() => setSelectedKind(kind.id)} onKeyDown={(event) => moveDuration(event, index)}>
+                  <span>{kind.label.replace(/ \(\d+ min\)$/, "")}</span>
+                  <span>{kind.minutes} min</span>
+                </button>
+              ))}
+            </div>
+            <p className="srcnote" id={`scope-${selected.id}`}>{durationPreview(selected.stages)}</p>
+            <button className="btn primary full start-selected" onClick={() => onStart(selected.id)}>Start {selected.minutes} min</button>
+          </section>
+        )}
         <button className="btn quiet full" onClick={onTune}><Icon id="i-fork" />Tune first</button>
         {b && b.crossTraining.length > 0 && kinds[0] && (
           <div className="cross">

@@ -43,7 +43,8 @@ try {
   if (!saved.ok) throw new Error("Could not seed the scratch clean-tempo record");
   await page.addInitScript(() => localStorage.setItem("struna.guide", "off"));
   await page.goto(`http://localhost:${port}/#practice`);
-  await page.getByRole("button", { name: /^Short session/ }).click();
+  await page.getByRole("radio", { name: /^Short session/ }).click();
+  await page.getByRole("button", { name: /^Start / }).click();
   await page.getByRole("button", { name: /^Log clean pass/ }).click();
   await page.getByRole("button", { name: /^Log clean pass/ }).click();
   await page.getByRole("button", { name: /^Log clean pass/ }).click();

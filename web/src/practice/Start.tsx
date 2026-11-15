@@ -2,8 +2,15 @@ import { useState } from "react";
 
 import { Icon } from "../icons.tsx";
 import { getTheme, setTheme, type ThemeChoice } from "../theme.ts";
-import { blockName, type Today, todayLine } from "../types.ts";
+import { blockName, firstSentence, sessionKinds, type Today, todayLine } from "../types.ts";
 import { cap } from "./Session.tsx";
+import { durationSummary } from "./sessionScope.ts";
+
+const durationPreview = (stages: Today["stages"]["full"]) => {
+  const shown = stages.slice(0, 2).map((stage) => stage.title);
+  const more = stages.length - shown.length;
+  return `${shown.join(" · ")}${more > 0 ? ` · +${more} ${more === 1 ? "stage" : "stages"}` : ""}`;
+};
 
 export function Start({ today, onStart, onTune, onCoach, onWeek }: {
   today: Today;
@@ -16,6 +23,18 @@ export function Start({ today, onStart, onTune, onCoach, onWeek }: {
   const [theme, setThemeState] = useState<ThemeChoice>(getTheme);
   const [weekOpen, setWeekOpen] = useState(false);
   const b = today.block;
+  const kinds = sessionKinds(today);
+  const [selectedKind, setSelectedKind] = useState<string>("");
+  const selected = kinds.find((kind) => kind.id === selectedKind) ?? kinds[0];
+  const direction = firstSentence(today.next.text || "No instruction recorded yet.");
+  const moveDuration = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const movement = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+    const target = event.key === "Home" ? 0 : event.key === "End" ? kinds.length - 1 : movement ? (index + movement + kinds.length) % kinds.length : null;
+    if (target === null) return;
+    event.preventDefault();
+    setSelectedKind(kinds[target]!.id);
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role=radio]")[target]?.focus();
+  };
   const chooseTheme = (t: ThemeChoice) => {
     setTheme(t);
     setThemeState(t);
@@ -43,13 +62,31 @@ export function Start({ today, onStart, onTune, onCoach, onWeek }: {
         </div>
       )}
 
-      <h1>Next</h1>
-      <p className="instr">{today.next.text ? cap(today.next.text) : "No instruction recorded yet."}</p>
-      <p className="srcnote">{today.next.source === "log" ? "From your last practice log" : "From the progress ledger"}</p>
+      <h1>Today’s practice</h1>
+      <p className="instr">{cap(direction)}</p>
+      <details className="plan-details">
+        <summary>Plan details</summary>
+        <p>{today.next.text}</p>
+        <p className="srcnote">{today.next.source === "log" ? "From your last practice log" : "From the progress ledger"}</p>
+        <ul>{kinds.map((kind) => <li key={kind.id}><b>{kind.label}</b>: {durationSummary(kind.stages)}</li>)}</ul>
+      </details>
 
       <div className="startacts">
-        <button className="btn primary full" disabled={!b} onClick={() => onStart("full")}>Full session (45 min)</button>
-        <button className="btn outline full" disabled={!b} onClick={() => onStart("floor")}>Short session (15 min)</button>
+        {selected && (
+          <section className="session-picker" aria-labelledby="duration-heading">
+            <h2 id="duration-heading">Choose a duration</h2>
+            <div className="duration-options" role="radiogroup" aria-label="Practice duration">
+              {kinds.map((kind, index) => (
+                <button key={kind.id} type="button" role="radio" aria-checked={selected.id === kind.id} tabIndex={selected.id === kind.id ? 0 : -1} className={selected.id === kind.id ? "on" : ""} onClick={() => setSelectedKind(kind.id)} onKeyDown={(event) => moveDuration(event, index)}>
+                  <span>{kind.label.replace(/ \(\d+ min\)$/, "")}</span>
+                  <span>{kind.minutes} min</span>
+                </button>
+              ))}
+            </div>
+            <p className="srcnote" id={`scope-${selected.id}`}>{durationPreview(selected.stages)}</p>
+            <button className="btn primary full start-selected" disabled={!b} onClick={() => onStart(selected.id)}>Start {selected.minutes} min</button>
+          </section>
+        )}
         <button className="btn quiet full" onClick={onTune}><Icon id="i-fork" />Tune first</button>
         {b && b.crossTraining.length > 0 && (
           <div className="cross">
@@ -57,7 +94,7 @@ export function Start({ today, onStart, onTune, onCoach, onWeek }: {
             {cross && (
               <ul className="crosslist">
                 {b.crossTraining.map((c) => (
-                  <li key={c}><button className="btn quiet full" onClick={() => onStart("full", c)}>{c.replace(/;$/, "")}</button></li>
+                  <li key={c}><button className="btn quiet full" onClick={() => onStart(selected?.id ?? "full", c)}>{c.replace(/;$/, "")}</button></li>
                 ))}
               </ul>
             )}

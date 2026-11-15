@@ -10,8 +10,10 @@ import { nextStage } from "./practice-steps.ts";
 import { normalizeProfile } from "../server/generic/studio.ts";
 
 const before = process.argv.includes("--before");
+const landingOnly = process.argv.includes("--landing-only");
 const dir = await mkdtemp(join(tmpdir(), "struna-wave-one-"));
 const home = join(dir, "home");
+const geometry: unknown[] = [];
 await mkdir(join(home, "plan"), { recursive:true });
 await mkdir(join(home, "materials"));
 await writeFile(join(home, "profile.json"), JSON.stringify(normalizeProfile({}, new Date().toISOString())));
@@ -38,13 +40,47 @@ try {
     await new Promise(r=>setTimeout(r,100));
   }
   const token=(await readFile(join(dir,"state/access-token"),"utf8")).trim();
-  for(const [width,height] of [[320,700],[390,844],[844,390],[1153,814],[1003,814]]) for(const theme of ["light","dark","device"]) {
-    const context=await browser.newContext({viewport:{width:width!,height:height!},colorScheme:theme==="dark"?"dark":"light"});
+  for(const [width,height] of [[320,700],[390,844],[844,390],[1153,814],[1003,814],[502,407]]) for(const theme of ["light","dark","device-light","device-dark"]) {
+    const context=width===502
+      ? await chromium.launchPersistentContext(join(dir, `zoom-${theme}`),{executablePath:process.env.CHROMIUM??"/usr/bin/chromium",args:["--no-sandbox"],viewport:{width:1003,height:814},colorScheme:theme.endsWith("dark")?"dark":"light"})
+      : await browser.newContext({viewport:{width:width!,height:height!},colorScheme:theme.endsWith("dark")?"dark":"light"});
+    if(width===502) {
+      const settings=await context.newPage(); await settings.goto("chrome://settings/appearance");
+      await settings.evaluate(async()=>{
+        const {chrome}=globalThis as unknown as {chrome:{settingsPrivate:{setDefaultZoom:(n:number)=>Promise<void>}}};
+        await chrome.settingsPrivate.setDefaultZoom(2);
+      });
+      await settings.close();
+    }
     const page=await context.newPage();
-    await page.addInitScript(t=>{if(t!=="device")localStorage.setItem("struna.theme",t);},theme);
+    const errors:string[]=[];
+    page.on("pageerror",e=>errors.push(e.message));
+    await page.addInitScript(t=>{if(!t.startsWith("device"))localStorage.setItem("struna.theme",t);},theme);
     await page.goto(`${base}/?token=${token}#practice`);
     await page.locator(".gstart").waitFor();
+    if(width===502) assert.ok(await page.evaluate(()=>innerWidth===501 && devicePixelRatio===2),"native desktop 200% zoom");
+    if(!before) {
+      const noSession=await page.evaluate(()=>sessionStorage.getItem("struna.session"));
+      const durations=page.getByRole("radiogroup",{name:"Practice duration"});
+      await durations.getByRole("radio",{name:/^Full/}).focus();
+      await page.keyboard.press("Home");
+      await durations.getByRole("radio",{name:/^Quick/}).waitFor();
+      assert.equal(await page.getByRole("button",{name:"Start 10 min",exact:true}).count(),1);
+      assert.equal(await durations.getByRole("radio",{name:/^Quick/}).evaluate(el=>el===document.activeElement),true,"Home selects and focuses first duration");
+      await page.keyboard.press("End");
+      assert.equal(await page.getByRole("button",{name:"Start 45 min",exact:true}).count(),1);
+      assert.equal(await page.evaluate(()=>sessionStorage.getItem("struna.session")),noSession,"duration choice writes no session");
+      assert.equal(await durations.getByRole("radio",{name:/^Full/}).evaluate(el=>el===document.activeElement),true,"End selects and focuses final duration");
+      await page.keyboard.press("Home");
+      if(width===390) {
+        const controls=await page.locator(".duration-options,.start-selected").evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom};}));
+        const navTop=await page.locator(".dock .tabs").evaluate(el=>el.getBoundingClientRect().top);
+        assert.ok(controls.every(r=>r.top>=0 && r.bottom<=navTop),"durations and Start fit with persistent navigation");
+      }
+    }
+    geometry.push({width,height,theme,controls:await page.locator(".duration-options,.start-selected,.dock .tabs").evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {selector:el.className,x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom};}))});
     await page.screenshot({path:join(dir,`${width}-${theme}-landing.png`)});
+    if(landingOnly) { assert.deepEqual(errors,[]); await context.close(); continue; }
     if (await page.getByRole("radio", {name:/^Quick/}).count()) {
       await page.getByRole("radio", {name:/^Quick/}).click();
       await page.getByRole("button", {name:"Start 10 min", exact:true}).click();
@@ -90,7 +126,9 @@ try {
       assert.equal(await page.locator(".stage-tempo").count(),0,"Recording has no irrelevant tempo suggestion");
     }
     await page.screenshot({path:join(dir,`${width}-${theme}-stage.png`)});
+    assert.deepEqual(errors,[],"no browser runtime errors");
     await context.close();
   }
+  await writeFile(join(dir,"geometry.json"),JSON.stringify(geometry,null,2));
   console.log(`PASS ${before?"baseline captures":"compact header and timer matrix"}: ${dir}`);
 } finally { await browser.close(); child.kill(); }
