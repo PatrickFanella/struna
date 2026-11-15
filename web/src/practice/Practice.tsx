@@ -26,7 +26,7 @@ const SESSION_KEY = "struna.session";
 /** Set by the library's "Use in practice"; read for the current session only. */
 export const LIBRARY_MATERIAL_KEY = "struna.material";
 
-type Phase = { name: "start" } | { name: "session" } | { name: "review" } | { name: "done"; file: string };
+type Phase = { name: "start" } | { name: "session" } | { name: "review" } | { name: "done"; file: string; warnings?: string[] };
 
 function loadSession(): SessionState | null {
   try {
@@ -258,6 +258,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
         <h1>Log written</h1>
         <p className="srcnote" role="status">Session log saved</p>
         <p className="instr">{phase.file}</p>
+        {!!phase.warnings?.length && <div className="notice" role="status"><p>The log is saved. Tempo suggestions need attention:</p><ul>{phase.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul></div>}
         <p className="srcnote">{generic ? "In the logs folder of your studio. The app never changes it again; the coach reads it to plan what comes next." : "In Practice/Logs in the vault. The app never edits it again; commit it when you review."}</p>
         <button className={`btn primary full${generic ? "" : " push"}`} onClick={() => {
           setPhase({ name: "start" });
@@ -323,9 +324,9 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
           end();
           setPhase({ name: "start" });
         }}
-        onWritten={(file) => {
+        onWritten={(file, warnings?: string[]) => {
           end();
-          setPhase({ name: "done", file });
+          setPhase({ name: "done", file, ...(warnings ? { warnings } : {}) });
         }}
       />
     );

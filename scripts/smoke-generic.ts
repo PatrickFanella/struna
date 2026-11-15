@@ -256,7 +256,7 @@ async function walk(page: Page, env: string) {
   await page.locator(".top").getByRole("button", { name: /^Coach/ }).click();
   await page.getByRole("button", { name: "Apply plan change", exact: true }).click();
   await page.getByRole("dialog", { name: "Coach" }).getByRole("button", { name: "Done", exact: true }).click();
-  await page.getByText(COACH_NEXT).waitFor({ timeout: 20_000 });
+  await page.locator(".gstart").getByText(COACH_NEXT, { exact: true }).waitFor({ timeout: 20_000 });
   check(true, "Today reloaded only after explicit Apply");
   check((await page.locator(".top .unread").count()) === 0, "opening Coach clears the unread dot");
   await shot("start", true);
@@ -320,6 +320,7 @@ async function walk(page: Page, env: string) {
   await page.getByRole("heading", { name: "How did it go?" }).waitFor();
   await page.getByLabel("What you worked on").fill("A and D chord changes");
   await page.getByRole("radio", { name: "Too easy" }).click();
+  await page.getByText("Optional notes", { exact: true }).click();
   await page.getByLabel("What went well").fill("clean A chord");
   await page.getByLabel("What was hard").fill("the change to D");
   await shot("review", true);

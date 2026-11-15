@@ -122,6 +122,7 @@ export type LogSummary = {
   minutes: number | null;
   material: string;
   cleanTempo: string | number | null;
+  measurements?: MaterialMeasurement[];
   difficulty: string;
   pain: boolean | string;
   next: string;
@@ -140,4 +141,11 @@ export type AppInfo = {
   web: boolean;
   /** Studio mode: whether `profile.json` exists yet. */
   profile: boolean;
+};
+
+/** A player-confirmed clean BPM, or an explicitly unmeasured session material. */
+export type MaterialMeasurement = {
+  materialKey: string;
+  materialLabel: string;
+  bpm: number | null;
 };

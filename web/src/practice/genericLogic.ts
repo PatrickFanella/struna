@@ -1,5 +1,7 @@
 /** The studio mode's practice screens, minus the React: defaults, wording and small decisions, kept here so they can be tested. */
 
+import type { SessionState } from "./Session.tsx";
+import type { Stage } from "../types.ts";
 import type { GenericStats, Level, LogSummary, Profile, ProfileInput, SessionKind } from "../generic.ts";
 
 export const LEVELS: { id: Level; title: string; text: string }[] = [
@@ -121,7 +123,7 @@ export function tempo(v: string): number | null {
 /** One line for the start screen's history: "Short, 12 min, Blues in A, about right". */
 export function logFacts(l: LogSummary): string {
   const pain = l.pain === true || l.pain === "yes";
-  return [l.session, typeof l.minutes === "number" && l.minutes > 0 ? `${l.minutes} min` : "", l.material, pain ? "stopped for pain or tension" : l.difficulty]
+  return [l.session, typeof l.minutes === "number" && l.minutes > 0 ? `${l.minutes} min` : "", l.material, ...(l.measurements ?? []).filter((m) => m.bpm !== null).map((m) => `${m.materialLabel}: ${m.bpm} BPM`), pain ? "stopped for pain or tension" : l.difficulty]
     .map((x) => String(x ?? "").trim())
     .filter((x) => x && x !== "not recorded")
     .join(", ");
@@ -173,4 +175,29 @@ export function restoreReviewDraft<T extends object>(raw: string | null, started
   } catch {
     return first;
   }
+}
+
+export type ReviewMeasurement = { materialKey: string; materialLabel: string; bpm: string };
+
+/** Use only scoped materials and confirmed checkpoints, never the current click or the whole plan. */
+export function reviewMeasurements(stages: Stage[], session: Pick<SessionState, "checkpoints" | "addedActivities" | "today">, saved?: unknown): ReviewMeasurement[] {
+  const rows = new Map<string, ReviewMeasurement>();
+  // Workspace keys wrap plan references; catalog panes can refer to the same file by itemId.
+  const refs = [...(session.today?.materials ?? []), ...stages.flatMap((s) => s.material ? [s.material] : [])];
+  const aliases = new Map(refs.flatMap((m): [string, string][] => m.itemId ? [[`mat:${m.itemId}`, m.key]] : []));
+  const identity = (key: string) => aliases.get(key) ?? key.replace(/^plan:/, "");
+  const add = (key: string, label: string, bpm = "") => {
+    const materialKey = identity(key);
+    rows.set(materialKey, { materialKey, materialLabel: label, bpm });
+  };
+  for (const stage of stages) if (stage.material && !rows.has(stage.material.key)) add(stage.material.key, stage.material.label);
+  for (const a of session.addedActivities ?? []) if (!rows.has(identity(a.key))) add(a.key, a.title);
+  for (const c of session.checkpoints ?? []) add(c.materialKey, c.materialLabel, String(c.bpm));
+  // Reconcile by identity: edits (including an explicit blank) survive Back and reload,
+  // while newly practiced materials still get their own checkpoint defaults.
+  if (Array.isArray(saved)) for (const m of saved) {
+    const row = m && typeof m.materialKey === "string" ? rows.get(identity(m.materialKey)) : undefined;
+    if (row && typeof m.bpm === "string") row.bpm = m.bpm;
+  }
+  return [...rows.values()];
 }

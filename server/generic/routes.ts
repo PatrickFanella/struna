@@ -67,7 +67,24 @@ export function genericRoutes(s: Studio, opts: { tabs?: boolean } = {}): void {
 
   route("POST", "/api/sessions", async (req, res) => {
     const review = parseGenericReview(await readJson(req));
-    send(res, 200, await writeGenericLog(s.home, review, new Date(), s.timeZone));
+    const { file } = await writeGenericLog(s.home, review, new Date(), s.timeZone);
+    // A cache failure must never turn a saved log into a failed save (and a duplicate on retry).
+    const warnings: string[] = [];
+    if (!review.pain) for (const m of review.measurements ?? []) {
+      if (m.bpm === null) continue;
+      const fragment = `material:${m.materialKey}`;
+      if (m.bpm < 30 || m.bpm > 300 || fragment.length > 200) {
+        warnings.push(`${m.materialLabel}: ${m.bpm} BPM saved in the log only; ${m.bpm < 30 || m.bpm > 300 ? "tempo suggestions support 30–300 BPM" : "this material identity is too long for tempo suggestions"}.`);
+        continue;
+      }
+      try {
+        s.db.prepare("INSERT INTO tempos (fragment, bpm, subdivision, updated) VALUES (?, ?, ?, ?) ON CONFLICT(fragment) DO UPDATE SET bpm = excluded.bpm, subdivision = excluded.subdivision, updated = excluded.updated")
+          .run(fragment, m.bpm, "", new Date().toISOString());
+      } catch {
+        warnings.push(`${m.materialLabel}: saved in the log, but the tempo suggestion cache could not be updated.`);
+      }
+    }
+    send(res, 200, { file, warnings });
   });
 
   tempoRoutes(s.db);
@@ -88,6 +105,7 @@ export function genericRoutes(s: Studio, opts: { tabs?: boolean } = {}): void {
         minutes: l.minutes,
         material: l.material,
         cleanTempo: l.cleanTempo,
+        ...(l.measurements ? { measurements: l.measurements } : {}),
         difficulty: l.difficulty,
         pain: l.pain,
         wentWell: l.wentWell,

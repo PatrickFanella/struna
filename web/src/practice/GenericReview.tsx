@@ -4,38 +4,38 @@ import { sessionChecklist } from "./sessionScope.ts";
 import { useEffect, useState } from "react";
 
 import { api } from "../api.ts";
-import { SUBDIVISIONS } from "../audio/metronome.ts";
 import { coachAction } from "../chat/actions.tsx";
 import { sessionKind, type Today } from "../types.ts";
 import { coachReady } from "../chat/Chat.tsx";
-import { type Difficulty, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, tempo } from "./genericLogic.ts";
+import { type Difficulty, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, reviewMeasurements } from "./genericLogic.ts";
 import { Choice, Text } from "./Review.tsx";
 import type { SessionState } from "./Session.tsx";
 
 /** The studio mode's review: a short form, nothing required, that writes the session log. */
-export function GenericReview({ today, session, bpm, material, onWritten, onBack, onDiscard }: {
+export function GenericReview({ today, session, material, onWritten, onBack, onDiscard }: {
   today: Today;
   session: SessionState;
   bpm: number;
   material: string;
-  onWritten: (file: string) => void;
+  onWritten: (file: string, warnings?: string[]) => void;
   onBack: () => void;
   onDiscard: () => void;
 }) {
   const b = today.block!;
   const kind = sessionKind(today, session.kind);
-  // The click counts as used when the session shows it: passes logged, or the tempo moved.
-  const clicked = session.helper.cleans + session.helper.misses > 0 || session.passes > 0 || session.metThree || bpm !== session.startBpm;
-  const draft = (x: { material: string; metronome: "used" | "not used"; cleanTempo: string; difficulty: Difficulty; pain: string }) =>
-    nextDraft({ material: x.material, bpm: x.metronome === "used" ? tempo(x.cleanTempo) : null, difficulty: x.difficulty, pain: x.pain === "yes", fallback: today.next.text });
+  const stages = session.stages ?? kind.stages;
+  const activities = sessionChecklist(stages, session.addedActivities).map((a) => ({
+    ...a,
+    attempted: session.attemptedActivities?.includes(a.key) === true || (session.checkpoints ?? []).some((c) => c.stageKey === a.key || c.materialKey === a.key),
+  }));
+  const draft = (x: { material: string; difficulty: Difficulty; pain: string }) =>
+    nextDraft({ material: x.material, bpm: null, difficulty: x.difficulty, pain: x.pain === "yes", fallback: today.next.text });
   const [f, setF] = useState(() => {
     const first = {
       material,
       target: "",
       minutes: String(playedMinutes(session, Date.now())),
-      metronome: (clicked ? "used" : "not used") as "used" | "not used",
-      startTempo: String(session.startBpm),
-      cleanTempo: String(bpm),
+      measurements: reviewMeasurements(stages, session),
       difficulty: "about right" as Difficulty,
       wentWell: "",
       struggled: "",
@@ -47,11 +47,11 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
     let stored: string | null = null;
     try {
       stored = sessionStorage.getItem(REVIEW_DRAFT_KEY);
-      if (stored && (JSON.parse(stored).partial === true) !== (session.partial === true)) stored = null;
     } catch {
       /* storage unavailable */
     }
-    return restoreReviewDraft(stored, session.startedAt, fresh);
+    const restored = restoreReviewDraft(stored, session.startedAt, fresh);
+    return { ...restored, pain: session.pain ? "yes" : restored.pain, measurements: reviewMeasurements(stages, session, restored.measurements) };
   });
   useEffect(() => {
     try {
@@ -88,12 +88,13 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
     setError("");
     try {
       const pain = f.pain === "yes";
-      const used = f.metronome === "used";
-      const clean = used ? tempo(f.cleanTempo) : null;
-      const start = used ? tempo(f.startTempo) : null;
-      const subdivision = SUBDIVISIONS.find((s) => s.value === session.subdivision)?.log ?? "";
+      const measurements = f.measurements.map((m) => {
+        const bpm = m.bpm.trim() ? Number(m.bpm) : null;
+        if (bpm !== null && (!Number.isInteger(bpm) || bpm < 20 || bpm > 400)) throw new Error(`${m.materialLabel}: enter a whole BPM from 20 to 400, or leave it blank.`);
+        return { ...m, bpm };
+      });
       const minutes = Number(f.minutes);
-      const { file } = await api.post<{ file: string }>("/api/sessions", {
+      const { file, warnings } = await api.post<{ file: string; warnings?: string[] }>("/api/sessions", {
         planId: b.id,
         planTitle: b.title,
         phase: today.phase ? `${today.phase.n} of ${today.phase.of}: ${today.phase.title}` : "",
@@ -102,10 +103,8 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
         minutes: Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : 0,
         material: f.material,
         target: f.target,
-        activities: sessionChecklist(session.stages ?? kind.stages, session.addedActivities).map((a) => ({ ...a, attempted: session.attemptedActivities?.includes(a.key) ?? false })),
-        startTempo: start === null ? "" : String(start),
-        cleanTempo: clean === null ? "" : String(clean),
-        subdivision: used && (start !== null || clean !== null) ? subdivision : "",
+        activities,
+        measurements,
         difficulty: f.difficulty,
         wentWell: f.wentWell,
         struggled: f.struggled,
@@ -115,11 +114,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
         notes: f.notes,
         next: f.next,
       });
-      // The same rule as the personal review: remember the clean tempo for this material, unless the session hurt.
-      if (f.material && clean !== null && clean >= 30 && clean <= 300 && !pain) {
-        await api.put("/api/tempos", { fragment: f.material, bpm: clean, subdivision }).catch(() => {});
-      }
-      onWritten(file);
+      onWritten(file, warnings);
       const summary = [f.struggled.trim(), f.notes.trim()].filter(Boolean).join(" ") || "no details given";
       // An off-day extra is not counted and must not move the plan's next instruction; a pain stop is still reported.
       if (pain || (!session.cross && !session.partial)) void coachAction(pain ? "pain" : "session-logged", { log: file, summary: `${summary} (log: ${file})` });
@@ -138,31 +133,30 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
       <p className="instr">{session.pain ? painNote(coach) : "Mostly taps, and nothing is required. The coach reads this before it plans your next session."}</p>
       <div className="field">
         <p className="grp">This session included</p>
-        <ul>{sessionChecklist(session.stages ?? kind.stages, session.addedActivities).map((a) => <li key={a.key}>{a.title}{session.attemptedActivities?.includes(a.key) ? " — attempted" : " — unmeasured"}</li>)}</ul>
+        <ul>{activities.map((a) => <li key={a.key}>{a.title}{a.attempted ? " — attempted" : " — unmeasured"}</li>)}</ul>
       </div>
       {hasIncompleteTiming(session) && <p className="notice" role="status">Earlier stage times were not recorded in this older session. Minutes played includes only recovered timing; adjust it if you know the total.</p>}
       <Text label="What you worked on" value={f.material} onChange={set("material")} placeholder="A song, an exercise, a page" />
-      <Text label="Target (optional)" value={f.target} onChange={set("target")} placeholder="What you were aiming for today" />
-      <div className="row2">
-        <Text label="Minutes played" value={f.minutes} onChange={set("minutes")} num />
-        <Choice label="Metronome" value={f.metronome} options={[["used", "Used"], ["not used", "Not used"]]} onChange={set("metronome")} />
-      </div>
-      {f.metronome === "used" && (
-        <div className="row2">
-          <Text label="Starting tempo" value={f.startTempo} onChange={set("startTempo")} num />
-          <Text label="Clean tempo" value={f.cleanTempo} onChange={set("cleanTempo")} num />
-        </div>
-      )}
+      <Text label="Minutes played" value={f.minutes} onChange={set("minutes")} num />
+      {f.measurements.length > 0 && <fieldset className="review-measurements">
+        <legend>Clean BPM by material (optional)</legend>
+        <p className="srcnote">Only confirmed clean passes are prefilled. Leave skipped or unmeasured materials blank. Log values can be 20–400 BPM; suggestions use 30–300 BPM.</p>
+        {f.measurements.map((m, i) => <Text key={m.materialKey} label={`${m.materialLabel} clean BPM (optional)`} value={m.bpm} num placeholder="Unmeasured" onChange={(bpm) => set("measurements")(f.measurements.map((row, j) => j === i ? { ...row, bpm } : row))} />)}
+      </fieldset>}
       <Choice label="It felt" value={f.difficulty} options={[["too easy", "Too easy"], ["about right", "About right"], ["too hard", "Too hard"]]} onChange={set("difficulty")} />
-      <Text label="What went well" value={f.wentWell} onChange={set("wentWell")} />
-      <Text label="What was hard" value={f.struggled} onChange={set("struggled")} />
       <Choice label="Pain, numbness or lasting tension" value={f.pain} options={[["no", "No"], ["yes", "Yes, stop"]]} onChange={set("pain")} />
       <div className="field">
         <p className="grp">Recording</p>
         <p className="fieldval">{session.recording ? `${session.recording.path} (${session.recording.label === "weekly" ? "progress" : session.recording.label})` : "No take recorded"}</p>
       </div>
-      <Text label="What to do first next time" value={f.next} onChange={set("next")} area />
-      <Text label="Notes (optional)" value={f.notes} onChange={set("notes")} area />
+      <details className="optional-notes">
+        <summary>Optional notes</summary>
+        <Text label="Target (optional)" value={f.target} onChange={set("target")} placeholder="What you were aiming for today" />
+        <Text label="What went well" value={f.wentWell} onChange={set("wentWell")} />
+        <Text label="What was hard" value={f.struggled} onChange={set("struggled")} />
+        <Text label="What to do first next time" value={f.next} onChange={set("next")} area />
+        <Text label="Notes (optional)" value={f.notes} onChange={set("notes")} area />
+      </details>
       <p className={error ? "notice" : "srcnote"} role="status" aria-atomic="true">{busy ? "Saving session log" : error ? `The log was not written. ${error}` : "Session log not saved yet"}</p>
       <button className="btn primary full" disabled={busy}>{busy ? "Writing the log" : "Write the log"}</button>
       <div className="row2 reviewfoot">

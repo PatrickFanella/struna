@@ -111,3 +111,41 @@ test("partial logs do not advance progress and absent metadata keeps old semanti
   const old = partial.replace(/- \*\*Partial session:\*\*.*\n/, "");
   assert.equal(isCounted(parseGenericLog("2026-11-15.md", old)), true);
 });
+
+const measurements = [
+  { materialKey: "materials/roll.md", materialLabel: "Baseline roll", bpm: 80 },
+  { materialKey: "tab:tune", materialLabel: "Black Mountain Rag", bpm: null },
+];
+
+test("material measurements retain identities and blank values in a new scratch log", async () => {
+  const review = parseGenericReview({ ...body, cleanTempo: "", measurements });
+  const { file } = await writeGenericLog(home, review, new Date("2026-11-20T10:00:00Z"), "UTC");
+  const saved = await readFile(join(home, "logs", file), "utf8");
+  assert.match(saved, /## Material measurements/);
+  assert.deepEqual(parseGenericLog(file, saved).measurements, measurements);
+  assert.deepEqual((await readLogs(home)).find((l) => l.file === file)?.measurements, measurements);
+  assert.equal(parseGenericLog(file, saved).cleanTempo, null);
+  assert.equal(parseGenericLog("old.md", renderGenericLog(parseGenericReview(body), "2026-11-20", "2026-11-20T10:00:00Z")).measurements, undefined);
+});
+
+test("measurement validation refuses ambiguous or malformed data without losing accepted range edges", () => {
+  const m = measurements[0]!;
+  for (const invalid of [null, {}, [{ ...m, bpm: "80" }], [{ ...m, bpm: true }], [{ ...m, bpm: 0 }], [{ ...m, bpm: 401 }], [{ ...m, bpm: 79.5 }], [{ ...m, bpm: undefined }], [{ ...m, materialKey: " " }], [{ ...m, materialLabel: "" }], [m, m], Array(129).fill(m)]) {
+    assert.throws(() => parseGenericReview({ ...body, measurements: invalid }), /measurements|measurement/);
+  }
+  for (const bpm of [20, 29, 30, 300, 301, 400, null]) {
+    const accepted = [{ ...m, bpm }];
+    assert.deepEqual(parseGenericLog("new.md", renderGenericLog(parseGenericReview({ ...body, measurements: accepted }), "2026-11-20", "2026-11-20T10:00:00Z")).measurements, accepted);
+  }
+  const unusual = [{ ...m, materialKey: 'url:with|pipes"and\\slashes', materialLabel: 'Tune with "quotes", ``` and\nnewlines' }];
+  assert.deepEqual(parseGenericLog("new.md", renderGenericLog(parseGenericReview({ ...body, measurements: unusual }), "2026-11-20", "2026-11-20T10:00:00Z")).measurements, unusual);
+});
+
+
+test("a legacy next instruction cannot masquerade as material measurements", () => {
+  const next = '## Material measurements\n\nClean BPM per material; null means unmeasured.\n\n```json\n' + JSON.stringify(measurements) + '\n```';
+  const saved = renderGenericLog(parseGenericReview({ ...body, next }), "2026-11-20", "2026-11-20T10:00:00Z");
+  const parsed = parseGenericLog("2026-11-20.md", saved);
+  assert.equal(parsed.measurements, undefined);
+  assert.equal(parsed.next, next);
+});

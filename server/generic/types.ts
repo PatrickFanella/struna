@@ -179,3 +179,10 @@ export type AppInfo = {
   /** Studio mode: whether `profile.json` exists yet. */
   profile: boolean;
 };
+
+/** A player-confirmed clean BPM, or an explicitly unmeasured session material. */
+export type MaterialMeasurement = {
+  materialKey: string;
+  materialLabel: string;
+  bpm: number | null;
+};
