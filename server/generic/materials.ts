@@ -196,6 +196,13 @@ async function planRefs(s: Pick<Studio, "home">): Promise<{ files: Set<string>; 
   const names = new Map<string, string>();
   try {
     const plan = JSON.parse(await readFile(join(s.home, "plan", "plan.json"), "utf8"));
+    // Stage-only references use the same file/URL identity as the plan's resource list.
+    for (const k of Array.isArray(plan?.sessions) ? plan.sessions : []) {
+      for (const st of Array.isArray(k?.stages) ? k.stages : []) {
+        if (typeof st?.material?.file === "string") files.add(st.material.file.replace(/^\.\//, ""));
+        if (typeof st?.material?.url === "string") urls.add(st.material.url);
+      }
+    }
     for (const m of Array.isArray(plan?.materials) ? plan.materials : []) {
       const label = str(m?.label, 300);
       if (label && typeof m?.file === "string") names.set(m.file.replace(/^\.\//, ""), label);
