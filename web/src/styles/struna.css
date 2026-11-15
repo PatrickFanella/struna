@@ -39,7 +39,3 @@
   --struna-rule: #3A332C;
   --struna-wash: #2C2621;
 }
-
-/* Persistent practice states; live text excludes ticking clocks and beat counters. */
-.sessionstatus{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--muted);font-size:14px}
-.sessionstatus p{margin:0}
