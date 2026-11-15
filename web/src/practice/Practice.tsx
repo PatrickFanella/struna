@@ -162,12 +162,6 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     // On a wide screen the coach opens beside the lesson.
     const panes = [...lead.map(pane), ...(window.innerWidth >= 1180 && lead.length < 3 ? [pane({ type: "coach" })] : [])];
     if (extra) store.set("struna.material-placed", extra.key);
-    // Start from the last clean working tempo stored for this material, when there is one.
-    if (first) {
-      const tempos = await api.get<{ fragment: string; bpm: number }[]>("/api/tempos").catch(() => []);
-      const t = tempos.find((x) => x.fragment === first.label);
-      if (t) metronome.set({ bpm: t.bpm });
-    }
     const s: SessionState = {
       kind,
       cross: cross ?? null,

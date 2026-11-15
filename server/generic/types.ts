@@ -37,6 +37,9 @@ export type PlanStage = {
   minutes: number;
   /** What to do, in one or two sentences. */
   task: string;
+  /** Optional stable reference, using exactly one file or URL. */
+  material?: { file?: string; url?: string };
+  targetBpm?: number;
 };
 
 export type PlanSession = {
