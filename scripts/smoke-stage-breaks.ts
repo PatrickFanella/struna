@@ -46,7 +46,7 @@ try {
     await page.clock.install();
     await page.clock.pauseAt(new Date(Date.now() + 1000));
     await page.goto(`${base}/?token=${"0".repeat(64)}#practice`);
-    await page.getByRole("button", { name: /^Quick/ }).click();
+    await page.getByRole("button", { name: /^Start .* min practice/ }).click();
     await page.getByRole("button", { name: "Start the stage timer", exact: true }).click();
     await page.clock.fastForward(5_000);
     await page.locator(".tempocol").press("Enter");

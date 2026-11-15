@@ -1,5 +1,4 @@
-import { StageMaterialLink } from "./StageMaterialLink.tsx";
-import { durationSummary } from "./sessionScope.ts";
+import { PracticeChoice } from "./PracticeChoice.tsx";
 import { useEffect, useState } from "react";
 
 import { api, store } from "../api.ts";
@@ -9,7 +8,7 @@ import type { LogSummary } from "../generic.ts";
 import { Icon } from "../icons.tsx";
 import { getTheme, setTheme, type ThemeChoice } from "../theme.ts";
 import { sessionKinds, type Today } from "../types.ts";
-import { breakDue, breakKey, kindLabel, logFacts, shortDate, statsFacts } from "./genericLogic.ts";
+import { breakDue, breakKey, logFacts, shortDate, statsFacts } from "./genericLogic.ts";
 import { cap } from "./Session.tsx";
 
 const BREAK_KEY = "struna.break-offered";
@@ -85,7 +84,7 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
 
   return (
     <div className="start gstart">
-      <dl className="meta">
+      <details className="plan-details"><summary>Current plan</summary><dl className="meta">
         <dt>Plan</dt>
         <dd>{b ? b.title : "None yet"}</dd>
         {b && (
@@ -94,7 +93,7 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
             <dd>{today.line ?? ""}</dd>
           </>
         )}
-      </dl>
+      </dl><p>{b?.goal}</p><p>{today.next.text}</p><p className="srcnote">{today.next.source === "log" ? "From your last practice log" : "From your plan"}{today.phase?.summary ? `. This phase: ${today.phase.summary}` : ""}</p></details>
 
       {today.error && (
         <div className="notice" role="alert">
@@ -139,20 +138,13 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
 
       {b && (
         <>
-          <h1>{b.goal || "Next"}</h1>
-          <p className="instr">{today.next.text ? cap(today.next.text) : "No instruction yet. Start a session and see how it goes."}</p>
-          <p className="srcnote">{today.next.source === "log" ? "From your last practice log" : "From your plan"}{today.phase?.summary ? `. This phase: ${today.phase.summary}` : ""}</p>
+          <h1>Today</h1>
+          <p className="today-task">{today.next.text ? cap(today.next.text.split(/\n/)[0]!) : "Play a little, listen closely, and leave one note for next time."}</p>
         </>
       )}
 
       <div className="startacts">
-        {b && kinds.map((k, i) => (
-          <div key={k.id} className="session-choice">
-            <button className={`btn ${i === 0 ? "primary" : "outline"} full`} aria-describedby={`scope-${k.id}`} onClick={() => onStart(k.id)}>{kindLabel(k)}</button>
-            <p className="srcnote" id={`scope-${k.id}`}>{durationSummary(k.stages)}</p>
-            <ul className="stage-materials">{k.stages.filter((st) => st.material).map((st) => <li key={st.key}><span>{st.title}: </span><StageMaterialLink material={st.material!} /></li>)}</ul>
-          </div>
-        ))}
+        <PracticeChoice today={today} onStart={onStart} />
         <button className="btn quiet full" onClick={onTune}><Icon id="i-fork" />Tune first</button>
         {b && b.crossTraining.length > 0 && kinds[0] && (
           <div className="cross">

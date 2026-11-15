@@ -68,16 +68,19 @@ try {
     await page.goto(`${base}/?token=${token}#practice`);
     assert.match(await page.locator("#scope-custom-quick").innerText(), /Tuning · 2 min; Technique · 6 min; Logging · 2 min/);
     assert.doesNotMatch(await page.locator("#scope-custom-quick").innerText(), /Tune practice/);
+    await page.locator('input[value="custom-full"]').check();
     assert.match(await page.locator("#scope-custom-full").innerText(), /Tune practice · 10 min/);
+    await page.locator('input[value="custom-short"]').check();
     assert.equal(await page.locator("#scope-custom-short").innerText(), "Technique · 6 min");
+    await page.locator('input[value="custom-quick"]').check();
     await page.getByRole("link", { name: "Open Baseline roll", exact: true }).first().click();
     await page.getByRole("heading", { name: "Baseline roll", exact: true, level: 1 }).waitFor();
     assert.equal(await page.evaluate(() => sessionStorage.getItem("struna.session")), null);
     await page.getByRole("button", { name: "Back to practice", exact: true }).click();
-    await page.getByRole("button", { name: /^Quick/ }).waitFor();
+    await page.getByRole("button", { name: "Start 10 min practice", exact: true }).waitFor();
     await page.evaluate(() => sessionStorage.setItem("struna.material", JSON.stringify({ key: "extra:before", label: "Extra before start", kind: "link", src: null, url: "https://example.invalid/extra" })));
     await page.reload();
-    await page.getByRole("button", { name: /^Quick/ }).click();
+    await page.getByRole("button", { name: "Start 10 min practice", exact: true }).click();
     await page.getByRole("button", { name: "Add pane", exact: true }).click();
     await page.getByRole("menuitem", { name: "Coach", exact: true }).click();
     await nextStage(page);
@@ -221,7 +224,8 @@ try {
     await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
     // A full session includes the tune, but skipping its work cannot inherit the roll's BPM.
     await page.getByRole("button", { name: "Back to today", exact: true }).click();
-    await page.getByRole("button", { name: /^Full/ }).click();
+    await page.locator('input[value="custom-full"]').check();
+    await page.getByRole("button", { name: "Start 20 min practice", exact: true }).click();
     await nextStage(page);
     if (width! < 720) await page.getByRole("button", { name: "Tools", exact: true }).click();
     await page.getByRole("button", { name: /Log clean pass/ }).click();
@@ -285,7 +289,8 @@ try {
     await page.getByRole("button", { name: "Back to today", exact: true }).click();
     await page.getByText(`Baseline roll: ${bpm} BPM`, { exact: false }).first().waitFor();
     // Exercise the actual Short path too: no checkpoint, no inherited clean BPM.
-    await page.getByRole("button", { name: /^Short/ }).click();
+    await page.locator('input[value="custom-short"]').check();
+    await page.getByRole("button", { name: "Start 6 min practice", exact: true }).click();
     await page.getByRole("heading", { name: /Technique$/, level: 1 }).waitFor();
     await page.getByRole("button", { name: /Finish/ }).click();
     assert.equal(await roll.inputValue(), "");
@@ -299,11 +304,11 @@ try {
     assert.deepEqual(shortLog.measurements, [{ materialKey: "materials/roll.md", materialLabel: "Baseline roll", bpm: null }]);
     await page.getByRole("button", { name: "Back to today", exact: true }).click();
     const beforeDiscard = (await readdir(join(home, "logs"))).sort();
-    await page.getByRole("button", { name: /^Quick/ }).click();
+    await page.getByRole("button", { name: "Start 10 min practice", exact: true }).click();
     await page.getByRole("button", { name: "End session", exact: true }).click();
     await page.getByRole("button", { name: "Discard session", exact: true }).click();
     await page.getByRole("dialog", { name: "Discard this unsaved session?", exact: true }).getByRole("button", { name: "Yes, discard session", exact: true }).click();
-    await page.getByRole("button", { name: /^Quick/ }).waitFor();
+    await page.getByRole("button", { name: "Start 10 min practice", exact: true }).waitFor();
     assert.deepEqual((await readdir(join(home, "logs"))).sort(), beforeDiscard);
     assert.deepEqual(await page.evaluate(() => [sessionStorage.getItem("struna.session"), sessionStorage.getItem("struna.review-draft")]), [null, null]);
     await context.close();
