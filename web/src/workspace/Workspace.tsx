@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { api } from "../api.ts";
@@ -203,6 +203,33 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   const [tall, setTall] = useState(false);
   const [focus, setFocus] = useState(0);
   const [menu, setMenu] = useState<Menu>(null);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const menuBox = useRef<HTMLDivElement>(null);
+  const focusAfterPick = useRef(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 12, left: 12, maxHeight: 300 });
+  const dismissMenu = () => {
+    setMenu(null);
+    if (opener.current?.isConnected) opener.current.focus();
+    else box.current?.querySelector<HTMLButtonElement>("[aria-haspopup='menu']")?.focus();
+  };
+  const toggleMenu = (button: HTMLButtonElement, at: number | "add") => {
+    opener.current = button;
+    setMenu(menu?.at === at ? null : { at });
+  };
+  useLayoutEffect(() => {
+    if (!menu) return;
+    const position = () => {
+      const anchor = opener.current?.getBoundingClientRect();
+      const width = Math.min(360, innerWidth - 24);
+      const height = Math.min(menuBox.current?.scrollHeight ?? 300, innerHeight - 24);
+      const top = Math.max(12, Math.min(anchor?.bottom ?? 12, innerHeight - height - 12));
+      setMenuPosition({ top, left: Math.max(12, Math.min((anchor?.right ?? width + 12) - width, innerWidth - width - 12)), maxHeight: innerHeight - top - 12 });
+    };
+    position();
+    menuBox.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    addEventListener("resize", position);
+    return () => removeEventListener("resize", position);
+  }, [menu]);
   const [finder, setFinder] = useState<{ mode: FinderMode; at: number | "add" } | null>(null);
   const app = useApp();
   const generic = app.mode === "studio";
@@ -254,8 +281,16 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   const open = async (c: PaneContent, at: number | "add") => {
     setMenu(null);
     setFinder(null);
-    place(await withCompanion(c), at);
+    const contents = await withCompanion(c);
+    focusAfterPick.current = true;
+    place(contents, at);
   };
+  useLayoutEffect(() => {
+    if (!focusAfterPick.current || menu) return;
+    focusAfterPick.current = false;
+    if (opener.current?.isConnected) opener.current.focus();
+    else box.current?.querySelector<HTMLButtonElement>("[aria-haspopup='menu']")?.focus();
+  }, [panes, menu]);
   const close = (i: number) => {
     setMenu(null);
     setPanes((ps) => ps.filter((_, j) => j !== i));
@@ -263,15 +298,15 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   // Menus close on Escape or a press outside them.
   useEffect(() => {
     if (!menu) return;
-    const key = (e: KeyboardEvent) => e.key === "Escape" && setMenu(null);
     const down = (e: PointerEvent) => {
       const t = e.target as HTMLElement;
-      if (!t.closest(".panemenu") && !t.closest("[aria-haspopup='menu']")) setMenu(null);
+      if (!t.closest(".panemenu") && !t.closest("[aria-haspopup='menu']")) {
+        e.preventDefault();
+        dismissMenu();
+      }
     };
-    addEventListener("keydown", key);
     addEventListener("pointerdown", down);
     return () => {
-      removeEventListener("keydown", key);
       removeEventListener("pointerdown", down);
     };
   }, [menu]);
@@ -284,13 +319,32 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   const stacked = tall && shown.length === 2;
   const openKeys = new Set(panes.flatMap((p) => (p.content.type === "file" ? [p.content.item.key] : [])));
 
-  const menuBody = (at: number | "add") => (
-    <div className="panemenu" role="menu">
+  const menuBody = (at: number | "add") => createPortal(
+    <div className="panemenu" role="menu" aria-label="Choose pane content" ref={menuBox} style={menuPosition} onKeyDown={(e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        dismissMenu();
+        return;
+      }
+      if (e.key === "Tab") { dismissMenu(); return; }
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+      const buttons = [...e.currentTarget.querySelectorAll<HTMLButtonElement>("button")];
+      const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      const next = e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 : (i + (e.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+      e.preventDefault();
+      buttons[next]?.focus();
+    }}>
       <button role="menuitem" onClick={() => open({ type: "coach" }, at)}>Coach</button>
       {materials.length > 0 && <p className="grp">{generic ? "From your plan" : "Block material"}</p>}
-      {materials.map((m) => (
-        <button key={m.key} role="menuitem" onClick={() => open({ type: "file", item: m }, at)}>{m.label}{m.missing ? " (missing)" : ""}</button>
-      ))}
+      {materials.map((m) => {
+        const title = m.label.split(/[\\/]/).pop()!.replace(/\.(pdf|md|txt|mp4|mp3|wav|epub|gp[345x]?)$/i, "");
+        const source = [m.label !== title ? m.label : m.key.replace(/^(plan|mat|lib):/, ""), m.note].filter((x) => x && x !== title).join("; ");
+        return <button key={m.key} role="menuitem" onClick={() => open({ type: "file", item: m }, at)}>
+          <span>{title}{m.missing ? " (missing)" : ""}</span>
+          {source && <small>{source}</small>}
+        </button>;
+      })}
       <p className="grp">Find</p>
       {generic ? (
         <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "materials", at }))}>From your materials…</button>
@@ -298,7 +352,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
         <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "library", at }))}>A lesson, sheet or book…</button>
       )}
       {(!generic || app.sections.includes("tabs")) && <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "tabs", at }))}>A Guitar Pro tab…</button>}
-    </div>
+    </div>, document.body,
   );
 
   return (
@@ -315,7 +369,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
       {panes.length > 0 && panes.length < MAX_PANES && (() => {
         const add = (
           <span className="wsadd">
-            <button className="tool" aria-haspopup="menu" aria-expanded={menu?.at === "add"} onClick={() => setMenu(menu?.at === "add" ? null : { at: "add" })}>Add pane</button>
+            <button className="tool" aria-haspopup="menu" aria-expanded={menu?.at === "add"} onClick={(e) => toggleMenu(e.currentTarget, "add")}>Add pane</button>
             {menu?.at === "add" && menuBody("add")}
           </span>
         );
@@ -335,7 +389,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
                     <button className="tool reader-close" onClick={() => setExpanded(null)}>Close reader</button> :
                     <button className="tool" onClick={(e) => { readerOpener.current = e.currentTarget; setFocus(i); setExpanded(p.id); }}>Expand reader</button>)}
                   <span className="pane-manage" hidden={expanded === p.id}>
-                    <button className="tool" aria-haspopup="menu" aria-expanded={menu?.at === i} onClick={() => setMenu(menu?.at === i ? null : { at: i })} aria-label={`Change what ${paneShort(p.content)} shows`}>Change</button>
+                    <button className="tool" aria-haspopup="menu" aria-expanded={menu?.at === i} onClick={(e) => toggleMenu(e.currentTarget, i)} aria-label={`Change what ${paneShort(p.content)} shows`}>Change</button>
                   <button className="tool iconbtn" onClick={() => close(i)} aria-label={`Close ${paneTitle(p.content)}`}>
                     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
                   </button>
@@ -345,7 +399,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
               </header>
               <div className="panebody">
                 {p.content.type === "coach" ? (
-                  <ChatPanel open />
+                  <ChatPanel open={visible} />
                 ) : p.content.type === "tab" ? (
                   <TabPlayer src={`/api/tabs/${p.content.tabId}/file`} title={paneTitle(p.content)} />
                 ) : (
@@ -358,11 +412,11 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
       </div>
       {shown.length === 0 && (
         <div className="paneadd">
-          <button className="btn outline" aria-haspopup="menu" aria-expanded={menu?.at === "add"} onClick={() => setMenu(menu?.at === "add" ? null : { at: "add" })}>Open a pane</button>
+          <button className="btn outline" aria-haspopup="menu" aria-expanded={menu?.at === "add"} onClick={(e) => toggleMenu(e.currentTarget, "add")}>Open a pane</button>
           {menu?.at === "add" && panes.length === 0 && menuBody("add")}
         </div>
       )}
-      {finder && <Finder mode={finder.mode} onClose={() => setFinder(null)} onPick={(c) => void open(c, finder.at)} />}
+      {finder && <Finder mode={finder.mode} onClose={() => { setFinder(null); dismissMenu(); }} onPick={(c) => void open(c, finder.at)} />}
     </div>
   );
 }
