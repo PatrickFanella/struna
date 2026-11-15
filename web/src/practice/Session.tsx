@@ -1,4 +1,4 @@
-import { activeElapsed, moveStage, pauseTimer } from "./sessionTimer.ts";
+import { activeElapsed, hasIncompleteTiming, moveStage, pauseTimer } from "./sessionTimer.ts";
 import { sessionChecklist, type Activity } from "./sessionScope.ts";
 import { useEffect, useRef, useState } from "react";
 
@@ -36,6 +36,7 @@ export type SessionState = {
   elapsedBefore: number;
   /** Total active time before the current resume, across all stages. */
   activeBefore?: number;
+  timingIncomplete?: true;
   /** Epoch ms of the last resume, or null while paused. */
   resumedAt: number | null;
   startBpm: number;
@@ -316,7 +317,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
         </div>
         <StageBar stages={stages} current={at} progress={elapsed / total} />
         <p className="srcnote session-time">Stage {at + 1} of {stages.length} · Stage elapsed {fmt(elapsed)} · Active practice {fmt(activeElapsed(state, now))}</p>
-        {state.activeBefore === undefined && state.stage > 0 && <p className="srcnote">Earlier stage times were not recorded in this older session. Active time includes only recovered timing.</p>}
+        {hasIncompleteTiming(state) && <p className="srcnote">Earlier stage times were not recorded in this older session. Active time includes only recovered timing.</p>}
         <div className="stagerow">
           <div className="stagetext">
             <h1><span className="stagecount num">{at + 1}/{stages.length}</span> {stage.title}</h1>

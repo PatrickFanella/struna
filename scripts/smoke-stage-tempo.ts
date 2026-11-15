@@ -94,13 +94,31 @@ try {
     await checklist.getByRole("checkbox", { name: "Technique", exact: true }).check();
     await page.reload();
     assert.equal(await page.getByRole("checkbox", { name: "Technique", exact: true }).isChecked(), true);
-    await page.getByRole("button", { name: /Finish/ }).click();
+    const beforeReview = await page.evaluate(() => sessionStorage.getItem("struna.session"));
+    await page.getByRole("button", { name: /Finish/ }).press("Enter");
     assert.match(await page.locator(".greview").innerText(), /Technique — attempted/);
     assert.equal(await page.getByLabel("Minutes played", { exact: true }).inputValue(), "1");
     assert.doesNotMatch(await page.locator(".greview").innerText(), /Tune practice/);
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}.png`), fullPage: true });
     await page.getByRole("button", { name: "Write the log", exact: true }).click();
     await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
+    if (width === 390 && theme === "light") {
+      await page.evaluate((raw) => {
+        const s = JSON.parse(raw!);
+        delete s.activeBefore; delete s.timingIncomplete; delete s.reviewing;
+        s.stage = 1; s.elapsedBefore = 20_000; s.resumedAt = null;
+        sessionStorage.setItem("struna.session", JSON.stringify(s));
+      }, beforeReview);
+      await page.reload();
+      await page.getByText(/Earlier stage times were not recorded/).waitFor();
+      await page.getByRole("button", { name: "Resume the stage timer", exact: true }).click();
+      await page.getByRole("button", { name: "Pause the stage timer", exact: true }).click();
+      await page.reload();
+      await page.getByText(/Earlier stage times were not recorded/).waitFor();
+      await page.getByRole("button", { name: /Next stage/ }).click();
+      await page.getByRole("button", { name: /Finish/ }).press("Enter");
+      await page.getByRole("status").filter({ hasText: "Minutes played includes only recovered timing" }).waitFor();
+    }
     await context.close();
   }
   for (const name of await readdir(join(home, "logs"))) {
