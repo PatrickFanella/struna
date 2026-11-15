@@ -52,7 +52,15 @@ try {
  const open=async()=>{await page.getByRole("button",{name:"Coach",exact:true}).click();await chat().locator(".coach-context").filter({hasText:"Private context plan"}).waitFor();};
  const send=async(text:string)=>{await chat().getByRole("textbox",{name:"Message",exact:true}).fill(text);await chat().getByRole("button",{name:"Send",exact:true}).click();await chat().getByRole("button",{name:"Stop",exact:true}).waitFor();};
  const before=stub.requests.length;
- await open();
+ let failContext=true;
+ await page.route("**/api/chat/context",async route=>{if(failContext){failContext=false;await route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({error:"Context preview unavailable. Retry."})});}else await route.fallback();});
+ await page.getByRole("button",{name:"Coach",exact:true}).click();
+ await chat().getByText("Context preview unavailable. Retry.",{exact:true}).waitFor();
+ await chat().getByRole("textbox",{name:"Message",exact:true}).fill("Keep while context retries");
+ assert.equal(await chat().getByRole("button",{name:"Send",exact:true}).isDisabled(),true);
+ await chat().getByRole("button",{name:"Retry practice context",exact:true}).click();
+ await chat().locator(".coach-context").filter({hasText:"Private context plan"}).waitFor();
+ assert.equal(await chat().getByRole("textbox",{name:"Message",exact:true}).inputValue(),"Keep while context retries");
  assert.ok((await chat().locator(".coach-context").innerText()).includes("From: Today"));
  assert.ok(await chat().locator(".promptchips button:not(.morechip)").count()<=2);
  await chat().getByRole("button",{name:"More",exact:true}).click();

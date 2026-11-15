@@ -19,3 +19,19 @@ The account context HTTP test exercises preview and delayed Responses requests f
 The built-browser matrix covers all six roadmap viewports and native Chromium 200% zoom, each in light/dark/Device-light/Device-dark. It checks a custom Draft without provider traffic, close/reopen, deliberate Today Send, a confirmed playing tempo, a delayed playing reply through pin/unpin (desktop), stage change and Materials navigation, review reflection, provider failure/draft recovery, composer geometry and account invalidation during a pending reply. No duplicate model request is allowed. Screenshots and JSON receipts are retained in the named scratch directory and CI artifacts. The connection regression now asserts the question plus the displayed Today context in the provider input.
 
 This issue carries metadata and player reports, not audio/media interpretation. Hosted plan preview/Apply is still #108. Real provider permission/cost review and a deliberate real-provider turn, public account enablement, production OIDC and #110 Safari/device/guitar/microphone/audio/assistive-speech qualification remain separate.
+
+## Combined local build and delivery
+
+Export #102 is merged through PR #138 at main `32cff38d913401e1f80e85cfe8ef424eed30f985`; the owner explicitly approved its inventory and secret exclusions before merge. Its head `b04d85be3e46c247a7efc28ca2dd4acbfd69ba45` passed CI and GitGuardian. The context branch includes that merged work.
+
+The combined branch passes typecheck, all 364 tests and production build. Its export UI matrix passes six cases, hosted browser isolation passes, and the contextual Coach integration passes focused 390/light, 844/dark and 1440/dark flows. The local reading matrix passed all 32 cases before integration; exact combined full matrices also run in hosted CI. The full context run was begun before the export merge, so the focused integration rerun and exact-head CI provide the combined-build evidence. All 28 local context cases passed. Durable flow/geometry receipts are in [wave-6-context-receipts.json](wave-6-context-receipts.json). The separate three-case focused rerun also passed and covers preview failure, disabled Send, Retry practice context and retained draft.
+
+The CI timeout is now 20 minutes: the export baseline run took about ten minutes, and the added full delayed-context matrix needs additional time. No checks were removed or weakened.
+
+Build hashes for the combined application:
+
+| File | SHA-256 |
+| --- | --- |
+| dist/index.html | cc359d4abe816d4dd2cd00af54edcada7e1d572e91a614d637371ad791527fca |
+| dist/assets/index-k6LoIs13.js | edf181d077b805eff536fe09f7aafc14deb481e23b1821e2384e08d5eac22782 |
+| dist/assets/index-BNrrXA4O.css | 201b86ea5dea886b794b6eb59ba0ce09ad5efbb4bcb32bc3e1eafaf7a5219d25 |
