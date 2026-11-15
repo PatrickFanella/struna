@@ -1,3 +1,4 @@
+import { materialsRoutes } from "../generic/materials.ts";
 import { chmodSync, lstatSync, mkdirSync, readdirSync, realpathSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join, resolve, sep } from "node:path";
@@ -8,7 +9,7 @@ import { ensureStudio, type Studio } from "../generic/studio.ts";
 import { planCandidates } from "../generic/planCandidates.ts";
 import type { AppInfo } from "../generic/types.ts";
 
-export type PracticeIdentity = { account: string; session: string; csrf: string };
+export type PracticeIdentity = { account: string; session: string; csrf: string; assertActive?: () => void };
 
 /** Only server-verified opaque ids reach this resolver. No owner defaults or cached handles. */
 export function hostedPractice(root: string, excluded: string[], timeZone: string) {
@@ -57,10 +58,21 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     try { return await fn({ home, db, timeZone, libraryDirs: [], web: false, appName: "Struna" }); }
     finally { db.close(); }
   }
-  const info = (identity: PracticeIdentity): Promise<AppInfo> => withStudio(identity, async (s) => ({ ...await genericAppInfo(s, {}), mode: "hosted", sections: ["practice"], account: identity.account, session: identity.session, csrf: identity.csrf }));
+  const info = (identity: PracticeIdentity): Promise<AppInfo> => withStudio(identity, async (s) => ({ ...await genericAppInfo(s, {}), mode: "hosted", sections: ["practice", "materials"], account: identity.account, session: identity.session, csrf: identity.csrf }));
   return {
     info,
     async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
+      const privateRouter = createRouter();
+      // Registrations close over this request’s verified workspace, never a global owner.
+      if (url.pathname.startsWith("/api/materials")) {
+        return await withStudio(identity, async (s) => {
+          materialsRoutes(s, { cacheDir: join(root, "accounts", identity.account, "cache"), assertActive: identity.assertActive }, privateRouter.route);
+          const found = privateRouter.match(req.method === "HEAD" ? "GET" : req.method ?? "GET", url.pathname);
+          if (!found) return false;
+          await found.handler(req, res, { url, params: found.params });
+          return true;
+        });
+      }
       const found = router.match(req.method === "HEAD" ? "GET" : req.method ?? "GET", url.pathname);
       if (!found) return false;
       if (url.pathname === "/api/app") { send(res, 200, await info(identity)); return true; }

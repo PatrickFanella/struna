@@ -33,7 +33,7 @@ export function parseRange(header: string | undefined, size: number): { start: n
 /** Stream a file with HTTP range support, as iOS Safari requires for video. */
 export async function sendFile(req: IncomingMessage, res: ServerResponse, path: string, type = contentType(path)): Promise<void> {
   const { size } = await stat(path);
-  const headers = { "content-type": type, "accept-ranges": "bytes", "cache-control": "private, max-age=3600", "x-robots-tag": NOINDEX };
+  const headers = { "content-type": type, "accept-ranges": "bytes", "cache-control": res.getHeader("cache-control") === "no-store" ? "no-store" : "private, max-age=3600", "x-robots-tag": NOINDEX };
   const range = parseRange(req.headers.range, size);
   if (range === "unsatisfiable") {
     res.writeHead(416, { ...headers, "content-range": `bytes */${size}` });

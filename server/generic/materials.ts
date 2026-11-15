@@ -520,7 +520,7 @@ export async function pendingSaves(s: Pick<Studio, "home">): Promise<number> {
   return new Set(links.raw.filter((e): e is Entry => isEntry(e) && e.save === true && !e.file && !e.saveError).map((e) => e.url)).size;
 }
 
-export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefined; save?: Saver } = {}): void {
+export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefined; save?: Saver; assertActive?: (() => void) | undefined } = {}, register = route): void {
   const save = extra.save ?? defaultSaver;
   const dir = materialsDir(s);
   const found = async (id: string): Promise<Listed> => {
@@ -537,16 +537,16 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
     return item;
   };
 
-  route("GET", "/api/materials", async (_req, res, { url }) => {
+  register("GET", "/api/materials", async (_req, res, { url }) => {
     const limit = Math.min(LIBRARY_CAP * 2, Math.max(1, Number(url.searchParams.get("limit")) || 500));
     send(res, 200, await listMaterials(s, { q: (url.searchParams.get("q") ?? "").slice(0, 200), kind: url.searchParams.get("kind") ?? "", limit }));
   });
 
-  route("GET", "/api/materials/item", async (_req, res, { url }) => {
+  register("GET", "/api/materials/item", async (_req, res, { url }) => {
     send(res, 200, await found(url.searchParams.get("id") ?? ""));
   });
 
-  route("GET", "/api/materials/file", async (req: IncomingMessage, res: ServerResponse, { url }) => {
+  register("GET", "/api/materials/file", async (req: IncomingMessage, res: ServerResponse, { url }) => {
     const at = await locate(s, url.searchParams.get("id") ?? "");
     const ext = extOf(at.path);
     let path = at.path;
@@ -568,7 +568,7 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
     await sendFile(req, res, path, type);
   });
 
-  route("POST", "/api/materials/upload", async (req, res, { url }) => {
+  register("POST", "/api/materials/upload", async (req, res, { url }) => {
     let name: { stem: string; ext: string };
     try {
       name = safeName(url.searchParams.get("name") ?? "");
@@ -584,12 +584,13 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
       await unlink(tmp).catch(() => {});
       throw e;
     }
+    try { extra.assertActive?.(); } catch (e) { await unlink(tmp).catch(() => {}); throw e; }
     const placed = await placeFile(tmp, dir, name.stem, name.ext).catch(refuse);
     const st = await stat(join(dir, placed));
     send(res, 201, fileItem({ rel: placed, size: st.size, mtimeMs: st.mtimeMs }, false));
   });
 
-  route("POST", "/api/materials/text", async (req, res) => {
+  register("POST", "/api/materials/text", async (req, res) => {
     const body = await readJson(req);
     const text = typeof body.text === "string" ? body.text : "";
     if (!text.trim()) throw new HttpError(400, "there is no text to save");
@@ -602,7 +603,7 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
     send(res, 201, fileItem({ rel: placed, size: st.size, mtimeMs: st.mtimeMs }, false));
   });
 
-  route("POST", "/api/materials/link", async (req, res) => {
+  register("POST", "/api/materials/link", async (req, res) => {
     const body = await readJson(req);
     const raw = str(body.url, 2000);
     let href: string;
@@ -646,7 +647,7 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
     send(res, isNew ? 201 : 200, item);
   });
 
-  route("POST", "/api/materials/:id/save", async (_req, res, { params }) => {
+  register("POST", "/api/materials/:id/save", async (_req, res, { params }) => {
     const item = await found(params.id!);
     if (!item.url) throw new HttpError(400, "only a link can be saved as a copy");
     if (item.source !== "link") return send(res, 200, item); // Already saved.
@@ -658,7 +659,7 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
     send(res, 200, await saveLink(item.url));
   });
 
-  route("DELETE", "/api/materials/:id", async (_req, res, { params }) => {
+  register("DELETE", "/api/materials/:id", async (_req, res, { params }) => {
     const id = params.id!;
     if (/^d\d+\./.test(id)) throw new HttpError(400, "files in a library folder cannot be deleted from here");
     const item = await found(id);
