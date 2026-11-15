@@ -12,7 +12,7 @@ type Loaded = { text: string; markdown: boolean; cut: boolean };
  * A text or Markdown material: lesson sheets the coach writes, pasted lyrics, chord charts and
  * text tab. Fenced blocks and plain text keep a fixed-width face so tab lines up.
  */
-export function TextView({ src, label }: { src: string; label: string }) {
+export function TextView({ src, label, hideLabel = false }: { src: string; label: string; hideLabel?: boolean }) {
   const [doc, setDoc] = useState<Loaded | null>(null);
   const [error, setError] = useState("");
 
@@ -47,7 +47,7 @@ export function TextView({ src, label }: { src: string; label: string }) {
               ...nestedHeadings,
             }}
           >
-            {doc.text}
+            {hideLabel ? doc.text.replace(/^# ([^\n]+)\n/, (heading, title: string) => title.trim().toLocaleLowerCase() === label.trim().toLocaleLowerCase() ? "" : heading) : doc.text}
           </Markdown>
         </div>
       ) : (

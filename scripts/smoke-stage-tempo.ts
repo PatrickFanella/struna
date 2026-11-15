@@ -135,6 +135,7 @@ try {
     await page.getByRole("button", { name: /Log clean pass/ }).click();
     await page.getByLabel("Measure material", { exact: true }).selectOption(checkpoint.materialKey);
     assert.equal(await page.getByRole("img", { name: "1 of 3 clean passes", exact: true }).count(), 1);
+    if (!await page.getByRole("button", { name: "Record take", exact: true }).isVisible()) await page.getByRole("button", { name: "Tools", exact: true }).click();
     await page.getByRole("button", { name: "Record take", exact: true }).click();
     await page.getByRole("button", { name: /Stop take/ }).waitFor();
     const beforeExpand = await page.evaluate(() => sessionStorage.getItem("struna.session"));

@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { chromium } from "playwright-core";
+import { chromium, type BrowserContext } from "playwright-core";
 import { normalizeProfile, validatePlan } from "../server/generic/studio.ts";
 import { starterPlan } from "../server/generic/starter.ts";
 
@@ -57,9 +57,22 @@ try {
     await new Promise((r) => setTimeout(r, 100));
   }
   const token = readFileSync(join(scratch, "state/access-token"), "utf8").trim();
-  browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium" });
-  for (const [width, height] of [[390, 844], [320, 700], [844, 390]]) for (const theme of ["light", "dark", "device"]) {
-    const context = await browser.newContext({ viewport: { width: width!, height: height! }, colorScheme: theme === "dark" ? "dark" : "light", extraHTTPHeaders: { "x-struna-token": token } });
+  browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : chromium.executablePath()) });
+  for (const [width, height] of [[390, 844], [320, 700], [844, 390], [820, 1180], [1003, 814], [1153, 814], [1440, 900], [576, 407]]) for (const theme of ["light", "dark", "device"]) {
+    const options = { viewport: { width: width === 576 ? 1153 : width!, height: width === 576 ? 814 : height! }, colorScheme: theme === "dark" ? "dark" as const : "light" as const, extraHTTPHeaders: { "x-struna-token": token } };
+    const context: BrowserContext = width === 576
+      ? await chromium.launchPersistentContext(join(scratch, `zoom-${theme}`), { ...options, executablePath: process.env.CHROMIUM ?? (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : chromium.executablePath()) })
+      : await browser.newContext(options);
+    if (width === 576) {
+      const settings = await context.newPage(); await settings.goto("chrome://settings/appearance");
+      await settings.evaluate(async () => {
+        const c = (globalThis as unknown as { chrome: { settingsPrivate: { setDefaultZoom: (factor: number) => Promise<void> } } }).chrome;
+        await c.settingsPrivate.setDefaultZoom(2);
+      });
+      await settings.close();
+    }
+    // A ready offline stand-in exposes the composer for pin/draft continuity. Nothing is sent.
+    await context.route("**/api/providers", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ last: "scratch", list: [{ id: "scratch", label: "Offline fixture", ok: true, detail: "Scratch only" }] }) }));
     const page = await context.newPage();
     await page.addInitScript((theme) => { if (theme !== "device") localStorage.setItem("struna.theme", theme); }, theme);
     await page.goto(base);
@@ -71,16 +84,19 @@ try {
       return { tab: rect(".pane-file pre"), reader: rect(".pane-file .panescroll"), click: rect(".tempocol"), clean: rect(".passes"), miss: rect(".miss"), next: rect(".nextb"), nav: rect(".tabs"), overflow: document.documentElement.scrollWidth > innerWidth };
     });
     await page.screenshot({ path: join(evidence, `${width}-${theme}.png`) });
-    console.log(JSON.stringify({ width, theme, geometry }));
+    console.log(`Reading case ${width} ${theme}`);
+    if (width === 576) assert.equal(await page.evaluate(() => devicePixelRatio), 2, "native desktop zoom is 200%");
     assert.equal(geometry.overflow, false);
     for (const name of ["click", "clean", "miss", "next"] as const) {
       assert(geometry[name].height >= 48 && geometry[name].width >= 48, `${name} has a 48px target`);
     }
-    if (width === 390) {
+    if ([390, 820, 1003, 1153, 1440].includes(width!)) {
       assert(geometry.tab.top >= geometry.reader.top && geometry.tab.bottom <= geometry.reader.bottom, "complete six-string block fits in the reader");
-      assert(geometry.clean.bottom <= geometry.nav.top && geometry.click.bottom <= geometry.nav.top, "music and playing controls share the initial viewport");
+      const boundary = geometry.nav.height ? geometry.nav.top : height!;
+      assert(geometry.clean.bottom <= boundary && geometry.click.bottom <= boundary, "music and playing controls share the initial viewport");
       assert(geometry.nav.bottom <= height! + 1, "navigation fits in the viewport");
     }
+    assert.equal(await page.locator(".pane-coach").count(), 0, "Coach never opens automatically");
     const reader = page.locator(".pane-file .panescroll");
     await reader.evaluate((el) => { el.scrollTop = 60; el.dataset.continuity = "kept"; });
     const before = await page.evaluate(() => sessionStorage.getItem("struna.session"));
@@ -93,6 +109,18 @@ try {
     await page.getByRole("button", { name: "Done", exact: true }).click();
     assert.equal(await reader.getAttribute("data-continuity"), "kept");
     assert.equal(await reader.evaluate((el) => el.scrollTop), 60);
+    if (width! >= 1000) {
+      await page.locator(".top").getByRole("button", { name: "Coach", exact: true }).click();
+      const coach = page.getByRole("dialog", { name: "Coach", exact: true });
+      await coach.getByRole("textbox", { name: "Message", exact: true }).fill("Keep this reading draft");
+      await coach.getByRole("button", { name: "Pin beside music", exact: true }).click();
+      await page.getByRole("button", { name: "Unpin Coach", exact: true }).click();
+      await page.locator(".top").getByRole("button", { name: "Coach", exact: true }).click();
+      assert.equal(await coach.getByRole("textbox", { name: "Message", exact: true }).inputValue(), "Keep this reading draft");
+      await coach.getByRole("button", { name: "Done", exact: true }).click();
+      assert.equal(await reader.getAttribute("data-continuity"), "kept");
+      assert.equal(await reader.evaluate((el) => el.scrollTop), 60);
+    }
     await page.setViewportSize({ width: height!, height: width! });
     await page.setViewportSize({ width: width!, height: height! });
     assert.equal(await reader.getAttribute("data-continuity"), "kept");
