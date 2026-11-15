@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { MaterialItem, MaterialRef } from "../generic.ts";
-import { externalLabel, materialName, materialProvider, fillInput, kindOfName, materialPane, materialPaneItem, nameList, pastedText, refPaneItem, uploadProblem, webUrl, youtubeEmbed, youtubeId } from "./item.ts";
+import { externalLabel, materialContext, materialName, materialProvider, fillInput, kindOfName, materialPane, materialPaneItem, nameList, pastedText, refPaneItem, uploadProblem, webUrl, youtubeEmbed, youtubeId } from "./item.ts";
 
 const item = (over: Partial<MaterialItem>): MaterialItem => ({ id: "a", title: "Blues in A", kind: "pdf", source: "studio", path: "materials/Blues in A.pdf", src: "/api/materials/file?id=a", url: null, youtube: null, note: "", size: 10, added: "2026-11-14T00:00:00Z", inPlan: false, ...over });
 
@@ -78,5 +78,7 @@ test("pasted text keeps its spacing unless it is Markdown", () => {
   assert.equal(i.title, "Publisher lesson 27: Black Mountain Rag");
   assert.equal(materialName(item({ shortTitle: " " })), "Blues in A");
   assert.equal(materialProvider(item({ provider: "", url: "https://www.example.org/lesson" })), "example.org");
+  assert.equal(materialContext(i), "PDF · Independent Teacher");
+  assert.equal(materialContext(item({ kind: "tab", source: "folder", provider: "", url: null })), "Tab · Library folder");
   assert.equal(externalLabel("https://example.org/lesson", "Independent Teacher"), "Open lesson on Independent Teacher (new tab)");
 });

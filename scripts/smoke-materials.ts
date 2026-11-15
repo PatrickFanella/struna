@@ -1,5 +1,5 @@
 /** Materials issue smoke. Fresh, retained scratch home/state/cache; no live providers or external requests.
- * pnpm build && node scripts/smoke-materials.ts <artifact-directory> [13|14|22]
+ * pnpm build && node scripts/smoke-materials.ts <artifact-directory> [13|14|22|66]
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -77,7 +77,8 @@ try {
       const row = page.locator(".matitem").filter({ hasText: "Black Mountain Rag" });
       await row.waitFor();
       assert.equal(await row.locator(".itemtitle").textContent(), "Black Mountain Rag");
-      assert.match(await row.textContent() ?? "", /Flatpicking Guitar Magazine.*Intermediate.*In your plan/s);
+      assert.equal(await row.locator(".itemfacts").textContent(), "Link · Flatpicking Guitar Magazine");
+      assert.doesNotMatch(await row.textContent() ?? "", /November lesson|Work through the melody|Intermediate|In your plan/);
       assert.equal(await page.locator(".itemtitle").filter({ hasText: "Legacy lesson" }).count(), 1);
       const prefix = `${width}x${height}-${theme}`;
       if (issue === 21) {
@@ -100,6 +101,12 @@ try {
       await screenshot(page, `${prefix}-list`);
       await row.locator(".itemopen").click();
       await page.getByRole("heading", { name: "Black Mountain Rag", exact: true }).waitFor();
+      assert.equal(await page.getByRole("heading", { name: "Black Mountain Rag", exact: true }).count(), 1);
+      const details = page.locator(".material-details");
+      await details.getByText("Details", { exact: true }).click();
+      await details.getByText("Flatpicking Guitar Magazine — November lesson: Black Mountain Rag", { exact: true }).waitFor();
+      await details.getByText(/Work through the melody slowly/).waitFor();
+      await details.getByText("Intermediate", { exact: true }).waitFor();
       const link = page.getByRole("link", { name: "Open lesson on Flatpicking Guitar Magazine (new tab)", exact: true });
       assert.equal(await link.getAttribute("href"), entries[0]!.url);
       assert.equal(await link.getAttribute("target"), "_blank");
@@ -112,7 +119,7 @@ try {
       await screenshot(page, `${prefix}-text-200`);
       assert.deepEqual(errors, []);
       if (issue >= 14) results.push(`${prefix}: item reload/paste, text/link routes, list search/kind/scroll, back/forward, missing/malformed recovery`);
-      results.push(`${prefix}: source identity, short title, legacy fallback, destination/new tab, no overflow/errors, 200% text`);
+      results.push(`${prefix}: compact row, source disclosure, one detail title, legacy fallback, destination/new tab, no overflow/errors, 200% text`);
       console.log(`${prefix}: passed`);
       await context.close();
     }
