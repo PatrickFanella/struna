@@ -22,6 +22,7 @@ import { recordPass, emptyPasses, type Checkpoint, type PassState } from "./chec
 import { SessionDialog, ConfirmDiscard } from "./ConfirmDiscard.tsx";
 import { stopTimer } from "./sessionTimer.ts";
 import { StageMaterialLink } from "./StageMaterialLink.tsx";
+import { setStageSuggestion } from "../tools/stageSuggestion.ts";
 import { TempoRow } from "./TempoRow.tsx";
 
 export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
@@ -191,6 +192,15 @@ export function Session({ today, state, setState, items, material, onFinish, onD
     else void api.get<TempoRecord[]>("/api/tempos").catch(() => []).then(enter);
     return () => { active = false; unsubscribe?.(); };
   }, [tempoKey]); // Per-stage entry; changes to the click are captured as a player override.
+  const restoreTempo = () => {
+    if (!stageTempo) return;
+    metronome.set({ bpm: stageTempo.bpm });
+    setState((s) => ({ ...s, stageTempos: { ...s.stageTempos, [tempoKey]: { bpm: stageTempo.bpm, source: stageTempo.source } } }));
+  };
+  useEffect(() => {
+    setStageSuggestion(stageTempo ? { bpm: stageTempo.bpm, source: stageTempo.source, use: restoreTempo } : null);
+    return () => setStageSuggestion(null);
+  }, [tempoKey, stageTempo?.bpm, stageTempo?.source]);
   const total = stage.minutes * 60_000;
   const [now, setNow] = useState(Date.now());
   const elapsed = state.elapsedBefore + (state.resumedAt ? now - state.resumedAt : 0);
@@ -383,10 +393,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
               </label>)}
             </fieldset>}
             {stage.material && <StageMaterialLink material={stage.material} />}
-            {stageTempo && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={() => {
-              metronome.set({ bpm: stageTempo.bpm });
-              setState((s) => ({ ...s, stageTempos: { ...s.stageTempos, [tempoKey]: { bpm: stageTempo.bpm, source: stageTempo.source } } }));
-            }}>Use suggestion</button></p>}
+            {stageTempo && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={restoreTempo}>Use stage tempo</button></p>}
             {!generic && (
             <p className="coachline" aria-live="polite">
               <span className="coachtag">Coach</span>
