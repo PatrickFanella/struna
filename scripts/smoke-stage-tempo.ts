@@ -77,6 +77,13 @@ try {
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
     await page.getByRole("button", { name: "Use suggestion", exact: true }).click();
     await page.waitForFunction(() => !document.querySelector(".stage-tempo")?.textContent?.includes("Your tempo"));
+    assert.equal(await page.locator(".nextb.primary").count(), 0);
+    await page.getByRole("button", { name: "Start the stage timer", exact: true }).focus();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Shift+Tab");
+    const focus = await page.locator(".clock").evaluate((el) => getComputedStyle(el).outlineStyle);
+    assert.notEqual(focus, "none", "clock has visible keyboard focus");
+    await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-session.png`), fullPage: true });
     await page.getByRole("button", { name: "Add pane", exact: true }).click();
     await page.getByRole("menuitem", { name: /Workspace addition/ }).click();
     await page.clock.install();

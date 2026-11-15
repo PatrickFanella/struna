@@ -7,8 +7,8 @@ import { useApp } from "../mode.ts";
 import { addedMaterials, type FindTurn, type MaterialsSnapshot } from "../materials/find.ts";
 import { screenContext } from "../screen.ts";
 import { CoachProviders, PROVIDERS_CHANGED } from "./CoachProviders.tsx";
-import { fillPrompt, GROUPS, promptsFor, screenId, usePrompts } from "./prompts.ts";
-import { pickProvider, type ProviderId, type ProviderStatus, readiness } from "./providers.ts";
+import { fillPrompt, GROUPS, promptAction, promptPurpose, promptsFor, screenId, usePrompts } from "./prompts.ts";
+import { pickProvider, providerSummary, shortName, type ProviderId, type ProviderStatus, readiness } from "./providers.ts";
 import { GENERIC_REPLY_MARKDOWN, REPLY_MARKDOWN } from "./reply.ts";
 import { applyEvent, type Msg } from "./stream.ts";
 
@@ -277,11 +277,11 @@ function newConversation(provider = state.provider) {
   emit();
 }
 
-/** Send a picked prompt, or put it in the message box when the player has to finish it. */
+/** Draft plan/custom/incomplete requests; send advice only when the button says Send. */
 function usePrompt(p: Prompt): void {
   const filled = fillPrompt(p.text, screenContext.get());
-  if (!filled) return;
-  if (filled.input) fillCoach(filled.text);
+  if (!filled || state.busy || state.queue.length) return;
+  if (promptAction(p) === "Draft") fillCoach(filled.text);
   else void askCoach(filled.text, { open: true });
 }
 
@@ -289,7 +289,10 @@ function Chips({ prompts, more }: { prompts: Prompt[]; more?: (() => void) | und
   return (
     <div className="chips promptchips">
       {prompts.map((p) => (
-        <button key={p.id} type="button" onClick={() => usePrompt(p)}>{p.label}</button>
+        <button key={p.id} type="button" aria-disabled={Boolean(state.busy) || state.queue.length > 0} onClick={() => usePrompt(p)}>
+          <small>{promptAction(p)} · {promptPurpose(p)}</small>
+          <span>{p.label}</span>
+        </button>
       ))}
       {more && <button type="button" className="morechip" onClick={more}>More</button>}
     </div>
@@ -297,8 +300,8 @@ function Chips({ prompts, more }: { prompts: Prompt[]; more?: (() => void) | und
 }
 
 /**
- * A row of the prompts that help on one screen, for that screen to show. Picking one sends it to
- * the coach and opens the panel. Renders nothing when the server offers no prompts (the personal mode).
+ * A row of the prompts that help on one screen, for that screen to show. Each button names whether it drafts or sends
+ * the request and opens the panel. Renders nothing when the server offers no prompts (the personal mode).
  */
 export function PromptChips({ screen, compact }: { screen: string; compact?: boolean }) {
   useChat();
@@ -332,7 +335,7 @@ function PromptSheet({ prompts, screen, sheetRef }: { prompts: Prompt[]; screen:
           </section>
         ) : null;
       })}
-      <p className="srcnote">A prompt ending in "…" goes to the message box for you to finish.</p>
+      <p className="srcnote">Draft fills the message box for you to review. Send submits the request immediately. Plan change requests are drafted; sending them can change the active plan directly, without an Apply preview.</p>
     </div>
   );
 }
@@ -404,7 +407,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
     const t = text.trim();
-    if (!t || state.busy) return;
+    if (!t || state.busy || state.queue.length) return;
     setText("");
     void askCoach(t);
   };
@@ -467,9 +470,9 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
                 setList(null);
                 setSettings(false);
               }}>
-                {current && !current.ok && <option value={current.id}>{current.label} (not ready)</option>}
-                {!current && state.conversation && <option value={state.provider}>{nameOf(state.provider, status)} (turned off)</option>}
-                {ready.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                {current && !current.ok && <option value={current.id}>{shortName(current.id, current.label)}</option>}
+                {!current && state.conversation && <option value={state.provider}>{shortName(state.provider)}</option>}
+                {ready.map((r) => <option key={r.id} value={r.id}>{shortName(r.id, r.label)}</option>)}
               </select>
             )
           ) : (
@@ -481,6 +484,13 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
           )}
           {onClose && <button className="sheetdone" onClick={onClose}>Done</button>}
         </div>
+        {generic && (
+          <div className="coachidentity" aria-live="polite">
+            <strong>{shortName(state.provider, current?.label)}</strong>
+            <span>{current ? providerSummary(current, status?.host).location : `Runs on ${status?.host ?? "the server"}`}</span>
+            <span>{current ? providerSummary(current, status?.host).status : status ? "Unavailable here" : "Checking readiness"}</span>
+          </div>
+        )}
         <div className="chatbar">
           <button className="linkbtn" onClick={() => (showSettings ? setSettings(false) : showMore ? setMore(false) : list ? setList(null) : void showList())} aria-expanded={Boolean(list)}>{list || showMore || showSettings ? "Back to the conversation" : "Conversations"}</button>
           {generic && !showSettings && <button className="linkbtn" onClick={() => {
@@ -534,7 +544,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
             {state.messages.length === 0 && (
               <div className="chatempty">
                 <p>{generic
-                  ? "Ask about today's session, a song, a chord, or what to practise next. The coach sees your plan, the stage you are on and the tempo, and can change the plan for you."
+                  ? "Ask about today's session, a song, a chord, or what to practise next. The coach sees your plan, the stage you are on and the tempo, and can change the active plan directly. There is no Apply preview yet."
                   : "Ask about today's session, a passage, or a block review. The coach sees the current block, stage and tempo."}</p>
                 {!coaches && st && !st.ok && <p className="notice">{NAMES[state.provider]} is not signed in on {status?.host ?? "Kvant"}: {st.detail}</p>}
                 {offered.length > 0 && !noCoach && <Chips prompts={offered.slice(0, 6)} more={() => setMore(true)} />}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { codeParts, countdown, pickProvider, type ProviderRow, type ProviderStatus, readiness, rows, unavailable } from "./providers.ts";
+import { codeParts, countdown, pickProvider, type ProviderRow, type ProviderStatus, providerSummary, readiness, rows, shortName, unavailable } from "./providers.ts";
 
 const status = (claude: boolean, codex: boolean, last: "claude" | "codex"): ProviderStatus => ({
   claude: { ok: claude, detail: claude ? "claude.ai max" : "spawn /nonexistent/claude ENOENT" },
@@ -63,4 +63,16 @@ test("the sign-in countdown and the notes' code", () => {
   assert.equal(countdown("2026-11-14T20:00:09Z", now), "0:09");
   assert.equal(countdown("2026-11-14T19:59:00Z", now), "0:00");
   assert.deepEqual(codeParts("Run `claude auth login` on h."), ["Run ", "claude auth login", " on h."]);
+});
+
+test("short provider names stay distinct while location and readiness are separate", () => {
+  const ids = ["claude", "codex", "chatgpt", "anthropic", "openai", "bedrock", "endpoint"];
+  const names = ids.map((id) => shortName(id));
+  assert.equal(new Set(names).size, ids.length);
+  assert.ok(names.every((n) => n.length <= 15));
+  assert.deepEqual(providerSummary({ ...row("claude", true), setup: "host" }, "scratch-host"), { location: "Host login on scratch-host", status: "Ready" });
+  assert.deepEqual(providerSummary({ ...row("openai", false), setup: "key" }, "scratch-host"), { location: "API via scratch-host", status: "Not ready: No key saved" });
+  assert.equal(providerSummary({ ...row("chatgpt", true), setup: "device" }).location, "App sign-in on the server");
+  assert.equal(providerSummary({ ...row("endpoint", true), setup: "endpoint" }).location, "Endpoint via the server");
+  assert.equal(shortName("new", "Future provider"), "Future provider");
 });

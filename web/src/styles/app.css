@@ -534,6 +534,26 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .draftrow .srcnote{margin:0;flex:1;min-width:220px}
 @media (max-width:719px){.coachline{font-size:13px}.session .backb{order:3}}
 
+/* The stage and timer lead; metadata and progression stay secondary. */
+.sessiontop > .stagerow { order: -2; }
+.sessiontop > .sessionline { order: 2; }
+.sessiontop > .session-time { margin: 0; }
+.session .stagetext h1 { font-size: 26px; }
+.session button.clock, .session button.clock.waiting {
+  background: var(--ink); color: var(--on-ink); border: 1px solid var(--ink);
+  border-radius: var(--r); padding: 10px 14px; align-items: flex-start;
+}
+.session button.clock .t, .session button.clock.waiting .t,
+.session button.clock .s, .session button.clock.waiting .s { color: inherit; }
+.session button.clock .s { text-decoration: none; font-weight: 400; }
+.clock-action { font-weight: 700; font-size: 16px; }
+.session .nextb { background: var(--panel); color: var(--ink); border: 1px solid var(--edge); }
+@media (max-width:719px) {
+  .session .stagetext h1 { font-size: 22px; }
+  .session button.clock { flex-wrap: wrap; max-width: 100%; gap: 6px 10px; }
+  .session button.clock .s { flex-basis: 100%; }
+  .session .nextb { min-height: 48px; height: auto; }
+}
 /* Tool names stay visible on narrow screens, including desktop zoom. */
 @media (max-width:600px){
   .top .wrap{flex-wrap:wrap}

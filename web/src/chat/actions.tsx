@@ -156,7 +156,7 @@ export function CoachSettings() {
           </li>
         ))}
       </ul>
-      <p className="srcnote">Auto sends the request to the coach straight away. Ask first shows a button, and nothing is sent until you tap it.</p>
+      <p className="srcnote">Auto sends the request immediately and can change the active plan, materials, notes and profile. Ask first waits for you to tap its button, then sends; it does not preview file changes. Off sends nothing. There is no Apply preview yet.</p>
 
       <p className="grp">Your prompts</p>
       {custom.length === 0 && !draft && <p className="srcnote">Save a request you make often, and it joins the prompts in the coach panel.</p>}
