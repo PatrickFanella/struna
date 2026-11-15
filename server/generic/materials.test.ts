@@ -381,3 +381,32 @@ test("a link being downloaded is listed as saving", async () => {
   assert.equal(after.saving, undefined);
   assert.equal(after.source, "studio");
 });
+
+ test("short names use URL/file plan identity, retain metadata and never rewrite the library", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "struna-names-"));
+  try {
+    await mkdir(join(dir, "materials"));
+    await mkdir(join(dir, "plan"));
+    await writeFile(join(dir, "materials/copy.md"), "# Copy");
+    const entries = [
+      { url: "https://teacher.example/rag", title: "Publisher: Rag lesson 27", shortTitle: "Black Mountain Rag", provider: "Another teacher", level: "Intermediate", file: "materials/copy.md" },
+      { url: "https://teacher.example/waltz", title: "Publisher: Waltz lesson" },
+      { url: "https://teacher.example/old", title: "Old title", shortTitle: 123, provider: {}, level: null },
+    ];
+    const raw = JSON.stringify(entries);
+    await writeFile(join(dir, "materials/links.json"), raw);
+    await writeFile(join(dir, "plan/plan.json"), JSON.stringify({ materials: [{ label: "Waltz", url: entries[1]!.url }, { label: "Rag", file: "materials/copy.md" }] }));
+    const studio = { home: dir, libraryDirs: [] };
+    const items = (await listMaterials(studio)).items;
+    const rag = items.find(i => i.url === entries[0]!.url)!;
+    assert.equal(rag.shortTitle, "Black Mountain Rag");
+    assert.equal(rag.title, entries[0]!.title);
+    assert.equal(rag.provider, "Another teacher");
+    assert.equal(rag.level, "Intermediate");
+    assert.equal(rag.inPlan, true);
+    assert.equal(items.find(i => i.url === entries[1]!.url)!.shortTitle, "Waltz");
+    assert.equal(items.find(i => i.title === "Old title")!.shortTitle, undefined);
+    assert.equal((await listMaterials(studio, { q: "Black Mountain Another" })).items.length, 1);
+    assert.equal(await readFile(join(dir, "materials/links.json"), "utf8"), raw);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

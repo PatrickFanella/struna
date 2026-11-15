@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { MaterialItem, MaterialRef } from "../generic.ts";
-import { fillInput, kindOfName, materialPane, materialPaneItem, nameList, pastedText, refPaneItem, uploadProblem, webUrl, youtubeEmbed, youtubeId } from "./item.ts";
+import { externalLabel, materialName, materialProvider, fillInput, kindOfName, materialPane, materialPaneItem, nameList, pastedText, refPaneItem, uploadProblem, webUrl, youtubeEmbed, youtubeId } from "./item.ts";
 
 const item = (over: Partial<MaterialItem>): MaterialItem => ({ id: "a", title: "Blues in A", kind: "pdf", source: "studio", path: "materials/Blues in A.pdf", src: "/api/materials/file?id=a", url: null, youtube: null, note: "", size: 10, added: "2026-11-14T00:00:00Z", inPlan: false, ...over });
 
@@ -68,4 +68,15 @@ test("pasted text keeps its spacing unless it is Markdown", () => {
   assert.equal(pastedText("D  A  G\r\nI see the bad moon\n\n"), "```\nD  A  G\nI see the bad moon\n```");
   assert.equal(pastedText("# Song\n\nwords"), "# Song\n\nwords");
   assert.equal(pastedText("intro\n```\ne|--0--|\n```"), "intro\n```\ne|--0--|\n```");
+});
+
+ test("musical names keep source identity and older entries fall back", () => {
+  const i = item({ title: "Publisher lesson 27: Black Mountain Rag", shortTitle: " Black Mountain Rag ", provider: "Independent Teacher" });
+  assert.equal(materialName(i), "Black Mountain Rag");
+  assert.equal(materialPaneItem(i).label, "Black Mountain Rag");
+  assert.equal(materialPaneItem(i).key, "mat:a");
+  assert.equal(i.title, "Publisher lesson 27: Black Mountain Rag");
+  assert.equal(materialName(item({ shortTitle: " " })), "Blues in A");
+  assert.equal(materialProvider(item({ provider: "", url: "https://www.example.org/lesson" })), "example.org");
+  assert.equal(externalLabel("https://example.org/lesson", "Independent Teacher"), "Open lesson on Independent Teacher (new tab)");
 });
