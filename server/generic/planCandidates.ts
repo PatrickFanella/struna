@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { link, lstat, mkdir, readFile, realpath, rename, rm, unlink, writeFile } from "node:fs/promises";
+import { link, lstat, mkdir, open, readFile, realpath, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { HttpError, readJson, route, send } from "../http.ts";
 import { resolveInside } from "../files.ts";
@@ -66,6 +66,11 @@ export function planCandidates(s: Studio) {
   };
   const expire = () => s.db.prepare("UPDATE plan_proposals SET state='expired', candidate='', base=NULL WHERE state='pending' AND created<?").run(Date.now() - 86400000);
   const receipt = (p: Proposal) => ({ id: p.id, digest: p.digest, applied: true as const });
+  const syncDir = async (dir: string) => { const handle = await open(dir, "r"); try { await handle.sync(); } finally { await handle.close(); } };
+  const writePrepared = async (path: string, bytes: string) => {
+    const handle = await open(path, "wx", 0o600);
+    try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+  };
   const cleanup = async (id: string) => {
     await rm(join(s.home, "plan", `.candidate-${id}.json`), { force: true });
     await rm(join(s.home, "plan", `.archive-${id}.json`), { force: true });
@@ -158,12 +163,14 @@ export function planCandidates(s: Studio) {
         if (p.archive && await lstat(join(s.home, "plan/archive", p.archive)).then(() => true, () => false)) throw new HttpError(409, "The archive destination changed. Nothing was applied.");
         const next = join(s.home, "plan", `.candidate-${p.id}.json`);
         const archiveSource = join(s.home, "plan", `.archive-${p.id}.json`);
-        await writeFile(next, p.candidate, { flag: "wx", mode: 0o600 });
-        if (p.archive) await writeFile(archiveSource, p.base!, { flag: "wx", mode: 0o600 });
+        await writePrepared(next, p.candidate);
+        if (p.archive) await writePrepared(archiveSource, p.base!);
+        await syncDir(join(s.home, "plan"));
         s.db.prepare("UPDATE plan_proposals SET state='applying' WHERE id=?").run(p.id);
         try {
-          if (p.archive) await link(archiveSource, join(s.home, "plan/archive", p.archive));
+          if (p.archive) { await link(archiveSource, join(s.home, "plan/archive", p.archive)); await syncDir(join(s.home, "plan/archive")); }
           await rename(next, active);
+          await syncDir(join(s.home, "plan"));
           s.db.prepare("UPDATE plan_proposals SET state='applied' WHERE id=?").run(p.id);
           await cleanup(p.id);
           return receipt(p);
