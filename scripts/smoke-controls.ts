@@ -8,6 +8,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createServer } from "node:net";
 import { chromium, type Page } from "playwright-core";
+import { nextStage } from "./practice-steps.ts";
 import { starterPlan } from "../server/generic/starter.ts";
 import { normalizeProfile } from "../server/generic/studio.ts";
 import { writeFakeBin } from "./fake-coach-cli.ts";
@@ -297,7 +298,7 @@ async function semantics(page: Page) {
   await state("Take saved").waitFor();
   check(await page.locator(".takesaved").count() === 1, "Scratch take save success remains visible");
   await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-${await page.locator("html").getAttribute("data-theme") ?? "Device"}-practice-status.png`), fullPage: true });
-  while (await page.getByRole("button", { name: /^Next stage/ }).count()) await page.getByRole("button", { name: /^Next stage/ }).press("Enter");
+  while (await page.getByRole("button", { name: /^Next stage/ }).count()) await nextStage(page);
   await page.getByRole("button", { name: /^Finish/ }).press("Enter");
   let refuseLog = true;
   await page.route("**/api/sessions", async (r) => {

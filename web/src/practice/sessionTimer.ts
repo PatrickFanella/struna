@@ -1,4 +1,6 @@
-export type SessionTimer = { stage: number; elapsedBefore: number; resumedAt: number | null; activeBefore?: number; furthest?: number; timingIncomplete?: true };
+export const STAGE_BREAK_MS = 20_000;
+export type StageBreak = { until: number; nextStage: number; running: boolean };
+export type SessionTimer = { stageBreak?: StageBreak; stage: number; elapsedBefore: number; resumedAt: number | null; activeBefore?: number; furthest?: number; timingIncomplete?: true };
 const sinceResume = (s: SessionTimer, now: number) => s.resumedAt === null ? 0 : Math.max(0, now - s.resumedAt);
 
 /** Legacy sessions can recover current-stage time, but never infer earlier active time from wall age. */
@@ -19,4 +21,18 @@ export function moveStage<T extends SessionTimer>(s: T, at: number, now: number)
 
 export function stopTimer<T extends SessionTimer>(s: T, now: number): T {
   return s.resumedAt === null ? s : pauseTimer(s, now);
+}
+
+/** Freeze practice time while resting; retain the next stage and prior timer state across reloads. */
+export function startStageBreak<T extends SessionTimer>(s: T, nextStage: number, now: number): T {
+  if (s.stageBreak) return s;
+  return { ...stopTimer(s, now), stageBreak: { until: now + STAGE_BREAK_MS, nextStage, running: s.resumedAt !== null } };
+}
+
+/** Resume from now, never from the deadline: time away/reloading cannot become played time. */
+export function finishStageBreak<T extends SessionTimer>(s: T, now: number): T {
+  if (!s.stageBreak) return s;
+  const next = { ...moveStage(s, s.stageBreak.nextStage, now), resumedAt: s.stageBreak.running ? now : null };
+  delete next.stageBreak;
+  return next;
 }

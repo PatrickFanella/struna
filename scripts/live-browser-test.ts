@@ -14,6 +14,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { chromium, type BrowserContext, type Page } from "playwright-core";
+import { nextStage } from "./practice-steps.ts";
 
 const out = resolve(process.argv[2] ?? "live-test");
 const withChat = process.argv.includes("--chat");
@@ -180,7 +181,7 @@ try {
   check("tapping the timer starts it", (await clock.locator(".t").textContent()) !== t0);
   await p.evaluate(() => localStorage.setItem("struna.guide", "off")); // one real coach note is enough for the test
   await p.getByRole("button", { name: "Turn off" }).click();
-  await p.getByRole("button", { name: /^Next stage/ }).click();
+  await nextStage(p);
   const title2 = await p.locator(".stagetext h1").textContent();
   await p.getByRole("button", { name: "Back", exact: true }).click();
   const title1 = await p.locator(".stagetext h1").textContent();
@@ -273,7 +274,7 @@ try {
   }
 
   // Leave without writing anything: finish, then discard.
-  for (let i = 0; i < 3; i++) await p.getByRole("button", { name: /^Next stage/ }).click();
+  for (let i = 0; i < 3; i++) await nextStage(p);
   await p.getByRole("button", { name: /^Finish/ }).click();
   await p.getByRole("heading", { name: "Session review" }).waitFor();
   if (withChat) {

@@ -616,3 +616,6 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .review-measurements legend { max-width:100%; font-weight:600; }
 .optional-notes { margin:16px 0; }
 .optional-notes summary { cursor:pointer; min-height:44px; padding:10px 0; }
+
+.break-clock { margin:16px 0; text-align:center; font-family:var(--display); font-size:56px; line-height:1.1; }
+.break-clock span { display:block; margin-top:6px; font-family:var(--sans); font-size:16px; color:var(--muted); }
