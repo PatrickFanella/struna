@@ -383,25 +383,18 @@ export function Session({ today, state, setState, items, material, onFinish, onD
       </SessionDialog>}
       {discarding && <ConfirmDiscard onCancel={() => setDiscarding(false)} onDiscard={onDiscard} />}
       <div className="sessiontop">
-        <div className="sessionline">
-          <span>{generic ? b.title : blockName(b)}</span>
-          {generic ? (
-            <>
-              <span>{state.cross ? "Extra session (not counted)" : (today.line ?? todayLine(today))}</span>
-              <span>{kind.label}</span>
-            </>
-          ) : (
-            <>
-              <span>{state.cross ? "Cross-training day (not counted)" : todayLine(today)}</span>
-              <span>{state.kind === "full" ? "45-minute session" : "15-minute session"}</span>
-            </>
-          )}
+        <div className="session-actions">
+          <details className="session-details">
+            <summary>Session outline and details</summary>
+            <p>{generic ? b.title : blockName(b)} — {state.cross ? "Extra session (not counted)" : (today.line ?? todayLine(today))} — {kind.label}</p>
+            <StageBar stages={stages} current={at} progress={elapsed / total} />
+            <ol>{stages.map((s, i) => <li key={s.key} aria-current={i === at ? "step" : undefined}>{s.title}: {s.minutes} min</li>)}</ol>
+            <p className="srcnote session-time">Stage elapsed {fmt(elapsed)} · Active practice {fmt(activeElapsed(state, now))}</p>
+            {hasIncompleteTiming(state) && <p className="srcnote">Earlier stage times were not recorded in this older session. Active time includes only recovered timing.</p>}
+          </details>
           <span className="addslot" ref={setAddSlot} />
+          <button className="linkbtn session-end" onClick={() => void requestEnd()}>End session</button>
         </div>
-        <button className="btn quiet" onClick={() => void requestEnd()}>End session</button>
-        <StageBar stages={stages} current={at} progress={elapsed / total} />
-        <p className="srcnote session-time">Stage {at + 1} of {stages.length} · Stage elapsed {fmt(elapsed)} · Active practice {fmt(activeElapsed(state, now))}</p>
-        {hasIncompleteTiming(state) && <p className="srcnote">Earlier stage times were not recorded in this older session. Active time includes only recovered timing.</p>}
         <div className="stagerow">
           <div className="stagetext">
             <h1><span className="stagecount num">{at + 1}/{stages.length}</span> {stage.title}</h1>
