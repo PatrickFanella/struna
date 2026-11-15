@@ -70,9 +70,15 @@ async function theme(page: Page) {
   await fits(page);
   await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-doubled.png`), fullPage: true });
 }
+/** Keep independent wave PRs testable before and after the landing selector merges. */
+async function startShort(page: Page) {
+  if (await page.getByRole("radio", { name: /Short session/ }).count()) {
+    await page.getByRole("radio", { name: /Short session/ }).click();
+    await page.getByRole("button", { name: /^Start \d+ min$/ }).click();
+  } else await page.getByRole("button", { name: /^Short session/ }).click();
+}
 async function panePicker(page: Page) {
-  await page.getByRole("radio", { name: /Short session/ }).click();
-  await page.getByRole("button", { name: /^Start \d+ min$/ }).click();
+  await startShort(page);
   const add = page.getByRole("button", { name: "Add pane", exact: true });
   const menu = page.getByRole("menu", { name: "Choose pane content" });
   for (const mode of ["light", "dark", "Device"]) {
@@ -196,7 +202,9 @@ async function coachModal(page: Page) {
   await cycle("settings");
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
   check(await header.evaluate((e) => e === document.activeElement), "Done from settings restores header");
-  const more = page.locator(".gstart .morechip");
+  await header.press("Enter");
+  await dialog.waitFor();
+  const more = dialog.getByRole("button", { name: "More", exact: true });
   await more.focus();
   await page.keyboard.press("Enter");
   await dialog.locator(".promptsheet").waitFor();
@@ -205,7 +213,7 @@ async function coachModal(page: Page) {
   await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-${await page.locator("html").getAttribute("data-theme") ?? "Device"}-coach-prompts.png`), fullPage: true });
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
-  check(await more.evaluate((e) => e === document.activeElement), "Escape restores exact More opener");
+  check(await header.evaluate((e) => e === document.activeElement), "Escape from the prompt list restores the header opener");
   // A delayed stand-in request must complete exactly once across dismissal.
   writeFileSync(join(dir, "fake/slow"), "600");
   await header.press("Enter");
@@ -220,30 +228,34 @@ async function coachModal(page: Page) {
   check(await dialog.locator(".msg.assistant").count() > 0 && await dialog.locator(".msg.error").count() === 0, "Running stand-in request completes after dismissal");
   check(turns === 1, "Dismissal does not duplicate request");
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
-  const prompt = page.locator(".gstart .promptchips button").first();
-  await prompt.press("Enter");
+  // A removed outside launcher falls back to the persistent header action.
+  await page.evaluate(() => {
+    const button = document.createElement("button");
+    button.id = "scratch-coach-launcher";
+    button.textContent = "Temporary Coach launcher";
+    button.onclick = () => dispatchEvent(new Event("struna:coach-open"));
+    document.body.append(button);
+  });
+  const removed = page.getByRole("button", { name: "Temporary Coach launcher", exact: true });
+  await removed.focus(); await removed.press("Enter");
   await dialog.waitFor();
-  await inside();
-  await page.keyboard.press("Escape");
-  await dialog.waitFor({ state: "hidden" });
-  check(await prompt.evaluate((e) => e === document.activeElement), "Context prompt restores exact launcher");
-  // A removed context opener falls back to the header.
-  await more.press("Enter");
-  await dialog.waitFor();
-  await more.evaluate((e) => e.remove());
+  await removed.evaluate((e) => e.remove());
   await page.keyboard.press("Escape");
   check(await header.evaluate((e) => e === document.activeElement), "Removed launcher falls back to header Coach");
-  if ((await page.evaluate(() => innerHeight)) < 500) return; // Session reader-space overlap is tracked separately.
-  await page.getByRole("button", { name: /^Short session/ }).click();
-  await page.getByRole("button", { name: "Open a pane", exact: true }).press("Enter");
-  await page.getByRole("menuitem", { name: "Coach", exact: true }).click();
-  const embedded = page.locator(".pane-coach .chatbody");
-  await embedded.waitFor();
-  await embedded.getByRole("textbox", { name: "Message", exact: true }).focus();
-  await page.keyboard.press("Escape");
-  check(await embedded.isVisible() && await dialog.count() === 0, "Embedded Coach is nonmodal and ignores Escape");
-  await header.focus();
-  check(await header.evaluate((e) => e === document.activeElement), "Embedded Coach permits normal page focus");
+  if ((await page.evaluate(() => innerHeight)) >= 500) {
+    await startShort(page);
+    await page.getByRole("button", { name: "Open a pane", exact: true }).press("Enter");
+    await page.getByRole("menuitem", { name: "Pin Coach beside music", exact: true }).press("Enter");
+    const embedded = page.locator(".pane-coach .chatbody");
+    await embedded.waitFor();
+    await embedded.getByRole("textbox", { name: "Message", exact: true }).focus();
+    await page.keyboard.press("Escape");
+    check(await embedded.isVisible() && await dialog.count() === 0, "Embedded Coach is nonmodal and ignores Escape");
+    await header.focus();
+    check(await header.evaluate((e) => e === document.activeElement), "Embedded Coach permits normal page focus");
+    await header.press("Enter");
+    check(await dialog.count() === 0 && await embedded.getByRole("textbox", { name: "Message", exact: true }).evaluate(e => e === document.activeElement), "Header Coach focuses the embedded owner without opening a duplicate modal");
+  }
   await page.goto(`${base}/#materials`);
   await page.getByRole("button", { name: "Find online", exact: true }).press("Enter");
   await page.getByRole("textbox", { name: "What do you want to learn or play?", exact: true }).fill("Slow chord changes (stand-in only)");
@@ -278,7 +290,7 @@ async function semantics(page: Page) {
   check(await page.locator(".mdoc pre code").textContent() === "D   DU  UD U\n1 & 2 & 3 & 4 &\n", "Tab spaces survive Markdown rendering");
   await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-${await page.locator("html").getAttribute("data-theme") ?? "Device"}-material.png`), fullPage: true });
   await page.goto(`${base}/#practice`);
-  await page.getByRole("button", { name: /^Short session/ }).click();
+  await startShort(page);
   await page.locator(".pane .mdoc").waitFor();
   check(await page.getByRole("heading", { level: 1 }).count() === 1, "Active practice exposes one h1 with Markdown open");
   const states = page.locator(".sessionstatus");

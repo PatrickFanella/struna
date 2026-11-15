@@ -313,6 +313,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
     const contents = await withCompanion(c);
     focusAfterPick.current = true;
     place(contents, at);
+    if (c.type === "coach") dispatchEvent(new Event("struna:coach-pinned"));
     onOpenContent?.(c);
   };
   useLayoutEffect(() => {
@@ -323,6 +324,11 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
   const close = (i: number) => {
     setMenu(null);
     setPanes((ps) => ps.filter((_, j) => j !== i));
+  };
+  const unpinCoach = (i: number) => {
+    close(i);
+    requestAnimationFrame(() => [...document.querySelectorAll<HTMLButtonElement>(".top button")]
+      .find((button) => button.textContent?.trim() === "Coach" && button.checkVisibility() && !button.disabled)?.focus());
   };
   // Menus close on Escape or a press outside them.
   useEffect(() => {
@@ -389,7 +395,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
         <button className="pane-picker-close" role="menuitem" onClick={dismissMenu}>Close picker</button>
       </> : <>
       <p className="pane-picker-title">Choose content</p>
-      <button role="menuitem" onClick={() => open({ type: "coach" }, at)}>Coach</button>
+      <button role="menuitem" onClick={() => open({ type: "coach" }, at)}>{at === "add" ? "Pin Coach beside music" : "Coach"}</button>
       {materials.length > 0 && <p className="grp">{generic ? "From your plan" : "Block material"}</p>}
       {materials.map((m) => {
         const title = m.label.split(/[\\/]/).pop()!.replace(/\.(pdf|md|txt|mp4|mp3|wav|epub|gp[345x]?)$/i, "");
@@ -447,6 +453,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
                     <button className="tool reader-close" onClick={() => setExpanded(null)}>Close reader</button> :
                     <button className="tool" onClick={(e) => { readerOpener.current = e.currentTarget; setFocus(i); setExpanded(p.id); }}>Expand reader</button>)}
                   <span className="pane-manage" hidden={expanded === p.id}>
+                    {p.content.type === "coach" && <button className="tool" onClick={() => unpinCoach(i)} aria-label="Unpin Coach">Unpin</button>}
                     <button className="tool" aria-haspopup="menu" aria-expanded={menu?.at === i} onClick={(e) => toggleMenu(e.currentTarget, i)} aria-label={`Change what ${paneShort(p.content)} shows`}>Change</button>
                   <button className="tool iconbtn" onClick={() => close(i)} aria-label={`Close ${paneTitle(p.content)}`}>
                     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>

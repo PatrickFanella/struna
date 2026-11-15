@@ -122,7 +122,6 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     addEventListener("struna:material", on);
     return () => removeEventListener("struna:material", on);
   }, []);
-
   const setSession = useCallback((fn: (s: SessionState) => SessionState) => {
     setSessionState((s) => {
       if (!s) return s;
@@ -131,6 +130,18 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       return n;
     });
   }, []);
+  // The modal Coach can be deliberately pinned beside the current music. A restored Coach pane
+  // is left alone, and a full workspace never replaces a player's reading pane to make room.
+  useEffect(() => {
+    const on = (event: Event) => {
+      const request = event as CustomEvent<{ accepted?: boolean }>;
+      if (!session || (session.panes.length >= MAX_PANES && !session.panes.some((p) => p.content.type === "coach"))) return;
+      if (request.detail) request.detail.accepted = true;
+      setSession((s) => s.panes.some((p) => p.content.type === "coach") || s.panes.length >= MAX_PANES ? s : { ...s, panes: [...s.panes, pane({ type: "coach" })] });
+    };
+    addEventListener("struna:pin-coach", on);
+    return () => removeEventListener("struna:pin-coach", on);
+  }, [session, setSession]);
 
   const items = useMemo<PaneItem[]>(() => {
     if (generic) {
@@ -194,8 +205,8 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     // In studio mode the coach orders the plan's materials, so the first one that exists leads.
     const first = generic ? (extra ?? items.find((i) => !i.missing)) : (extra ?? items.find((i) => !i.missing && i.kind === "pdf") ?? items[0]);
     const lead = first ? await withCompanion({ type: "file", item: first }) : [];
-    // On a wide screen the coach opens beside the lesson.
-    const panes = [...lead.map(pane), ...(window.innerWidth >= 1180 && lead.length < 3 ? [pane({ type: "coach" })] : [])];
+    // Start with the material the player chose. Coach opens on demand and can be pinned from the pane picker.
+    const panes = lead.map(pane);
     if (extra) store.set("struna.material-placed", extra.key);
     if (!generic && first) {
       const records = await api.get<TempoRecord[]>("/api/tempos").catch(() => []);

@@ -114,6 +114,7 @@
 .promptchips button:disabled{opacity:.55;cursor:default}
 .promptsheet .promptchips button span,.chatempty .promptchips button span{overflow-wrap:anywhere}
 .chatbar{flex-wrap:wrap;gap:4px 12px}
+@media (max-width:999px){.coach-pin{display:none}}
 
 /* Keep a busy prompt focusable so modal dismissal can restore its exact launcher. */
 .promptchips button[aria-disabled="true"] { opacity: .5; cursor: default; }
