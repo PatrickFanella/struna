@@ -357,7 +357,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
   const nextStage = stages[at + 1];
   const b = today.block!;
   return (
-    <div className="session">
+    <div className="session" data-intent={controls}>
       {state.stageBreak && <SessionDialog title="Take a short break" onClose={completeBreak}>
         <p role="status">Relax your hands. Practice time is paused during this break.</p>
         <p className="break-clock num" role="timer" aria-label="Break time remaining" aria-live="off">{Math.max(0, Math.ceil((state.stageBreak.until - Date.now()) / 1000))}<span>seconds</span></p>
@@ -390,6 +390,17 @@ export function Session({ today, state, setState, items, material, onFinish, onD
           <details className="session-details">
             <summary>Session outline and details</summary>
             <p>{generic ? b.title : blockName(b)} — {state.cross ? "Extra session (not counted)" : (today.line ?? todayLine(today))} — {kind.label}</p>
+            {stage.material && <StageMaterialLink material={stage.material} />}
+            {at === stages.length - 1 && generic && <fieldset className="session-checklist">
+              <legend>Session checklist (optional)</legend>
+              <p className="srcnote">Check what you attempted. Unchecked work stays unmeasured.</p>
+              {sessionChecklist(stages, state.addedActivities).map((activity) => <label key={activity.key}>
+                <input type="checkbox" checked={state.attemptedActivities?.includes(activity.key) ?? false} onChange={(e) => {
+                  const checked = e.target.checked;
+                  setState((s) => ({ ...s, attemptedActivities: checked ? [...(s.attemptedActivities ?? []), activity.key] : (s.attemptedActivities ?? []).filter((k) => k !== activity.key) }));
+                }} /> {activity.title}
+              </label>)}
+            </fieldset>}
             <StageBar stages={stages} current={at} progress={elapsed / total} />
             <ol>{stages.map((s, i) => <li key={s.key} aria-current={i === at ? "step" : undefined}>{s.title}: {s.minutes} min</li>)}</ol>
             <p className="srcnote session-time">Stage elapsed {fmt(elapsed)} · Active practice {fmt(activeElapsed(state, now))}</p>
@@ -402,17 +413,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
           <div className="stagetext">
             <h1><span className="stagecount num">{at + 1}/{stages.length}</span> {stage.title}</h1>
             <Instruction key={state.stage} text={stageText} />
-            {at === stages.length - 1 && generic && <fieldset className="session-checklist">
-              <legend>Session checklist (optional)</legend>
-              <p className="srcnote">Check what you attempted. Unchecked work stays unmeasured.</p>
-              {sessionChecklist(stages, state.addedActivities).map((activity) => <label key={activity.key}>
-                <input type="checkbox" checked={state.attemptedActivities?.includes(activity.key) ?? false} onChange={(e) => {
-                  const checked = e.target.checked;
-                  setState((s) => ({ ...s, attemptedActivities: checked ? [...(s.attemptedActivities ?? []), activity.key] : (s.attemptedActivities ?? []).filter((k) => k !== activity.key) }));
-                }} /> {activity.title}
-              </label>)}
-            </fieldset>}
-            {stage.material && <StageMaterialLink material={stage.material} />}
+
             {stageTempo && (controls === "play" || controls === "general") && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={restoreTempo}>Use stage tempo</button></p>}
             {!generic && (
             <p className="coachline" aria-live="polite">
@@ -443,6 +444,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
         </div>
       </div>
 
+      <details className="measurement-details"><summary>Material and confirmed tempos</summary>
         {(controls === "play" || controls === "general" || showTools) && measurementItems.length > 0 && <label className="measurement-pick">Measure material
           <select aria-label="Measure material" className="input" value={measured?.key} onChange={(e) => {
             const item = measurementItems.find((i) => i.key === e.target.value)!;
@@ -454,6 +456,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
         <b>Confirmed clean passes</b>
         <ul>{[...new Map(state.checkpoints.map((c) => [c.materialKey, c])).values()].map((c) => <li key={c.materialKey}>{c.materialLabel}: {c.bpm} BPM · {c.stageKey}</li>)}</ul>
       </div>}
+      </details>
       <Workspace onOpenContent={(content) => {
         const activity = content.type === "file" ? { key: content.item.key, title: content.item.label } : content.type === "tab" ? { key: `tab:${content.tabId}`, title: content.title } : null;
         if (activity) setState((s) => ({ ...s, addedActivities: [...(s.addedActivities ?? []).filter((a) => a.key !== activity.key), activity] }));

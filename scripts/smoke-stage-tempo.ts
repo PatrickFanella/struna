@@ -124,6 +124,7 @@ try {
     }
     assert.equal(await page.locator(".measurements").count(), 0, "editing the click records nothing");
     await page.getByRole("button", { name: /Log clean pass/ }).click();
+    await page.locator(".measurement-details summary").click();
     await page.getByLabel("Confirmed material tempos").getByText("Baseline roll: 80 BPM", { exact: false }).waitFor();
     const checkpoint = await page.evaluate(() => JSON.parse(sessionStorage.getItem("struna.session")!).checkpoints[0]);
     assert.equal(checkpoint.bpm, 80);
@@ -171,7 +172,7 @@ try {
     assert.doesNotMatch(await checklist.innerText(), /Tune practice/);
     await checklist.getByRole("checkbox", { name: "Technique", exact: true }).check();
     await page.reload();
-    await page.locator(".session, .greview").waitFor();
+    await page.locator(".session-details summary").click();
     assert.equal(await page.getByRole("checkbox", { name: "Technique", exact: true }).isChecked(), true);
     const beforeReview = await page.evaluate(() => sessionStorage.getItem("struna.session"));
     await page.getByRole("button", { name: /Finish/ }).press("Enter");
