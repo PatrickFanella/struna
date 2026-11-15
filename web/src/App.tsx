@@ -118,9 +118,12 @@ export function App() {
             ))}
           </nav>
           <span className="acts">
-            <button className="ib" aria-pressed={tool !== null} onClick={() => setTool("tuner")}>
+            <button className="ib" aria-pressed={tool === "tuner"} onClick={() => setTool("tuner")}>
               <Icon id="i-fork" />
               Tuner
+            </button>
+            <button className="ib" aria-pressed={tool === "metronome"} onClick={() => setTool("metronome")}>
+              Metronome
             </button>
             <button className="ib" aria-pressed={chat} onClick={() => setChat((c) => !c)}>
               <Icon id="i-chat" />
