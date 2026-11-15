@@ -14,7 +14,7 @@ await mkdir(join(home, "plan"), { recursive: true });
 await mkdir(join(home, "materials"), { recursive: true });
 await mkdir(join(dir, "shots"));
 await writeFile(join(home, "profile.json"), JSON.stringify(normalizeProfile({}, new Date().toISOString())));
-await writeFile(join(home, "materials/roll.md"), "# Baseline roll\n\n```\ne|------0---|\nB|----0---0-|\nG|--0-------|\n```\n");
+await writeFile(join(home, "materials/roll.md"), "# Baseline roll\n\n```\ne|------0---|\nB|----0---0-|\nG|--0-------|\n```\n" + "\nReading position fixture.\n".repeat(100));
 const plan = {
   version: 1, id: "wave-one", title: "Scratch practice", started: "2026-01-01", goal: "Play comfortably", next: "Tune, then play", extras: [],
   phases: [{ title: "Clean notes", summary: "Listen", sessions: 6, focus: {} }],
@@ -37,7 +37,7 @@ const child = spawn(process.execPath, ["server/index.ts"], { cwd: join(import.me
   ...process.env, NODE_ENV: "production", STRUNA_MODE: "studio", STRUNA_HOME: home, STRUNA_STATE_DIR: join(dir, "state"), STRUNA_CACHE_DIR: join(dir, "cache"),
   STRUNA_NO_SCAN: "1", STRUNA_COACH_HOST_LOGINS: "0", CLAUDE_BIN: "/bin/false", CODEX_BIN: "/bin/false", HOST: "127.0.0.1", PORT: String(port),
 }, stdio: "ignore" });
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
 try {
   for (let i = 0; ; i++) {
     if (child.exitCode !== null) throw new Error("Scratch server exited");
@@ -47,7 +47,7 @@ try {
   }
   const token = (await readFile(join(dir, "state/access-token"), "utf8")).trim();
   for (const [width, height] of [[320, 700], [390, 844], [1003, 814]]) for (const theme of ["light", "dark", "device"]) {
-    const context = await browser.newContext({ viewport: { width: width!, height: height! }, colorScheme: theme === "dark" ? "dark" : "light" });
+    const context = await browser.newContext({ viewport: { width: width!, height: height! }, permissions: ["microphone"], colorScheme: theme === "dark" ? "dark" : "light" });
     const page = await context.newPage();
     await page.addInitScript((choice) => { if (choice !== "device") localStorage.setItem("struna.theme", choice); }, theme);
     await page.goto(`${base}/?token=${token}#practice`);
@@ -84,6 +84,31 @@ try {
     const focus = await page.locator(".clock").evaluate((el) => getComputedStyle(el).outlineStyle);
     assert.notEqual(focus, "none", "clock has visible keyboard focus");
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-session.png`), fullPage: true });
+    if (width! < 720) {
+      assert.equal(await page.getByRole("button", { name: /Log clean pass/ }).count(), 0);
+      await page.getByRole("button", { name: "Tools", exact: true }).click();
+    }
+    await page.getByRole("button", { name: /Log clean pass/ }).click();
+    await page.getByRole("button", { name: "Record take", exact: true }).click();
+    await page.getByRole("button", { name: /Stop take/ }).waitFor();
+    const beforeExpand = await page.evaluate(() => sessionStorage.getItem("struna.session"));
+    await page.locator(".panescroll").first().evaluate((el) => { el.dataset.mounted = "kept"; el.scrollTop = 40; });
+    await page.getByRole("button", { name: "Expand reader", exact: true }).first().click();
+    const reader = page.getByRole("dialog", { name: "Baseline roll", exact: true });
+    await reader.waitFor();
+    const rect = await reader.boundingBox();
+    assert.ok(rect && rect.height > height! * 0.9 && rect.width > width! * 0.9);
+    await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-reader.png`), fullPage: false });
+    await page.keyboard.press("Escape");
+    assert.equal(await page.getByRole("dialog", { name: "Baseline roll", exact: true }).count(), 0);
+    assert.equal(await page.getByRole("button", { name: "Expand reader", exact: true }).first().evaluate((el) => el === document.activeElement), true);
+    assert.equal(await page.locator(".panescroll").first().getAttribute("data-mounted"), "kept");
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("struna.session")), beforeExpand);
+    assert.equal(await page.locator(".panescroll").first().evaluate((el) => el.scrollTop), 40);
+    await page.getByRole("button", { name: /Stop take/ }).click();
+    await page.locator(".takebox").getByRole("button", { name: "Discard", exact: true }).click();
+    if (width! < 720) await page.getByRole("button", { name: "Tools", exact: true }).click();
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.getByRole("button", { name: "Add pane", exact: true }).click();
     await page.getByRole("menuitem", { name: /Workspace addition/ }).click();
     await page.clock.install();

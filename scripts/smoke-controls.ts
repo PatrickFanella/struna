@@ -21,12 +21,12 @@ const date = new Date().toISOString();
 const profile = normalizeProfile({ level: "beginner" }, date);
 writeFileSync(join(home, "profile.json"), JSON.stringify(profile));
 const plan = starterPlan(profile, date.slice(0, 10));
-if (issue === "18") {
+if (issue === "18" || issue === "20") {
   mkdirSync(join(home, "materials"), { recursive: true });
   plan.materials = Array.from({ length: 30 }, (_, i) => {
     const label = i === 0 ? "Old Joe Clark — melody and alternating bass practice" : i === 1 ? "ArtistWorks/Bluegrass guitar/" + "Long musical title with slow variations ".repeat(4) + ".md" : `Exercise ${i + 1}`;
     const file = `materials/exercise-${i}.md`;
-    writeFileSync(join(home, file), `# Exercise ${i + 1}\n\nPlay slowly.`);
+    writeFileSync(join(home, file), issue === "20" ? `# Exercise ${i + 1}\n\n## Fingering\n\nPlay slowly.\n\n\`\`\`\nD   DU  UD U\n1 & 2 & 3 & 4 &\n\`\`\`` : `# Exercise ${i + 1}\n\nPlay slowly.`);
     return { label, file, note: "Scratch lesson source; melody and accompaniment" };
   });
 }
@@ -62,12 +62,12 @@ async function theme(page: Page) {
     check(await option.evaluate((e) => e.matches(":focus-visible") && getComputedStyle(e).outlineStyle !== "none"), `${name}: visible focus`);
     check(await option.evaluate((e) => e.scrollWidth <= e.clientWidth), `${name}: label fits`);
     await fits(page);
-    await page.screenshot({ path: join(dir, `${page.viewportSize()!.width}-${name}.png`), fullPage: true });
+    await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-${name}.png`), fullPage: true });
   }
   await group.getByRole("radio").evaluateAll((els) => els.forEach((el) => { el.textContent = `${el.textContent} ${el.textContent}`; }));
   check(await group.getByRole("radio").evaluateAll((els) => els.every((e) => e.scrollWidth <= e.clientWidth)), "Doubled labels fit");
   await fits(page);
-  await page.screenshot({ path: join(dir, `${page.viewportSize()!.width}-doubled.png`), fullPage: true });
+  await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-doubled.png`), fullPage: true });
 }
 async function panePicker(page: Page) {
   await page.getByRole("button", { name: /^Short session/ }).click();
@@ -90,7 +90,7 @@ async function panePicker(page: Page) {
     const long = menu.getByRole("menuitem").nth(2);
     check(await long.locator("span").textContent() === plan.materials[1]!.label.split("/").pop()!.replace(/\.md$/, ""), "Musical title comes before source");
     check((await long.getAttribute("role")) === "menuitem" && (await long.innerText()).includes(plan.materials[1]!.label), "Full resource label remains in accessible choice text");
-    await page.screenshot({ path: join(dir, `${page.viewportSize()!.width}-${mode}-picker.png`), fullPage: true });
+    await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-${mode}-picker.png`), fullPage: true });
     await page.keyboard.press("Escape");
     check(await add.evaluate((e) => e === document.activeElement), "Escape restores exact Add opener");
     await add.click();
@@ -144,9 +144,9 @@ async function coachModal(page: Page) {
   await dialog.getByRole("textbox", { name: "Message", exact: true }).fill("Unsent practice question");
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
-  await page.waitForTimeout(300); // Let the historical slide-out finish before inspecting focus.
+  await page.waitForTimeout(300); // Also cover the historical slide-out delay.
   const restored = await header.evaluate((e) => e === document.activeElement);
-  writeFileSync(join(dir, `focus-${page.viewportSize()!.width}.json`), JSON.stringify({ restored, active: await page.evaluate(() => document.activeElement?.tagName) }));
+  writeFileSync(join(dir, `focus-${(await page.evaluate(() => innerWidth))}.json`), JSON.stringify({ restored, active: await page.evaluate(() => document.activeElement?.tagName) }));
   check(restored, "Escape restores exact header opener");
   await header.press("Enter");
   await dialog.waitFor();
@@ -173,7 +173,7 @@ async function coachModal(page: Page) {
   await dialog.locator(".promptsheet").waitFor();
   await inside();
   await cycle("prompt list");
-  await page.screenshot({ path: join(dir, `${page.viewportSize()!.width}-${await page.locator("html").getAttribute("data-theme") ?? "Device"}-coach-prompts.png`), fullPage: true });
+  await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-${await page.locator("html").getAttribute("data-theme") ?? "Device"}-coach-prompts.png`), fullPage: true });
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
   check(await more.evaluate((e) => e === document.activeElement), "Escape restores exact More opener");
@@ -204,7 +204,7 @@ async function coachModal(page: Page) {
   await more.evaluate((e) => e.remove());
   await page.keyboard.press("Escape");
   check(await header.evaluate((e) => e === document.activeElement), "Removed launcher falls back to header Coach");
-  if (page.viewportSize()!.height < 500) return; // Session reader-space overlap is tracked separately.
+  if ((await page.evaluate(() => innerHeight)) < 500) return; // Session reader-space overlap is tracked separately.
   await page.getByRole("button", { name: /^Short session/ }).click();
   await page.getByRole("button", { name: "Open a pane", exact: true }).press("Enter");
   await page.getByRole("menuitem", { name: "Coach", exact: true }).click();
@@ -225,6 +225,95 @@ async function coachModal(page: Page) {
   await page.keyboard.press("Escape");
   check(await header.evaluate((e) => e === document.activeElement), "Hidden workspace Coach permits another section's modal and removed-launcher fallback");
 }
+async function semantics(page: Page) {
+  await page.goto(`${base}/#materials`);
+  await page.getByRole("button", { name: "Add", exact: true }).press("Enter");
+  const choose = page.getByRole("button", { name: "Choose files", exact: true });
+  await choose.focus();
+  const cdp = await page.context().newCDPSession(page);
+  const ax = await cdp.send("Accessibility.getFullAXTree");
+  const exposed = ax.nodes.filter((n) => !n.ignored).map((n) => ({ role: n.role?.value, name: n.name?.value }));
+  writeFileSync(join(dir, `upload-ax-${(await page.evaluate(() => innerWidth))}.json`), JSON.stringify(exposed, null, 2));
+  check(await choose.evaluate((e) => e === document.activeElement && getComputedStyle(e).outlineStyle !== "none"), "Choose files has visible keyboard focus");
+  check(!exposed.some((n) => n.role === "button" && !n.name), "Upload tree has no unnamed exposed button");
+  check(await page.locator('input[type="file"]').evaluate((e) => (e as HTMLInputElement).tabIndex === -1), "Native upload is outside tab order");
+  const chooserEvent = page.waitForEvent("filechooser");
+  await choose.press("Space");
+  const chooser = await chooserEvent;
+  await chooser.setFiles({ name: `Accessible lesson-${(await page.evaluate(() => innerWidth))}-${await page.locator("html").getAttribute("data-theme") ?? "Device"}.md`, mimeType: "text/markdown", buffer: Buffer.from("# Lesson heading\n\n## Fingering\n\n\`\`\`\nD   DU  UD U\n1 & 2 & 3 & 4 &\n\`\`\`") });
+  await page.locator(".itemopen").filter({ hasText: `Accessible lesson-${(await page.evaluate(() => innerWidth))}-${await page.locator("html").getAttribute("data-theme") ?? "Device"}` }).click();
+  await page.locator(".mdoc").waitFor();
+  check(await page.getByRole("heading", { level: 1 }).count() === 1, "Materials detail exposes one h1");
+  check(await page.getByRole("heading", { level: 2, name: "Lesson heading" }).count() === 1 && await page.getByRole("heading", { level: 3, name: "Fingering" }).count() === 1, "Markdown headings nest below the view heading");
+  check(await page.locator(".mdoc pre code").textContent() === "D   DU  UD U\n1 & 2 & 3 & 4 &\n", "Tab spaces survive Markdown rendering");
+  await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-${await page.locator("html").getAttribute("data-theme") ?? "Device"}-material.png`), fullPage: true });
+  await page.goto(`${base}/#practice`);
+  await page.getByRole("button", { name: /^Short session/ }).click();
+  await page.locator(".pane .mdoc").waitFor();
+  check(await page.getByRole("heading", { level: 1 }).count() === 1, "Active practice exposes one h1 with Markdown open");
+  const states = page.locator(".sessionstatus");
+  const state = (text: string) => states.getByRole("status").filter({ hasText: new RegExp(`^${text}$`) });
+  await state("Timer paused").waitFor();
+  await page.getByRole("button", { name: "Start the stage timer", exact: true }).press("Enter");
+  await state("Timer running").waitFor();
+  await page.locator(".tempocol").press("Enter");
+  await state("Click count-in").waitFor();
+  await state("Click running").waitFor();
+  await states.evaluate((e) => {
+    e.setAttribute("data-mutations", "0");
+    new MutationObserver((records) => e.setAttribute("data-mutations", String(Number(e.getAttribute("data-mutations")) + records.length)))
+      .observe(e, { childList: true, subtree: true, characterData: true });
+  });
+  await page.waitForTimeout(1100); // Several timer ticks and at least one beat.
+  check(await states.getAttribute("data-mutations") === "0", "Live text does not mutate on timer ticks or click beats");
+  check(await page.locator(".clock .t").evaluate((e) => !e.closest('[aria-live], [role="status"]')), "Ticking clock is outside live regions");
+  await page.getByRole("button", { name: "Pause the stage timer", exact: true }).press("Enter");
+  await state("Timer paused").waitFor();
+  await page.locator(".tempocol").press("Enter");
+  await state("Click stopped").waitFor();
+  const tools = page.getByRole("button", { name: "Tools", exact: true });
+  if (await tools.isVisible()) await tools.press("Enter");
+  const record = page.getByRole("button", { name: "Record take", exact: true });
+  await record.focus();
+  check(await record.evaluate((e) => e.matches(":focus-visible") && getComputedStyle(e).outlineStyle !== "none"), "Recording control has visible keyboard focus");
+  await page.keyboard.press("Enter");
+  await state("Recording take").waitFor();
+  await page.waitForTimeout(1100); // Chromium's synthetic microphone, not hardware audio evidence.
+  await page.getByRole("button", { name: /^Stop take/ }).press("Enter");
+  await state("Take ready to save").waitFor();
+  let refuse = true;
+  await page.route("**/api/recordings?**", async (r) => {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    if (refuse) await r.fulfill({ status: 503, json: { error: "Scratch save failure" } });
+    else await r.continue();
+  });
+  const save = page.getByRole("button", { name: "Save take", exact: true });
+  await save.press("Enter");
+  await state("Saving take").waitFor();
+  await state("The take was not saved: Scratch save failure").waitFor();
+  refuse = false;
+  await save.press("Enter");
+  await state("Take saved").waitFor();
+  check(await page.locator(".takesaved").count() === 1, "Scratch take save success remains visible");
+  await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-${await page.locator("html").getAttribute("data-theme") ?? "Device"}-practice-status.png`), fullPage: true });
+  while (await page.getByRole("button", { name: /^Next stage/ }).count()) await page.getByRole("button", { name: /^Next stage/ }).press("Enter");
+  await page.getByRole("button", { name: /^Finish/ }).press("Enter");
+  let refuseLog = true;
+  await page.route("**/api/sessions", async (r) => {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    if (refuseLog) await r.fulfill({ status: 503, json: { error: "Scratch log failure" } });
+    else await r.continue();
+  });
+  const logState = page.locator(".greview [role='status']");
+  const write = page.getByRole("button", { name: "Write the log", exact: true });
+  await write.press("Enter");
+  await logState.filter({ hasText: "Saving session log" }).waitFor();
+  await logState.filter({ hasText: "The log was not written. Scratch log failure" }).waitFor();
+  refuseLog = false;
+  await write.press("Enter");
+  await page.getByRole("status").filter({ hasText: /^Session log saved$/ }).waitFor();
+  check(await page.getByRole("heading", { level: 1, name: "Log written" }).count() === 1, "Log success remains visible with polite status");
+}
 try {
   for (let i = 0; ; i++) {
     if (server.exitCode !== null) throw new Error("Scratch server exited");
@@ -233,22 +322,42 @@ try {
     await new Promise((r) => setTimeout(r, 100));
   }
   const token = readFileSync(join(dir, "state/access-token"), "utf8").trim();
-  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
+  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
   try {
     for (const [width, height] of [[320, 700], [390, 844], [1003, 814], [502, 407]]) {
       for (const mode of issue === "19" || issue === "20" ? ["light", "dark", "Device"] : ["light"]) {
-      const context = await browser.newContext({ viewport: { width: width!, height: height! }, colorScheme: "light" });
+      const context = width === 502
+        ? await chromium.launchPersistentContext(join(dir, `zoom-profile-${mode}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"], viewport: { width: 1003, height: 814 } })
+        : await browser.newContext({ viewport: { width: width!, height: height! }, colorScheme: "light" });
+      if (width === 502) {
+        const settings = await context.newPage();
+        await settings.goto("chrome://settings/appearance");
+        await settings.evaluate(async () => {
+          const { chrome } = globalThis as unknown as { chrome: { settingsPrivate: { setDefaultZoom: (factor: number) => Promise<void> } } };
+          await chrome.settingsPrivate.setDefaultZoom(2);
+        });
+        await settings.close();
+      }
       const page = await context.newPage();
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(e.message));
       await page.route(/^https?:\/\/(?!localhost)/, (r) => r.abort());
       await page.goto(`${base}/?token=${token}`);
       await page.locator(".gstart").waitFor();
+      if (width === 502) check(await page.evaluate(() => innerWidth === 501 && devicePixelRatio === 2), "Native desktop zoom is 200% at 1003×814");
       await page.emulateMedia({ colorScheme: mode === "Device" ? "dark" : "light" });
       await page.evaluate((mode) => { if (mode !== "Device") document.documentElement.dataset.theme = mode; }, mode);
       if (issue === "28") await theme(page);
       if (issue === "18") await panePicker(page);
       if (issue === "19") await coachModal(page);
+      if (issue === "20") {
+        try { await semantics(page); }
+        catch (error) {
+          await page.screenshot({ path: join(dir, `${width}-${mode}-failure.png`), fullPage: true });
+          writeFileSync(join(dir, "partial-checks.json"), JSON.stringify({ checks, error: String(error), active: await page.evaluate(() => document.activeElement?.outerHTML) }, null, 2));
+          throw error;
+        }
+      }
       check(!errors.length, `${width}: no page errors`);
       await context.close();
       }
