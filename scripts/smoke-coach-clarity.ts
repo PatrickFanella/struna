@@ -44,7 +44,17 @@ try {
   const sizes = [[320, 700], [390, 844], [1003, 814], [502, 407]] as const;
   for (const [width, height] of sizes) for (const theme of ["light", "dark", "device-light", "device-dark"] as const) {
     const label = `${width}x${height}-${theme}`;
-    const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme.endsWith("dark") ? "dark" : "light" });
+    const context = width === 502
+      ? await chromium.launchPersistentContext(join(dir, `zoom-${theme}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"], viewport: { width: 1003, height: 814 }, colorScheme: theme.endsWith("dark") ? "dark" : "light" })
+      : await browser.newContext({ viewport: { width, height }, colorScheme: theme.endsWith("dark") ? "dark" : "light" });
+    if (width === 502) {
+      const settings = await context.newPage(); await settings.goto("chrome://settings/appearance");
+      await settings.evaluate(async () => {
+        const { chrome } = globalThis as unknown as { chrome: { settingsPrivate: { setDefaultZoom: (factor: number) => Promise<void> } } };
+        await chrome.settingsPrivate.setDefaultZoom(2);
+      });
+      await settings.close();
+    }
     const page = await context.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
@@ -53,6 +63,7 @@ try {
     page.on("request", (r) => { if (r.method() === "POST" && new URL(r.url()).pathname === "/api/chat") sends++; });
     await page.goto(`${base}/?token=${token}`);
     await page.waitForURL(`${base}/`);
+    if (width === 502) assert.ok(await page.evaluate(() => innerWidth === 501 && devicePixelRatio === 2), "native desktop 200% zoom");
     await page.evaluate((theme) => {
       if (theme.startsWith("device")) document.documentElement.removeAttribute("data-theme");
       else document.documentElement.dataset.theme = theme;

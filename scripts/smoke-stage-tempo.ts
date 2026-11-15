@@ -283,17 +283,43 @@ try {
     assert.equal(saved.wentWell, "Separate review draft retained");
     await page.getByRole("button", { name: "Back to today", exact: true }).click();
     await page.getByText(`Baseline roll: ${bpm} BPM`, { exact: false }).first().waitFor();
+    // Exercise the actual Short path too: no checkpoint, no inherited clean BPM.
+    await page.getByRole("button", { name: /^Short/ }).click();
+    await page.getByRole("heading", { name: /Technique$/, level: 1 }).waitFor();
+    await page.getByRole("button", { name: /Finish/ }).click();
+    assert.equal(await roll.inputValue(), "");
+    assert.equal(await tune.count(), 0);
+    const shortResponse = page.waitForResponse((r) => r.url().endsWith("/api/sessions") && r.request().method() === "POST");
+    await page.getByRole("button", { name: "Write the log", exact: true }).click();
+    const shortFile = (await (await shortResponse).json()).file;
+    await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
+    const shortLog = parseGenericLog(shortFile, await readFile(join(home, "logs", shortFile), "utf8"));
+    assert.equal(shortLog.partial, false);
+    assert.deepEqual(shortLog.measurements, [{ materialKey: "materials/roll.md", materialLabel: "Baseline roll", bpm: null }]);
+    await page.getByRole("button", { name: "Back to today", exact: true }).click();
+    const beforeDiscard = (await readdir(join(home, "logs"))).sort();
+    await page.getByRole("button", { name: /^Quick/ }).click();
+    await page.getByRole("button", { name: "End session", exact: true }).click();
+    await page.getByRole("button", { name: "Discard session", exact: true }).click();
+    await page.getByRole("dialog", { name: "Discard this unsaved session?", exact: true }).getByRole("button", { name: "Yes, discard session", exact: true }).click();
+    await page.getByRole("button", { name: /^Quick/ }).waitFor();
+    assert.deepEqual((await readdir(join(home, "logs"))).sort(), beforeDiscard);
+    assert.deepEqual(await page.evaluate(() => [sessionStorage.getItem("struna.session"), sessionStorage.getItem("struna.review-draft")]), [null, null]);
     await context.close();
   }
   for (const name of await readdir(join(home, "logs"))) {
     const log = await readFile(join(home, "logs", name), "utf8");
     if (log.includes("Separate review draft retained")) continue;
+    if (/\*\*Session:\*\* custom-short/.test(log)) {
+      assert.doesNotMatch(log, /Tune practice|Extra before start|Workspace addition/);
+      continue;
+    }
     assert.match(log, /Technique: attempted/);
     assert.match(log, /Extra before start: attempted/);
     assert.match(log, /Workspace addition: unmeasured/);
     assert.doesNotMatch(log, /Tune practice/);
   }
-  console.log(`Stage tempo and material review smoke passed: 12 width/theme/native-zoom cases; artifacts ${dir}`);
+  console.log(`Stage tempo and Full/Short/Quick material review smoke passed: 12 width/theme/native-zoom cases; artifacts ${dir}`);
 } finally {
   await browser.close();
   child.kill("SIGTERM");
