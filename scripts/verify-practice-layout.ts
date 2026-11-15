@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { chromium } from "playwright-core";
+import { chromium, type BrowserContext } from "playwright-core";
 import { normalizeProfile, validatePlan } from "../server/generic/studio.ts";
 import { starterPlan } from "../server/generic/starter.ts";
 
@@ -60,7 +60,7 @@ try {
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : chromium.executablePath()) });
   for (const [width, height] of [[390, 844], [320, 700], [844, 390], [820, 1180], [1003, 814], [1153, 814], [1440, 900], [576, 407]]) for (const theme of ["light", "dark", "device"]) {
     const options = { viewport: { width: width === 576 ? 1153 : width!, height: width === 576 ? 814 : height! }, colorScheme: theme === "dark" ? "dark" as const : "light" as const, extraHTTPHeaders: { "x-struna-token": token } };
-    const context = width === 576
+    const context: BrowserContext = width === 576
       ? await chromium.launchPersistentContext(join(scratch, `zoom-${theme}`), { ...options, executablePath: process.env.CHROMIUM ?? (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : chromium.executablePath()) })
       : await browser.newContext(options);
     if (width === 576) {
