@@ -146,16 +146,16 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
       // Only the public shell and build-owned assets pass to the static server.
       if ((method === "GET" || method === "HEAD") && (path === "/" || /^\/(?:assets|brand|starter)\/[a-zA-Z0-9_./-]+$/.test(path) || path === "/manifest.webmanifest")) return false;
       // Consume a mutation before resolving identity: a delayed body cannot retain a revoked session.
-      if (method !== "GET" && method !== "HEAD") await readJson(req);
+      if (method !== "GET" && method !== "HEAD" && path !== "/api/materials/upload" && path !== "/api/recordings") await readJson(req);
       const current = session(req);
       if (!current) throw new HttpError(401, "Sign in to your private account");
       if (practice) {
-        if (req.headers["x-struna-session"] !== current.hash) throw new HttpError(409, "Your account changed. Reload before continuing.");
+        if ((req.headers["x-struna-session"] ?? ((method === "GET" || method === "HEAD") && ["/api/materials/file", "/api/recordings/file"].includes(path) ? url.searchParams.get("session") : undefined)) !== current.hash) throw new HttpError(409, "Your account changed. Reload before continuing.");
         if (method !== "GET" && method !== "HEAD") {
           mutation(req);
           if (!equal(String(req.headers["x-csrf-token"] ?? ""), csrf(current.token))) throw new HttpError(403, "Invalid CSRF token");
         }
-        if (await practice.handle(req, res, url, { account: current.account, session: current.hash, csrf: csrf(current.token) })) return true;
+        if (await practice.handle(req, res, url, { account: current.account, session: current.hash, csrf: csrf(current.token), assertActive: () => { if (session(req)?.hash !== current.hash) throw new HttpError(401, "Your session expired. Sign in again."); } })) return true;
       }
       throw new HttpError(503, "Private practice is not enabled yet");
     },
