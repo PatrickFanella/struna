@@ -97,3 +97,19 @@ export function countdown(expiresAt: string, now: number): string {
 
 /** A note's text in pieces: odd pieces were between backticks and show as code. */
 export const codeParts = (text: string): string[] => text.split("`");
+
+const SHORT_NAMES: Record<string, string> = {
+  claude: "Claude plan", codex: "ChatGPT host", chatgpt: "ChatGPT sign-in",
+  anthropic: "Anthropic API", openai: "OpenAI API", bedrock: "Bedrock", endpoint: "Other provider",
+};
+
+export const shortName = (id: string, fallback = id): string => SHORT_NAMES[id] ?? fallback;
+
+/** Location and readiness belong outside the native select, where they can wrap. */
+export function providerSummary(row: ProviderRow, host?: string): { location: string; status: string } {
+  const location = row.setup === "host" ? `Host login on ${host ?? "the server"}`
+    : row.setup === "device" ? `App sign-in on ${host ?? "the server"}`
+    : row.setup === "endpoint" ? `Endpoint via ${host ?? "the server"}`
+    : `API via ${host ?? "the server"}`;
+  return { location, status: row.ok ? "Ready" : `Not ready: ${row.detail || "Set up this coach in Coach settings."}` };
+}

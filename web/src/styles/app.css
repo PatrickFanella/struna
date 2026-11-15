@@ -578,3 +578,13 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
   .app:has(.view.on .session) > .dock { position: static; }
   .session .workspace { flex: none; height: 38dvh; min-height: 200px; }
 }
+/* Tool names stay visible on narrow screens, including desktop zoom. */
+@media (max-width:600px){
+  .top .wrap{flex-wrap:wrap}
+  .top .acts{margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+}
+@media (max-width:360px){
+  #metronome .r4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #metronome .r4 button{padding:0 6px;gap:6px}
+  #metronome .r4 button svg{width:24px;flex-shrink:0}
+}

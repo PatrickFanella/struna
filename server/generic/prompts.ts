@@ -4,7 +4,7 @@ import { getSetting, setSetting } from "../db.ts";
 import { HttpError, readJson, route, send } from "../http.ts";
 import type { ActionId, ActionMode, AutoAction, Prompt, PromptGroup } from "./types.ts";
 
-const p = (id: string, group: PromptGroup, screens: string[], label: string, text: string): Prompt => ({ id, label, text, group, screens });
+const p = (id: string, group: PromptGroup, screens: string[], label: string, text: string, purpose: NonNullable<Prompt["purpose"]> = "advice"): Prompt => ({ id, label, text, group, screens, purpose });
 
 /**
  * The prompts the player can pick. They say nothing about level: the coach reads the profile.
@@ -13,36 +13,36 @@ const p = (id: string, group: PromptGroup, screens: string[], label: string, tex
  */
 export const PROMPTS: Prompt[] = [
   // plan
-  p("ten-minutes", "plan", ["start", "session"], "I only have 10 minutes", "I only have 10 minutes today. Tell me exactly what to do with them, step by step with times. Do not change my plan."),
-  p("easier", "plan", ["start", "session", "review"], "Make today easier", "Today's session is too much for me. Tell me exactly how to play it easier today: fewer or shorter steps, slower tempos or simpler material. Do not change the plan's phases for one day; set the plan's \"next\" if that helps. Only make the plan itself lighter if my recent logs also say it is too hard, and tell me if you do."),
-  p("harder", "plan", ["start", "session", "review"], "Make today harder", "Today's session is too easy. Tell me exactly how to raise it one step today, not three. Do not change the plan's phases for one day; set the plan's \"next\" if that helps. Only raise the plan itself if two or three of my recent logs also say \"too easy\", and tell me if you do."),
+  p("ten-minutes", "plan", ["start", "session"], "I only have 10 minutes", "I only have 10 minutes today. Tell me exactly what to do with them, step by step with times. Do not change my plan.", "session-length"),
+  p("easier", "plan", ["start", "session", "review"], "Make today easier", "Today's session is too much for me. Tell me exactly how to play it easier today: fewer or shorter steps, slower tempos or simpler material. Do not change the plan's phases for one day; set the plan's \"next\" if that helps. Only make the plan itself lighter if my recent logs also say it is too hard, and tell me if you do.", "plan-change"),
+  p("harder", "plan", ["start", "session", "review"], "Make today harder", "Today's session is too easy. Tell me exactly how to raise it one step today, not three. Do not change the plan's phases for one day; set the plan's \"next\" if that helps. Only raise the plan itself if two or three of my recent logs also say \"too easy\", and tell me if you do.", "plan-change"),
   // Not first: a mis-tap here should not be the easiest one on the start screen.
-  p("build-plan", "plan", ["start"], "Build my plan", "Build me a practice plan. Read my profile, your notes and my recent logs first. If I already have a plan that is not the starter plan, do not replace it yet: tell me in a few lines what you would change and why, and wait for my answer. If you only adjust it, keep its id and started. Otherwise write the plan and tell me in a few lines what it covers and why."),
-  p("missed-week", "plan", ["start"], "I missed a week", "I have not practised for about a week. Ease me back in: tell me what to do today, and adjust the plan if I should repeat anything."),
-  p("fit-week", "plan", ["start"], "Fit the plan to my week", "My time has changed. Fit the plan to this and tell me what you changed: {input}"),
-  p("next-plan", "plan", ["start", "review"], "What comes after this plan?", "Look at my logs for this plan. What have I got out of it, what is still weak, and what should the next plan be? Propose it in a few lines before you write anything."),
+  p("build-plan", "plan", ["start"], "Build my plan", "Build me a practice plan. Read my profile, your notes and my recent logs first. If I already have a plan that is not the starter plan, do not replace it yet: tell me in a few lines what you would change and why, and wait for my answer. If you only adjust it, keep its id and started. Otherwise write the plan and tell me in a few lines what it covers and why.", "plan-change"),
+  p("missed-week", "plan", ["start"], "I missed a week", "I have not practised for about a week. Ease me back in: tell me what to do today, and adjust the plan if I should repeat anything.", "plan-change"),
+  p("fit-week", "plan", ["start"], "Fit the plan to my week", "My time has changed. Fit the plan to this and tell me what you changed: {input}", "plan-change"),
+  p("next-plan", "plan", ["start", "review"], "What comes after this plan?", "Look at my logs for this plan. What have I got out of it, what is still weak, and what should the next plan be? Propose it in a few lines before you write anything.", "plan-change"),
 
   // session
   p("listen-for", "session", ["session"], "What should I listen for?", "I am on the stage \"{stage}\". What should I listen for and feel for right now? Three things at most."),
   p("stuck", "session", ["session"], "I'm stuck on this", "I am stuck on the stage \"{stage}\". Give me one smaller step to try right now, and tell me how I will know it is working."),
   p("tempo", "session", ["session"], "Is this tempo right?", "The metronome is at {bpm} BPM. Is that a sensible tempo for what I am working on, and what has to be true before I raise it?"),
   p("warm-up", "session", ["start", "session"], "Warm-up for today", "Give me a warm-up for today: three to five minutes, easy on the hands, and matched to what today's session works on."),
-  p("hand-hurts", "session", ["session", "review", "start"], "My hand hurts", "My hand, wrist or arm hurts or feels tense when I play. If it could be sharp pain, numbness or tingling, tell me to stop for today first. Then ask me the one thing you most need to know. Once I answer, tell me what to change and lighten my plan if it calls for it."),
+  p("hand-hurts", "session", ["session", "review", "start"], "My hand hurts", "My hand, wrist or arm hurts or feels tense when I play. If it could be sharp pain, numbness or tingling, tell me to stop for today first. Then ask me the one thing you most need to know. Once I answer, tell me what to change and lighten my plan if it calls for it.", "plan-change"),
 
   // material
   p("explain-material", "material", ["session", "materials"], "Explain this simply", "Explain \"{material}\" simply: what it is, what it is for, and the first thing I should do with it."),
   p("steps-material", "material", ["session", "materials"], "Break this into steps", "Break \"{material}\" into small steps I can practise one at a time, in order. Say what \"done\" sounds like for each step."),
   p("read-tab", "material", ["session", "materials", "tabs"], "How do I read this tab?", "Show me how to read tab and chord boxes, using what I am looking at where you can. Keep it to what I need today."),
-  p("new-material", "material", ["materials", "start"], "Turn my materials into lessons", "Look through what is in my materials, especially anything new. Work the pieces that fit me into my plan as lessons, and tell me what you added and what you left out."),
-  p("order-materials", "material", ["materials"], "What should I use next?", "Look through my materials. Which fit where I am now, and in what order should I use them? Add the best one or two to my plan."),
+  p("new-material", "material", ["materials", "start"], "Turn my materials into lessons", "Look through what is in my materials, especially anything new. Work the pieces that fit me into my plan as lessons, and tell me what you added and what you left out.", "plan-change"),
+  p("order-materials", "material", ["materials"], "What should I use next?", "Look through my materials. Which fit where I am now, and in what order should I use them? Add the best one or two to my plan.", "plan-change"),
   p("exercise", "material", ["session", "materials", "any"], "Make me an exercise for…", "Make me a short exercise I can play right now, written out in a form I can read (tab, chord boxes or notation, as my profile says), with a starting tempo, for: {input}"),
-  p("lesson-sheet", "material", ["materials", "any"], "Write me a lesson sheet on…", "Write a one-page lesson sheet at my level and save it in my materials. The topic: {input}"),
+  p("lesson-sheet", "material", ["materials", "any"], "Write me a lesson sheet on…", "Write a one-page lesson sheet at my level and save it in my materials. The topic: {input}", "materials"),
 
   // find
-  p("find-lessons", "find", ["materials", "start", "any"], "Find lessons for…", "Find two or three free lessons from reputable teachers that suit my level, and add them to my materials with a note on each. I want to learn: {input}"),
-  p("find-song", "find", ["start", "materials", "any"], "Find a song at my level", "Find me two or three songs I could play at my level and in the styles I like. For each, say what makes it playable for me, and link a legal lesson, chart or tab. Add the best one to my materials."),
-  p("backing-track", "find", ["session", "materials"], "Find a backing track for this", "Find a backing track I can play \"{material}\" over: the right key and a tempo I can manage. Add it to my materials and tell me how to use it."),
-  p("find-chart", "find", ["materials", "any"], "Find chords or tab for…", "Find a legal, accurate chord chart or tab and add the link to my materials. Use official or licensed sources and link to them; do not copy the song out. The song: {input}"),
+  p("find-lessons", "find", ["materials", "start", "any"], "Find lessons for…", "Find two or three free lessons from reputable teachers that suit my level, and add them to my materials with a note on each. I want to learn: {input}", "materials"),
+  p("find-song", "find", ["start", "materials", "any"], "Find a song at my level", "Find me two or three songs I could play at my level and in the styles I like. For each, say what makes it playable for me, and link a legal lesson, chart or tab. Add the best one to my materials.", "materials"),
+  p("backing-track", "find", ["session", "materials"], "Find a backing track for this", "Find a backing track I can play \"{material}\" over: the right key and a tempo I can manage. Add it to my materials and tell me how to use it.", "materials"),
+  p("find-chart", "find", ["materials", "any"], "Find chords or tab for…", "Find a legal, accurate chord chart or tab and add the link to my materials. Use official or licensed sources and link to them; do not copy the song out. The song: {input}", "materials"),
 
   // learn
   p("teach", "learn", ["start", "session", "any"], "Teach me a chord, scale…", "Teach me this step by step at my level, with a diagram, tab or notation I can read and one thing to practise today: {input}"),
@@ -54,8 +54,8 @@ export const PROMPTS: Prompt[] = [
   p("setup", "learn", ["any"], "Strings, setup and care", "Help me with setting up, restringing or looking after my guitar. What I want to know: {input}"),
 
   // review
-  p("review-week", "review", ["start", "review"], "Review my last week", "Review my logs from the last seven days: what improved, what did not, and the one thing to change this week. Adjust the plan if the logs call for it."),
-  p("last-session", "review", ["review", "start"], "What did my last session show?", "Read my most recent log. What does it show, and what exactly should I do first next time? Set that as the plan's next instruction."),
+  p("review-week", "review", ["start", "review"], "Review my last week", "Review my logs from the last seven days: what improved, what did not, and the one thing to change this week. Adjust the plan if the logs call for it.", "plan-change"),
+  p("last-session", "review", ["review", "start"], "What did my last session show?", "Read my most recent log. What does it show, and what exactly should I do first next time? Set that as the plan's next instruction.", "plan-change"),
   p("progress", "review", ["start", "any"], "Am I making progress?", "Look at all my logs. Am I making progress toward my goal? Show me the evidence in two or three lines and be honest."),
 ];
 
