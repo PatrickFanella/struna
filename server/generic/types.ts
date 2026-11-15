@@ -170,7 +170,7 @@ export type GenericStats = { total: number; thisWeek: number; streakDays: number
 
 /** What `/api/app` returns in either mode. */
 export type AppInfo = {
-  mode: "personal" | "studio" | "hosted";
+  mode: "personal" | "studio" | "hosted" | "guest";
   name: string;
   /** Sections the app shows. */
   sections: ("practice" | "library" | "materials" | "tabs")[];

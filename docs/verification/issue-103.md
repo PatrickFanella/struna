@@ -1,0 +1,11 @@
+# Browser-local first practice (#103)
+
+`/try` serves one public-safe welcome and an original two-minute exercise before authentication. Suggested first-note/new-player choices require no questions. Optional focus and experience choices change the instruction immediately; returning to edit keeps them. A separate Explore without a guitar path is explicitly exploration, not a played session. Completion is the player's report and reflection is optional; no timer, audio assessment, improvement or streak is inferred.
+
+The original note, rhythm and chord exercises and reuse terms are in `web/public/starter/struna-first-exercises.txt` (CC0). The guest profile, selected exercise/plan inputs, mode, step and reflection use the versioned `struna.guest.v1` browser key. Storage-unavailable mode remains usable with an explicit loss-on-reload message. Unknown/malformed versions are left untouched until the player clears guest practice. The clear action affects only guest state. New attempts distinguish their own reflection from a previous completed attempt.
+
+The public starter/static allowlist uses a fixed guest bootstrap. It never evaluates owner app-info, and a missing asset returns 404 instead of falling back to owner HTML. The owner guard and private API access checks remain in place. Hosted-account data routes stay denied. Build-owned hashed assets retain immutable caching. This is a browser-local starter slice; account handoff belongs to #106 and contextual tool teaching to #107.
+
+`verify-guest.ts` runs without a token/cookie and rejects external requests. Eighteen viewport/theme cases walk suggested start, customization, edit retention, practice, reflection/reload, saved reload, exploration and guest reset. It asserts no API/auth/model request and no microphone access. A blocked-storage case checks continued use and honest limits. HTTP checks deny private profile access, reject missing static files and inspect the anonymous bootstrap. Unit tests cover all six distinct starter instructions, versioned persistence and malformed state. Typecheck, full tests and build accompany this check; CI uploads guest evidence.
+
+Local evidence: /tmp/struna-wave2-guest. Chromium checks do not qualify real Safari, screen-reader speech or guitar/audio hardware.

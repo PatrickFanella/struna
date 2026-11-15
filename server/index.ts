@@ -115,17 +115,20 @@ const TYPES: Record<string, string> = {
 
 const dist = join(import.meta.dirname, "..", "dist");
 
-async function serveStatic(path: string, res: ServerResponse) {
+async function serveStatic(path: string, res: ServerResponse, publicInfo?: AppInfo, fallback = true) {
   let file = normalize(join(dist, decodeURIComponent(path)));
   if (file !== dist && !file.startsWith(dist + sep)) throw new HttpError(404, "not found");
-  if (!(await stat(file).catch(() => undefined))?.isFile()) file = join(dist, "index.html");
+  if (!(await stat(file).catch(() => undefined))?.isFile()) {
+    if (!fallback) throw new HttpError(404, "not found");
+    file = join(dist, "index.html");
+  }
   let data = await readFile(file).catch(() => undefined);
   if (!data) throw new HttpError(404, "build the web app first: pnpm build");
-  if (file === join(dist, "index.html")) data = Buffer.from(withAppInfo(data.toString(), await appInfo()));
+  if (file === join(dist, "index.html")) data = Buffer.from(withAppInfo(data.toString(), publicInfo ?? await appInfo()));
   const immutable = file.includes(`${sep}assets${sep}`);
   res.writeHead(200, {
     "content-type": TYPES[extname(file)] ?? "application/octet-stream",
-    "cache-control": config.mode === "hosted" ? "no-store" : immutable ? "public, max-age=31536000, immutable" : "no-cache",
+    "cache-control": file === join(dist, "index.html") && (publicInfo || config.mode === "hosted") ? "no-store" : immutable ? "public, max-age=31536000, immutable" : "no-cache",
     "x-robots-tag": NOINDEX,
   });
   res.end(data);
@@ -141,6 +144,11 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
   try {
     guard(req, config.mode === "hosted" ? { allowedHosts: config.allowedHosts } : config);
     const url = new URL(req.url ?? "/", "http://localhost");
+    // Public starter and build-owned files carry no profile, plan or owner bootstrap.
+    const publicAsset = /^\/(?:assets|brand|starter)\/[a-zA-Z0-9_./-]+$/.test(url.pathname) || url.pathname === "/manifest.webmanifest";
+    if (config.production && (req.method === "GET" || req.method === "HEAD") && (url.pathname === "/try" || publicAsset)) {
+      return await serveStatic(url.pathname, res, { mode: "guest", name: "Struna", sections: ["practice"], web: false, profile: false }, url.pathname === "/try");
+    }
     if (hosted && await hosted.handle(req, res, url)) return;
     if (access && checkAccess(req, res, url, access)) return;
     const method = req.method ?? "GET";
