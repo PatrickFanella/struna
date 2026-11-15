@@ -302,7 +302,7 @@ export async function listMaterials(s: Pick<Studio, "home" | "libraryDirs">, opt
   // Plan-only links must also have a durable Materials destination.
   for (const url of plan.urls) if (!own.some((i) => i.url === url)) {
     try { if (!["http:", "https:"].includes(new URL(url).protocol)) continue; } catch { continue; }
-    own.push(linkItem(s.home, { url, title: plan.names.get(url) || url }, linksAdded, true));
+    own.push({ ...linkItem(s.home, { url, title: plan.names.get(url) || url }, linksAdded, true), planOnly: true });
   }
   for (const item of own) {
     const name = plan.names.get(item.path ?? "") || plan.names.get(item.url ?? "");

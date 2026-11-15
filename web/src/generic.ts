@@ -38,6 +38,7 @@ export type MaterialKind = "pdf" | "video" | "audio" | "image" | "tab" | "text" 
 
 /** One thing the player can open: a file in the studio, a file in a library folder, or a web link. */
 export type MaterialItem = {
+  planOnly?: true;
   id: string;
   title: string;
   /** Optional musical name; title remains the original source title. */
