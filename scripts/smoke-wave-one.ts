@@ -45,10 +45,7 @@ try {
     await page.goto(`${base}/?token=${token}#practice`);
     await page.locator(".gstart").waitFor();
     await page.screenshot({path:join(dir,`${width}-${theme}-landing.png`)});
-    if (await page.getByRole("radio", {name:/^Quick/}).count()) {
-      await page.getByRole("radio", {name:/^Quick/}).click();
-      await page.getByRole("button", {name:"Start 10 min", exact:true}).click();
-    } else await page.getByRole("button",{name:/^Quick/}).click();
+    await page.locator(".practice-choice > .btn").click();
     await page.locator(".session").waitFor();
     if(!before) {
       const summary=page.locator(".session-details summary");

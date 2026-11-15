@@ -148,8 +148,8 @@ try {
     await page.locator(".gstart").getByRole("button", { name: "Coach settings", exact: true }).click();
     if (await page.getByRole("radio", { name: /Short session/ }).count()) {
       await page.getByRole("radio", { name: /Short session/ }).click();
-      await page.getByRole("button", { name: /^Start \d+ min$/ }).click();
-    } else await page.getByRole("button", { name: /^Short session/ }).click();
+      await page.locator(".practice-choice > .btn").click();
+    } else { await page.locator('input[value="floor"]').check(); await page.locator(".practice-choice > .btn").click(); }
     await page.locator(".workspace").waitFor();
     assert.equal(await page.locator(".pane-coach").count(), 0, "a fresh practice session does not open Coach automatically");
     await shot("practice-default");

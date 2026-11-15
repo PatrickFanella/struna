@@ -227,7 +227,7 @@ const tooWide = (page: Page) =>
   });
 
 async function startPractice(page: Page) {
-  const start = page.getByRole("button", { name: /^Start \d+ min$/ });
+  const start = page.locator(".practice-choice > .btn");
   if (await start.count()) await start.click();
   else await page.locator(".startacts .btn.primary").first().click();
 }

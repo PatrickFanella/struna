@@ -74,8 +74,8 @@ async function theme(page: Page) {
 async function startShort(page: Page) {
   if (await page.getByRole("radio", { name: /Short session/ }).count()) {
     await page.getByRole("radio", { name: /Short session/ }).click();
-    await page.getByRole("button", { name: /^Start \d+ min$/ }).click();
-  } else await page.getByRole("button", { name: /^Short session/ }).click();
+    await page.locator(".practice-choice > .btn").click();
+  } else { await page.locator('input[value="floor"]').check(); await page.locator(".practice-choice > .btn").click(); }
 }
 async function panePicker(page: Page) {
   await startShort(page);

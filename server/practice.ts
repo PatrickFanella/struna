@@ -1,3 +1,4 @@
+import { submissionId } from "./session-log.ts";
 import type { DatabaseSync } from "node:sqlite";
 
 import { getSetting, setSetting } from "./db.ts";
@@ -149,8 +150,9 @@ export function practiceRoutes(paths: Paths & { threadDir: string; timeZone: str
   tempoRoutes(db);
 
   route("POST", "/api/sessions", async (req, res) => {
-    const review = parseReview(await readJson(req));
-    send(res, 200, await writeSessionLog(paths.practiceDir, review, new Date(), paths.timeZone));
+    const body = await readJson(req);
+    const review = parseReview(body);
+    send(res, 200, await writeSessionLog(paths.practiceDir, review, new Date(), paths.timeZone, submissionId(body.submissionId)));
   });
 
   route("GET", "/api/vault-file", async (req, res, { url }) => {

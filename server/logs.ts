@@ -1,4 +1,4 @@
-import { mkdir, open } from "node:fs/promises";
+import { publishLog } from "./session-log.ts";
 import { join } from "node:path";
 
 import type { SessionType } from "./sessions.ts";
@@ -103,25 +103,7 @@ ${next}
  * Write a new log under `<practiceDir>/Logs/`. Never opens an existing file:
  * each candidate name is created with `wx`, so a clash moves on to `(2)`, `(3)`…
  */
-export async function writeSessionLog(practiceDir: string, review: SessionReview, now: Date, timeZone: string): Promise<{ file: string }> {
+export async function writeSessionLog(practiceDir: string, review: SessionReview, now: Date, timeZone: string, submissionId?: string): Promise<{ file: string; replayed?: boolean }> {
   const date = localDate(now, timeZone);
-  const dir = join(practiceDir, "Logs");
-  await mkdir(dir, { recursive: true });
-  const text = renderLog(review, date);
-  for (let n = 1; n < 1000; n++) {
-    const file = n === 1 ? `Practice Log - ${date}.md` : `Practice Log - ${date} (${n}).md`;
-    try {
-      // 664 like the owner's own logs, so the shared tree's group (and its default ACL) can edit it.
-      const fh = await open(join(dir, file), "wx", 0o664);
-      try {
-        await fh.writeFile(text);
-      } finally {
-        await fh.close();
-      }
-      return { file };
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-    }
-  }
-  throw new Error("too many logs for one day");
+  return publishLog(join(practiceDir, "Logs"), renderLog(review, date), (n) => n === 1 ? `Practice Log - ${date}.md` : `Practice Log - ${date} (${n}).md`, submissionId);
 }

@@ -95,6 +95,7 @@ export function GenericReview({ today, session, material, onWritten, onBack, onD
       });
       const minutes = Number(f.minutes);
       const { file, warnings } = await api.post<{ file: string; warnings?: string[] }>("/api/sessions", {
+        submissionId: session.submissionId,
         planId: b.id,
         planTitle: b.title,
         phase: today.phase ? `${today.phase.n} of ${today.phase.of}: ${today.phase.title}` : "",
@@ -130,7 +131,7 @@ export function GenericReview({ today, session, material, onWritten, onBack, onD
       {discarding && <ConfirmDiscard onCancel={() => setDiscarding(false)} onDiscard={onDiscard} />}
       {session.partial && <p className="notice">Partial session · does not count toward plan progress. Minutes reflect active playing time.</p>}
       <h1>{session.partial ? "Partial session review" : session.pain ? "Stopped: pain or tension" : "How did it go?"}</h1>
-      <p className="instr">{session.pain ? painNote(coach) : "Mostly taps, and nothing is required. The coach reads this before it plans your next session."}</p>
+      <p className="instr">{session.pain ? painNote(coach) : "A short reflection is enough. Clean passes below are player-confirmed; the app did not assess your audio."}</p>
       <div className="field">
         <p className="grp">This session included</p>
         <ul>{activities.map((a) => <li key={a.key}>{a.title}{a.attempted ? " — attempted" : " — unmeasured"}</li>)}</ul>
@@ -157,7 +158,7 @@ export function GenericReview({ today, session, material, onWritten, onBack, onD
         <Text label="What to do first next time" value={f.next} onChange={set("next")} area />
         <Text label="Notes (optional)" value={f.notes} onChange={set("notes")} area />
       </details>
-      <p className={error ? "notice" : "srcnote"} role="status" aria-atomic="true">{busy ? "Saving session log" : error ? `The log was not written. ${error}` : "Session log not saved yet"}</p>
+      <p className={error ? "notice" : "srcnote"} role="status" aria-atomic="true">{busy ? "Saving session log" : error ? `The save was not confirmed. Retry uses the same session and cannot create a second log. ${error}` : "Session log not saved yet"}</p>
       <button className="btn primary full" disabled={busy}>{busy ? "Writing the log" : "Write the log"}</button>
       <div className="row2 reviewfoot">
         <button type="button" className="btn quiet" onClick={onBack}>Back to the session</button>

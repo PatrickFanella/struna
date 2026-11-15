@@ -63,7 +63,9 @@ try {
       });
       await settings.close();
     }
+    console.log(`Stage review case ${width} ${theme}`);
     const page = await context.newPage();
+    page.on("pageerror", (e) => console.error("PAGE ERROR", e.message));
     await page.addInitScript((choice) => { if (choice !== "device") localStorage.setItem("struna.theme", choice); }, theme);
     await page.goto(`${base}/?token=${token}#practice`);
     assert.match(await page.locator("#scope-custom-quick").innerText(), /Tuning · 2 min; Technique · 6 min; Logging · 2 min/);
@@ -82,7 +84,7 @@ try {
     await page.reload();
     await page.getByRole("button", { name: "Start 10 min practice", exact: true }).click();
     await page.getByRole("button", { name: "Add pane", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Coach", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Pin Coach beside music", exact: true }).click();
     await nextStage(page);
     assert.equal(await page.locator(".clock.waiting").count(), 1, "Next retains the waiting timer");
     await page.locator(".pane-file:not([hidden])").first().waitFor();
@@ -117,7 +119,7 @@ try {
     assert.notEqual(focus, "none", "clock has visible keyboard focus");
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-session.png`), fullPage: true });
     if (width! < 720) {
-      assert.equal(await page.getByRole("button", { name: /Log clean pass/ }).count(), 0);
+      assert.equal(await page.getByRole("button", { name: /Log clean pass/ }).isVisible(), true, "playing keeps clean-pass controls visible");
       await page.getByRole("button", { name: "Tools", exact: true }).click();
     }
     assert.equal(await page.locator(".measurements").count(), 0, "editing the click records nothing");
@@ -160,6 +162,7 @@ try {
     await nextStage(page);
     assert.equal(await page.locator(".clock:not(.waiting)").count(), 1, "Next retains a running timer");
     await page.getByRole("button", { name: "Pause the stage timer", exact: true }).click();
+    await page.locator(".session-details summary").click();
     assert.match(await page.locator(".session-time").innerText(), /Active practice 1:05/);
     const checklist = page.getByRole("group", { name: "Session checklist (optional)" });
     assert.equal(await checklist.getByRole("checkbox").count(), 5);
@@ -168,6 +171,7 @@ try {
     assert.doesNotMatch(await checklist.innerText(), /Tune practice/);
     await checklist.getByRole("checkbox", { name: "Technique", exact: true }).check();
     await page.reload();
+    await page.locator(".session, .greview").waitFor();
     assert.equal(await page.getByRole("checkbox", { name: "Technique", exact: true }).isChecked(), true);
     const beforeReview = await page.evaluate(() => sessionStorage.getItem("struna.session"));
     await page.getByRole("button", { name: /Finish/ }).press("Enter");
@@ -187,10 +191,12 @@ try {
         sessionStorage.setItem("struna.session", JSON.stringify(s));
       }, beforeReview);
       await page.reload();
+      await page.locator(".session-details summary").click();
       await page.getByText(/Earlier stage times were not recorded/).waitFor();
       await page.getByRole("button", { name: "Resume the stage timer", exact: true }).click();
       await page.getByRole("button", { name: "Pause the stage timer", exact: true }).click();
       await page.reload();
+      await page.locator(".session-details summary").click();
       await page.getByText(/Earlier stage times were not recorded/).waitFor();
       await nextStage(page);
       await page.getByRole("button", { name: /Finish/ }).press("Enter");
@@ -246,7 +252,7 @@ try {
     await page.getByRole("button", { name: "Review partial session", exact: true }).click();
     assert.equal(await roll.inputValue(), bpm);
     await page.getByRole("link", { name: "Materials", exact: true }).click();
-    await page.getByRole("link", { name: "Practice", exact: true }).click();
+    await page.getByRole("link", { name: "Today", exact: true }).click();
     assert.equal(await roll.inputValue(), bpm);
     await page.reload();
     assert.equal(await roll.inputValue(), bpm);
@@ -264,18 +270,28 @@ try {
     const countBefore = (await readdir(join(home, "logs"))).length;
     await page.route("**/api/sessions", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Scratch save failure" }) }));
     await page.getByRole("button", { name: "Write the log", exact: true }).click();
-    await page.getByRole("status").filter({ hasText: "The log was not written" }).waitFor();
+    await page.getByRole("status").filter({ hasText: "The save was not confirmed" }).waitFor();
     assert.equal(await page.getByRole("heading", { name: "Log written", exact: true }).count(), 0);
     assert.equal((await readdir(join(home, "logs"))).length, countBefore);
     await page.reload();
     assert.equal(await roll.inputValue(), bpm);
     assert.equal(await tune.inputValue(), "");
     await page.unroute("**/api/sessions");
+    await page.route("**/api/sessions", async (route) => {
+      const saved = await route.fetch();
+      assert.equal(saved.status(), 200);
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Scratch lost success response" }) });
+    });
+    await page.getByRole("button", { name: "Write the log", exact: true }).click();
+    await page.getByRole("status").filter({ hasText: "The save was not confirmed" }).waitFor();
+    assert.equal((await readdir(join(home, "logs"))).filter((n) => n.endsWith(".md")).length, countBefore + 1);
+    await page.unroute("**/api/sessions");
     const savedResponse = page.waitForResponse((r) => r.url().endsWith("/api/sessions") && r.request().method() === "POST");
     await page.getByRole("button", { name: "Write the log", exact: true }).click();
     const { file } = await (await savedResponse).json();
+    assert.equal((await readdir(join(home, "logs"))).filter((n) => n.endsWith(".md")).length, countBefore + 1, "lost-response retry creates exactly one log");
     await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
-    if (bpm === "400") await page.getByRole("status").filter({ hasText: "tempo suggestions support 30–300 BPM" }).waitFor();
+    await page.getByRole("status").filter({ hasText: "The original log was kept" }).waitFor();
     const headers = { "x-struna-token": token };
     const logs = await fetch(`${base}/api/logs?limit=200`, { headers }).then((r) => r.json()) as any[];
     const expected = [{ materialKey: "materials/roll.md", materialLabel: "Baseline roll", bpm: Number(bpm) }, { materialKey: "materials/tune.md", materialLabel: "Black Mountain Rag", bpm: null }];
