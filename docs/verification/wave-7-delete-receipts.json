@@ -1,0 +1,194 @@
+[
+  {
+    "theme": "light",
+    "width": 320,
+    "height": 700,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "dark",
+    "width": 320,
+    "height": 700,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-light",
+    "width": 320,
+    "height": 700,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-dark",
+    "width": 320,
+    "height": 700,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-light",
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-dark",
+    "width": 390,
+    "height": 844,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "light",
+    "width": 844,
+    "height": 390,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "dark",
+    "width": 844,
+    "height": 390,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-light",
+    "width": 844,
+    "height": 390,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-dark",
+    "width": 844,
+    "height": 390,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "light",
+    "width": 820,
+    "height": 1180,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "dark",
+    "width": 820,
+    "height": 1180,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-light",
+    "width": 820,
+    "height": 1180,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-dark",
+    "width": 820,
+    "height": 1180,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "light",
+    "width": 1153,
+    "height": 814,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "dark",
+    "width": 1153,
+    "height": 814,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-light",
+    "width": 1153,
+    "height": 814,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-dark",
+    "width": 1153,
+    "height": 814,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-light",
+    "width": 1440,
+    "height": 900,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  },
+  {
+    "theme": "device-dark",
+    "width": 1440,
+    "height": 900,
+    "overflow": false,
+    "download": "struna-practice-export.json",
+    "failureRetry": true
+  }
+]

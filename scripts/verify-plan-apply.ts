@@ -65,6 +65,7 @@ try {
  assert.equal(readFileSync(planFile,"utf8"),beforePlan);
  await chat().getByText("Complete plan JSON",{exact:true}).click();
  assert.ok((await chat().locator(".plan-proposal").innerText()).includes("Gentle open strings, then rest"));
+ if(width===390 && theme==="light") { await chat().locator(".plan-proposal").scrollIntoViewIfNeeded(); await page.screenshot({path:resolve(out,"390-light-preview.png")}); }
  await chat().getByRole("button",{name:"Done",exact:true}).click();await open();
  await h.call("/api/practice-state",a,"PUT",{client:"other-tab",active:true});
  await page.evaluate(()=>dispatchEvent(new Event("struna:practice-state")));

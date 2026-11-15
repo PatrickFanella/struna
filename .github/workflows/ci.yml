@@ -29,6 +29,7 @@ jobs:
       - run: node node_modules/playwright-core/cli.js install --with-deps chromium
       - run: node scripts/verify-visual-system.ts /tmp/struna-visual-evidence
       - run: node scripts/verify-practice-layout.ts /tmp/struna-reading-evidence
+      - run: node scripts/verify-delete-account.ts /tmp/struna-delete-evidence
       - run: node scripts/verify-export.ts /tmp/struna-export-evidence
       - run: node scripts/verify-plan-apply.ts /tmp/struna-plan-apply-evidence
       - run: node scripts/verify-coach-context.ts /tmp/struna-coach-context-evidence
@@ -50,6 +51,7 @@ jobs:
             /tmp/struna-guest-evidence
             /tmp/struna-wave4-evidence
             /tmp/struna-connect-ai-evidence
+            /tmp/struna-delete-evidence
             /tmp/struna-export-evidence
             /tmp/struna-plan-apply-evidence
             /tmp/struna-coach-context-evidence

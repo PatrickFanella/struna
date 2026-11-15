@@ -14,11 +14,11 @@ All proposal reads, expiry, staging, practice leases, archiving and crash recove
 
 ## Verification
 
-- `pnpm typecheck`, `pnpm test` and `pnpm build`.
+- The combined deletion/Apply build passes `pnpm typecheck`, all 374 `pnpm test` cases and `pnpm build`.
 - Focused two-account HTTP tests cover exact preview/no write before Apply, foreign candidate ids, forged ownership/digests, anonymous/stale/CSRF denial, shared-name independent leases, active-practice and stale-revision conflicts, competing proposals, expiry, malformed/direct-write payloads, exact archive bytes, conversation deletion, cancellation and unchanged neighbour/owner canaries.
 - Direct API transport stand-in verifies strict schema, no tools/host paths, and no canonical write from model output.
 - Two account-scoped durable-intent fixtures cover interruption before and after rename, with neighbour bytes unchanged. Existing Studio candidate/sandbox tests continue to exercise direct-write denial and recovery.
-- `node scripts/verify-plan-apply.ts /tmp/struna-wave7-plan-v2` runs the six roadmap viewports plus native desktop Chromium 200% zoom, each in light/dark/Device-light/Device-dark. Checks include explicit proposal selection, exact preview, close/reopen, another-tab practice conflict, failed Apply/reload/retry, deliberate Apply, dismissal, composer geometry, zero page errors and no horizontal overflow. It emits screenshots and receipts. CI runs the same matrix.
+- `node scripts/verify-plan-apply.ts /tmp/struna-wave7-plan-v2` runs the six roadmap viewports plus native desktop Chromium 200% zoom, each in light/dark/Device-light/Device-dark. Checks include explicit proposal selection, exact preview, close/reopen, another-tab practice conflict, failed Apply/reload/retry, deliberate Apply, dismissal, composer geometry, zero page errors and no horizontal overflow. It emits screenshots and receipts. All 28 cases pass locally; CI runs the same matrix. Committed receipts: `wave-7-plan-receipts.json`, `wave-7-delete-receipts.json`; combined build asset hashes: `wave-7-build.json`.
 
 The original three-button composer was tightened after rendered phone inspection showed too little room to type; the preview request is now a labelled checkbox above the composer. Existing Jost/Atkinson fonts, warm palette, control radii and motion remain in use. No new brand tokens were introduced.
 

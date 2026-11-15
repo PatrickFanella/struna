@@ -63,7 +63,29 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
     CREATE TABLE IF NOT EXISTS sessions(hash TEXT PRIMARY KEY, account TEXT NOT NULL, created INTEGER NOT NULL, touched INTEGER NOT NULL, revoked INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS attempts(hash TEXT PRIMARY KEY, state TEXT NOT NULL, nonce TEXT NOT NULL, verifier TEXT NOT NULL, destination TEXT NOT NULL, created INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS guest_handoffs(id TEXT PRIMARY KEY, flow TEXT NOT NULL, account TEXT, created INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS account_deletions(account TEXT PRIMARY KEY, receipt TEXT NOT NULL UNIQUE, requested INTEGER NOT NULL, completed INTEGER);
     CREATE TABLE IF NOT EXISTS rate(hash TEXT PRIMARY KEY, started INTEGER NOT NULL, count INTEGER NOT NULL);`);
+  const deletionWork = new Map<string, Promise<void>>();
+  function removeAccount(account: string): Promise<void> {
+    const prior = deletionWork.get(account);
+    if (prior) return prior;
+    const work = (async () => {
+      if (!practice) throw new HttpError(503, "Private practice is not enabled yet");
+      await practice.removeAccount(account);
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        db.prepare("DELETE FROM sessions WHERE account=?").run(account);
+        db.prepare("DELETE FROM guest_handoffs WHERE account=?").run(account);
+        db.prepare("DELETE FROM accounts WHERE id=?").run(account);
+        db.prepare("UPDATE account_deletions SET completed=? WHERE account=?").run(now(), account);
+        db.exec("COMMIT");
+      } catch (e) { db.exec("ROLLBACK"); throw e; }
+    })().finally(() => deletionWork.delete(account));
+    deletionWork.set(account, work); return work;
+  }
+  // Recovery runs before any request can create a workspace or authenticate a deleted identity.
+  const recovery = Promise.allSettled((db.prepare("SELECT account FROM account_deletions WHERE completed IS NULL").all() as { account: string }[]).map(row => removeAccount(row.account)));
+
   function session(req: IncomingMessage) {
     const token = cookie(req, SESSION);
     const row = db.prepare(`SELECT s.*, a.disabled FROM sessions s JOIN accounts a ON a.id=s.account WHERE s.hash=?`).get(hash(token)) as
@@ -89,16 +111,22 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
   }
   return {
     close: () => db.close(),
-    info(req: IncomingMessage) {
+    async info(req: IncomingMessage) {
+      await recovery;
       const current = session(req);
       return current && practice ? practice.info({ account: current.account, session: current.hash, csrf: csrf(current.token) }) : Promise.resolve(hostedInfo);
     },
     async handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
+      await recovery;
+      db.prepare("DELETE FROM account_deletions WHERE completed IS NOT NULL AND requested<?").run(now() - DAY);
       res.setHeader("cache-control", "no-store");
       res.setHeader("referrer-policy", "no-referrer");
       const method = req.method ?? "GET", path = url.pathname;
       if (method === "GET" && path === "/api/account") {
         const current = session(req);
+        const token = cookie(req, SESSION);
+        const deletion = db.prepare("SELECT 1 FROM account_deletions WHERE receipt=?").get(hash(token));
+        if (!current && token && deletion) { send(res, 200, { signedIn: false, deletionPending: true, session: hash(token), csrf: csrf(token) }); return true; }
         send(res, 200, current ? { signedIn: true, account: current.account, session: current.hash, csrf: csrf(current.token) } : { signedIn: false }); return true;
       }
       if (method === "POST" && path === "/auth/login") {
@@ -150,6 +178,34 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
         if (!equal(String(req.headers["x-csrf-token"] ?? ""), csrf(current.token))) throw new HttpError(403, "Invalid CSRF token");
         db.prepare("UPDATE sessions SET revoked=1 WHERE hash=?").run(current.hash); practice?.revoke(current.hash);
         res.setHeader("set-cookie", setCookie(SESSION, "", 0)); send(res, 200, { signedIn: false }); return true;
+      }
+      if (method === "POST" && path === "/auth/delete-account") {
+        mutation(req);
+        const body = await readJson(req);
+        if (!body || Object.keys(body).length !== 1 || body.confirm !== "DELETE" || url.search) throw new HttpError(400, "Type DELETE to confirm removal of this account");
+        const token = cookie(req, SESSION), receipt = hash(token);
+        if (!token || req.headers["x-struna-session"] !== receipt) throw new HttpError(409, "Your account changed. Reload before continuing.");
+        if (!equal(String(req.headers["x-csrf-token"] ?? ""), csrf(token))) throw new HttpError(403, "Invalid CSRF token");
+        const prior = db.prepare("SELECT account, completed FROM account_deletions WHERE receipt=?").get(receipt) as { account: string; completed: number | null } | undefined;
+        if (prior) {
+          if (prior.completed === null) await removeAccount(prior.account);
+        } else {
+          const current = session(req);
+          if (!current) throw new HttpError(401, "Your session expired. Sign in again.");
+          if (!practice) throw new HttpError(503, "Private practice is not enabled yet");
+          db.exec("BEGIN IMMEDIATE");
+          try {
+            db.prepare("INSERT INTO account_deletions VALUES(?,?,?,NULL)").run(current.account, receipt, now());
+            db.prepare("UPDATE accounts SET disabled=1 WHERE id=?").run(current.account);
+            db.prepare("UPDATE sessions SET revoked=1 WHERE account=?").run(current.account);
+            db.exec("COMMIT");
+          } catch (e) { db.exec("ROLLBACK"); throw e; }
+          const sessions = db.prepare("SELECT hash FROM sessions WHERE account=?").all(current.account) as { hash: string }[];
+          for (const row of sessions) practice.revoke(row.hash);
+          await removeAccount(current.account);
+        }
+        res.setHeader("set-cookie", setCookie(SESSION, "", 0));
+        send(res, 200, { deleted: true }); return true;
       }
       if ((method === "GET" || method === "HEAD") && path === "/api/app") { send(res, 200, await this.info(req)); return true; }
       if ((method === "GET" || method === "HEAD") && path === "/api/health") { send(res, 200, { ok: true }); return true; }

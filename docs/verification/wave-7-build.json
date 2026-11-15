@@ -1,0 +1,12 @@
+{
+  "sourceHeads": {
+    "deletion": "d7cae33c1b50fc2f45db5183797beb86ad75b012",
+    "planBeforeIntegration": "fd93f19624c0c6d85628109fba298015e6a5aba3"
+  },
+  "note": "Combined local build before integration commit; hashes identify built assets. Browser matrices also run in hosted CI on the exact PR head.",
+  "assets": {
+    "dist/index.html": "c0356532a5aac32f69c8281997eecaf8a6fb88d29fc09f88c077d2083912346e",
+    "dist/assets/index-C71mkKkY.css": "cf9a8454e590fafe35fd49146297267545cc66d49e32211bb7d3f8899b71fa32",
+    "dist/assets/index-CIy1vNyB.js": "9f8cc132bf348a72ee98f14b50d60375c323679ce48a9e78389dec1aab3d2dc6"
+  }
+}
