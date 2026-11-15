@@ -29,12 +29,8 @@ jobs:
       - run: node node_modules/playwright-core/cli.js install --with-deps chromium
       - run: node scripts/verify-visual-system.ts /tmp/struna-visual-evidence
       - run: node scripts/verify-practice-layout.ts /tmp/struna-reading-evidence
-<<<<<<< HEAD
-      - run: node scripts/verify-coach-context.ts /tmp/struna-coach-context-evidence
-||||||| 34fb9cf
-=======
       - run: node scripts/verify-export.ts /tmp/struna-export-evidence
->>>>>>> origin/main
+      - run: node scripts/verify-coach-context.ts /tmp/struna-coach-context-evidence
       - run: node scripts/verify-connect-ai.ts /tmp/struna-connect-ai-evidence
       - run: node scripts/verify-hosted-isolation.ts
       - run: node scripts/verify-hosted-practice.ts
@@ -53,10 +49,6 @@ jobs:
             /tmp/struna-guest-evidence
             /tmp/struna-wave4-evidence
             /tmp/struna-connect-ai-evidence
-<<<<<<< HEAD
-            /tmp/struna-coach-context-evidence
-||||||| 34fb9cf
-=======
             /tmp/struna-export-evidence
->>>>>>> origin/main
+            /tmp/struna-coach-context-evidence
           if-no-files-found: ignore
