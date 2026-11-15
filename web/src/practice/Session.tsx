@@ -148,7 +148,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
     let unsubscribe: (() => void) | undefined;
     const enter = (records: TempoRecord[]) => {
       if (!active) return;
-      const suggestion = stageTempo && validBpm(stageTempo.bpm) ? stageTempo : resolveStageTempo(stage, records, [...(today.materials ?? []), ...(stage.material && !today.materials?.some((m) => m.key === stage.material!.key) ? [stage.material] : [])]);
+      const suggestion = stageTempo && validBpm(stageTempo.bpm) ? stageTempo : resolveStageTempo(stage, records, [...(today.materials ?? []), ...(today.sessions ?? []).flatMap((k) => k.stages.flatMap((st) => st.material ? [st.material] : []))]);
       const bpm = suggestion.override !== undefined && validBpm(suggestion.override) ? suggestion.override : suggestion.bpm;
       metronome.set({ bpm });
       setState((s) => ({ ...s, tempoRecords: records, stageTempos: { ...s.stageTempos, [tempoKey]: suggestion } }));
