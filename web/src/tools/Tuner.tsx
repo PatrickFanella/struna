@@ -115,7 +115,7 @@ export function TunerPanel({ onMetronome }: { onMetronome?: () => void }) {
       try {
         setMic("starting");
         const ctx = audio();
-        stream = await openMic();
+        stream = await openMic("tuner");
         if (closed) return stopMic(stream);
         await ctx.audioWorklet.addModule("/pitch-worklet.js");
         if (closed) return stopMic(stream);

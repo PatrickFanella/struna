@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { api, store } from "../api.ts";
 import { audio } from "../audio/context.ts";
-import { MicDenied, micUsers } from "../audio/mic.ts";
+import { MicDenied } from "../audio/mic.ts";
 import { metronome, type Subdivision } from "../audio/metronome.ts";
 import { type Take, TakeRecorder } from "../audio/record.ts";
 import { type HelperState, type Suggestion } from "../audio/tempo.ts";
@@ -247,7 +247,6 @@ export function Session({ today, state, setState, items, material, onFinish, onD
   const startTake = async () => {
     setRecError("");
     closeTools(); // The tuner and the recorder never share the microphone.
-    micUsers.dispatchEvent(new Event("recording"));
     const r = new TakeRecorder();
     try {
       await r.start();

@@ -163,3 +163,16 @@ h1{font-family:var(--display);font-weight:400;font-size:var(--fs-h1);line-height
   .top .ib{font-size:14px;gap:6px;padding:0 8px}
   .top .ib svg{width:18px;height:18px}
 }
+
+/* Practice tools share the warm surfaces and legible numeric hierarchy. */
+.tool-sheet{color:var(--ink);padding-bottom:max(12px,env(safe-area-inset-bottom));gap:12px}
+.tool-sheet .sheethd{padding-bottom:8px;border-bottom:1px solid var(--rule)}
+.tool-sheet .seg button,.tool-sheet .sheetdone,.tool-sheet .r3 button,.tool-sheet .r4 button{min-height:48px}
+.tool-sheet .mid{width:100%;max-width:680px;margin-inline:auto}
+.tool-sheet .micoff{background:var(--wash);border-radius:var(--r-feature);padding:20px 16px}
+.tool-sheet .micoff .read{font-family:var(--display);font-size:24px;color:var(--ink)}
+.tool-sheet .note,.tool-sheet .bigrow{font-variant-numeric:tabular-nums}
+.tool-state{font-size:var(--fs-label);font-weight:700;text-align:center;margin:4px 0;color:var(--ink)}
+.tool-sheet .strings button[aria-pressed="true"]::after{content:"";position:absolute;bottom:5px;width:16px;height:3px;background:var(--ink);border-radius:2px}
+.tool-sheet .lower .set{min-height:48px;display:flex;align-items:center}
+@media(max-width:479px){.tool-sheet .micoff{padding:16px 12px}.tool-sheet .micoff .read{font-size:22px}.tool-sheet .strings{gap:6px}}

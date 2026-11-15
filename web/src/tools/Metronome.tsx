@@ -43,6 +43,7 @@ export function MetronomePanel() {
             <BpmInput bpm={m.bpm} />
           </span>
         </div>
+        <p className="tool-state" role="status">{m.countingIn ? "Count-in playing" : m.running ? "Click playing" : "Click stopped"}</p>
         <p className="bpml">BPM{m.countingIn ? <span>Count-in</span> : null}</p>
         <BeatDots className="beats" count={m.beatsPerBar} beat={m.beat} />
         <div className="r2">
@@ -81,7 +82,7 @@ export function MetronomePanel() {
           ))}
         </div>
       </div>
-      <button className="btn primary full" style={{ marginTop: "auto" }} onClick={() => metronome.toggle()}>
+      <button className="btn primary full" aria-pressed={m.running} style={{ marginTop: "auto" }} onClick={() => metronome.toggle()}>
         {m.running ? "Stop" : "Start"}
       </button>
     </>
