@@ -29,6 +29,7 @@ export function Account() {
       <p>{state.signedIn ? "You are signed in. Private practice is being prepared; your account cannot access the owner’s library or tools." : "Sign in with the configured identity provider to return to your private account."}</p>
       <button className="btn primary" disabled={busy} onClick={() => void (state.signedIn ? logout() : login())}>{busy ? "Please wait…" : state.signedIn ? "Sign out" : "Sign in"}</button>
     </>}
+    <p><a href="/try">Try a short exercise without an account</a></p>
     {error && <p role="alert">{error}</p>}
   </div></main></div>;
 }

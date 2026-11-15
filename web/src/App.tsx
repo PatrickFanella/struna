@@ -1,3 +1,5 @@
+import { Guest } from "./onboarding/Guest.tsx";
+import "./onboarding/guest.css";
 import { useEffect, useState } from "react";
 
 import { Account } from "./account/Account.tsx";
@@ -83,6 +85,7 @@ export function App() {
   }, [takesDrops]);
 
   // Nothing is drawn until the server says which app this is, so the wrong sections never flash.
+  if (location.pathname === "/try" || hash === "#try" || info?.mode === "guest") return <Guest />;
   if (!info) return <div className="app"><IconSprite /></div>;
   if (info.mode === "hosted") return <Account />;
   const generic = info.mode === "studio";

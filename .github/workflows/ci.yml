@@ -29,6 +29,7 @@ jobs:
       - run: node node_modules/playwright-core/cli.js install --with-deps chromium
       - run: node scripts/verify-visual-system.ts /tmp/struna-visual-evidence
       - run: node scripts/verify-practice-layout.ts /tmp/struna-reading-evidence
+      - run: node scripts/verify-guest.ts /tmp/struna-guest-evidence
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -36,4 +37,5 @@ jobs:
           path: |
             /tmp/struna-visual-evidence
             /tmp/struna-reading-evidence
+            /tmp/struna-guest-evidence
           if-no-files-found: ignore
