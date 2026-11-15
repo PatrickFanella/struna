@@ -4,7 +4,7 @@ import { accountCredentials } from "./credentials.ts";
 import { accountCoach, type HostedReply } from "./coach.ts";
 import { hostedRecordingRoutes } from "../recordings.ts";
 import { materialsRoutes } from "../generic/materials.ts";
-import { chmodSync, lstatSync, mkdirSync, readdirSync, realpathSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, readdirSync, realpathSync, rmSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join, resolve, sep } from "node:path";
 import { openDb } from "../db.ts";
@@ -28,6 +28,8 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
   }
   const coach = accountCoach(options.run, options.transport);
   const credentials = accountCredentials(root, coach.revokeAccount, options.transport, coach.isBusy);
+  const deleting = new Set<string>();
+  const running = new Map<string, Set<{ done: Promise<void>; stop?: () => void }>>();
   const contexts = new WeakMap<IncomingMessage, Studio>();
   const router = createRouter();
   genericRoutes((req) => {
@@ -53,17 +55,26 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
       if (stat.isDirectory()) regularTree(file);
     }
   }
-  async function withStudio<T>(identity: PracticeIdentity, fn: (s: Studio) => Promise<T>): Promise<T> {
+  async function withStudio<T>(identity: PracticeIdentity, fn: (s: Studio) => Promise<T>, stop?: () => void): Promise<T> {
     if (!/^[0-9a-f-]{36}$/.test(identity.account)) throw new HttpError(401, "Invalid account");
+    if (deleting.has(identity.account)) throw new HttpError(401, "Account unavailable");
+    identity.assertActive?.();
+    let complete!: () => void;
+    const work = { done: new Promise<void>(r => { complete = r; }), ...(stop ? { stop } : {}) };
+    const jobs = running.get(identity.account) ?? new Set();
+    running.set(identity.account, jobs); jobs.add(work);
+    try {
     const account = join(root, "accounts", identity.account);
     for (const path of [join(root, "accounts"), account, join(account, "workspace"), join(account, "state"), join(account, "private"), join(account, "cache")]) directory(path);
     regularTree(account);
     const home = join(account, "workspace");
     await ensureStudio(home);
+    identity.assertActive?.();
     const db = openDb(join(account, "state"));
     chmodSync(join(account, "state", "struna.sqlite"), 0o600);
     try { return await fn({ home, db, timeZone, libraryDirs: [], web: false, appName: "Struna" }); }
     finally { db.close(); }
+    } finally { jobs.delete(work); if (!jobs.size) running.delete(identity.account); complete(); }
   }
   function privateRoutes(s: Studio, identity: PracticeIdentity) {
     const privateRouter = createRouter();
@@ -78,6 +89,20 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
   const info = (identity: PracticeIdentity): Promise<AppInfo> => withStudio(identity, async (s) => ({ ...await genericAppInfo(s, {}), mode: "hosted", sections: ["practice", "materials"], account: identity.account, session: identity.session, csrf: identity.csrf }));
   return {
     info,
+    async removeAccount(account: string) {
+      if (!/^[0-9a-f-]{36}$/.test(account)) throw new Error("Invalid deletion account");
+      deleting.add(account);
+      coach.revokeAccount(account);
+      const jobs = [...(running.get(account) ?? [])];
+      for (const job of jobs) job.stop?.();
+      await Promise.all(jobs.map(job => job.done));
+      // rm does not follow symlinks; verify the shared parent before touching the opaque child.
+      const parent = join(root, "accounts");
+      try { if (realpathSync(parent) !== parent) throw new Error("Account parent unavailable"); }
+      catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
+      rmSync(join(parent, account), { recursive: true, force: true });
+      deleting.delete(account);
+    },
     inventory: (identity: PracticeIdentity) => withStudio(identity, async s => [...router.inventory(), ...privateRoutes(s, identity).inventory()]),
     revoke: (session: string) => { coach.revoke(session); credentials.revoke(session); },
     async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
@@ -89,7 +114,7 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
           if (!found) return false;
           await found.handler(req, res, { url, params: found.params });
           return true;
-        });
+        }, () => { res.destroy(); req.destroy(); });
       }
       const found = router.match(req.method === "HEAD" ? "GET" : req.method ?? "GET", url.pathname);
       if (!found) return false;
@@ -98,7 +123,7 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
         contexts.set(req, s);
         try { await found.handler(req, res, { url, params: found.params }); }
         finally { contexts.delete(req); }
-      });
+      }, () => { res.destroy(); req.destroy(); });
       return true;
     },
   };
