@@ -1,3 +1,4 @@
+import { stageControls } from "./stageControls.ts";
 import type { Tool } from "../App.tsx";
 import { activeElapsed, hasIncompleteTiming, moveStage, pauseTimer, startStageBreak, finishStageBreak, type StageBreak } from "./sessionTimer.ts";
 import { sessionChecklist, type Activity } from "./sessionScope.ts";
@@ -162,6 +163,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
   // The coach may shorten the plan while a session runs; stay on its last stage then.
   const at = Math.min(state.stage, stages.length - 1);
   const stage = stages[at]!;
+  const controls = stageControls(stage, generic);
   const tempoKey = `${kind.id}:${stage.key}:${stage.material?.key ?? "unassigned"}`;
   const stageTempo = state.stageTempos?.[tempoKey];
   const measurementItems = measurementChoices(stage.material ? refPaneItem(stage.material) : undefined, state.panes.map((p) => p.content), items);
@@ -200,9 +202,9 @@ export function Session({ today, state, setState, items, material, onFinish, onD
     setState((s) => ({ ...s, stageTempos: { ...s.stageTempos, [tempoKey]: { bpm: stageTempo.bpm, source: stageTempo.source } } }));
   };
   useEffect(() => {
-    setStageSuggestion(stageTempo ? { bpm: stageTempo.bpm, source: stageTempo.source, use: restoreTempo } : null);
+    setStageSuggestion(stageTempo && (controls === "play" || controls === "general") ? { bpm: stageTempo.bpm, source: stageTempo.source, use: restoreTempo } : null);
     return () => setStageSuggestion(null);
-  }, [tempoKey, stageTempo?.bpm, stageTempo?.source]);
+  }, [tempoKey, stageTempo?.bpm, stageTempo?.source, controls]);
   const total = stage.minutes * 60_000;
   const [now, setNow] = useState(Date.now());
   const elapsed = state.elapsedBefore + (state.resumedAt ? now - state.resumedAt : 0);
@@ -383,25 +385,18 @@ export function Session({ today, state, setState, items, material, onFinish, onD
       </SessionDialog>}
       {discarding && <ConfirmDiscard onCancel={() => setDiscarding(false)} onDiscard={onDiscard} />}
       <div className="sessiontop">
-        <div className="sessionline">
-          <span>{generic ? b.title : blockName(b)}</span>
-          {generic ? (
-            <>
-              <span>{state.cross ? "Extra session (not counted)" : (today.line ?? todayLine(today))}</span>
-              <span>{kind.label}</span>
-            </>
-          ) : (
-            <>
-              <span>{state.cross ? "Cross-training day (not counted)" : todayLine(today)}</span>
-              <span>{state.kind === "full" ? "45-minute session" : "15-minute session"}</span>
-            </>
-          )}
+        <div className="session-actions">
+          <details className="session-details">
+            <summary>Session outline and details</summary>
+            <p>{generic ? b.title : blockName(b)} — {state.cross ? "Extra session (not counted)" : (today.line ?? todayLine(today))} — {kind.label}</p>
+            <StageBar stages={stages} current={at} progress={elapsed / total} />
+            <ol>{stages.map((s, i) => <li key={s.key} aria-current={i === at ? "step" : undefined}>{s.title}: {s.minutes} min</li>)}</ol>
+            <p className="srcnote session-time">Stage elapsed {fmt(elapsed)} · Active practice {fmt(activeElapsed(state, now))}</p>
+            {hasIncompleteTiming(state) && <p className="srcnote">Earlier stage times were not recorded in this older session. Active time includes only recovered timing.</p>}
+          </details>
           <span className="addslot" ref={setAddSlot} />
+          <button className="linkbtn session-end" onClick={() => void requestEnd()}>End session</button>
         </div>
-        <button className="btn quiet" onClick={() => void requestEnd()}>End session</button>
-        <StageBar stages={stages} current={at} progress={elapsed / total} />
-        <p className="srcnote session-time">Stage {at + 1} of {stages.length} · Stage elapsed {fmt(elapsed)} · Active practice {fmt(activeElapsed(state, now))}</p>
-        {hasIncompleteTiming(state) && <p className="srcnote">Earlier stage times were not recorded in this older session. Active time includes only recovered timing.</p>}
         <div className="stagerow">
           <div className="stagetext">
             <h1><span className="stagecount num">{at + 1}/{stages.length}</span> {stage.title}</h1>
@@ -417,7 +412,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
               </label>)}
             </fieldset>}
             {stage.material && <StageMaterialLink material={stage.material} />}
-            {stageTempo && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={restoreTempo}>Use stage tempo</button></p>}
+            {stageTempo && (controls === "play" || controls === "general") && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={restoreTempo}>Use stage tempo</button></p>}
             {!generic && (
             <p className="coachline" aria-live="polite">
               <span className="coachtag">Coach</span>
@@ -447,7 +442,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
         </div>
       </div>
 
-        {measurementItems.length > 0 && <label className="measurement-pick">Measure material
+        {(controls === "play" || controls === "general" || showTools) && measurementItems.length > 0 && <label className="measurement-pick">Measure material
           <select aria-label="Measure material" className="input" value={measured?.key} onChange={(e) => {
             const item = measurementItems.find((i) => i.key === e.target.value)!;
             setState((s) => ({ ...s, measurementMaterials: { ...s.measurementMaterials, [tempoKey]: { key: item.key, label: item.label } } }));
@@ -464,11 +459,15 @@ export function Session({ today, state, setState, items, material, onFinish, onD
       }} focusRequest={state.focusRequest} panes={state.panes} setPanes={(fn) => setState((s) => ({ ...s, panes: fn(s.panes) }))} materials={items} addSlot={addSlot} />
 
       <div className={`sessionbar${showTools || recording !== null || take ? " tools-visible" : ""}`}>
-        <button className="btn outline session-tools-toggle" aria-expanded={showTools || recording !== null || Boolean(take)} onClick={() => setShowTools(!showTools)}>Tools</button>
-        {stage.key === "tune" && <button className="btn outline" onClick={() => openTool("tuner")}>Tuner</button>}
+        <button className="btn outline session-tools-toggle" aria-expanded={showTools} onClick={() => setShowTools(!showTools)}>Tools</button>
+        {(controls === "tune" || showTools) && <button className="btn outline" onClick={() => openTool("tuner")}>Open tuner</button>}
+        {(controls === "play" || controls === "general" || showTools) && <>
         <TempoRow passes={passState.passes} suggestion={passState.suggestion} onClean={() => log("clean")} onMiss={() => log("miss")} onApply={apply} />
+        <button className="linkbtn" onClick={() => openTool("metronome")}>Adjust tempo</button>
+        </>}
+        {showTools && controls !== "play" && controls !== "general" && <button className="linkbtn" onClick={() => openTool("metronome")}>Open click settings</button>}
         <span className="barsp" />
-        <span className="session-secondary">
+        {(controls === "record" || controls === "general" || showTools || recording !== null || finalizing || take) && <span className="record-controls">
         {recording ? (
           <button className="btn quiet recording" onClick={stopTake}>
             <span className="rec now" aria-hidden="true" />Stop take <span className="num">{fmt(now - recording)}</span>
@@ -476,9 +475,10 @@ export function Session({ today, state, setState, items, material, onFinish, onD
         ) : (
           <button className="btn quiet" disabled={finalizing || saving} onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
         )}
-        </span>
+        </span>}
         <button className="linkbtn stoppain" onClick={() => void requestEnd(true)}>Stop: pain or tension</button>
       </div>
+      {finalizing && <p role="status">Finishing the recording…</p>}
       <SessionStatus timerRunning={state.resumedAt !== null} recording={recording !== null} take={take !== null} saving={saving} saved={state.recording !== null} error={recError} />
       {state.recording && !take && <p className="srcnote takesaved">Saved take: {state.recording.path}</p>}
       {take && (

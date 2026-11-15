@@ -68,6 +68,12 @@
 .matbody > .matnote{padding:0}
 .matbody .tabplayer{padding:0}
 .matbody .mdoc{padding:14px 16px;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r)}
+.material-details{max-width:46em;margin:0;padding:0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.material-details summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:var(--fs-meta);font-weight:700;color:var(--ink)}
+.material-details dl{margin:0 0 12px;display:grid;gap:8px}
+.material-details dl div{display:grid;grid-template-columns:minmax(7.5em,auto) minmax(0,1fr);gap:10px;font-size:var(--fs-meta);line-height:1.4}
+.material-details dt{color:var(--muted)}
+.material-details dd{margin:0;overflow-wrap:anywhere}
 
 /* Pane bodies. */
 .imgpane img{display:block;max-width:100%;height:auto;margin:0 auto;border-radius:4px;background:#fff}

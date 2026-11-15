@@ -1,0 +1,19 @@
+
+/* The outline is optional; the active stage keeps one timer and a short instruction. */
+.session-actions { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; }
+.session-details { flex:1; min-width:0; font-size:14px; }
+.session-details summary { cursor:pointer; min-height:44px; display:flex; align-items:center; text-decoration:underline; text-underline-offset:3px; }
+.session-details[open] { flex-basis:100%; }
+.session-details p { margin:8px 0; overflow-wrap:anywhere; }
+.session-details ol { margin:8px 0; padding-left:24px; }
+.session-details [aria-current="step"] { font-weight:700; }
+.session-details .stagelabels { display:none; }
+.session-end { width:auto; min-height:44px; margin:0; }
+.session .stagerow { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 12px; }
+.session .stagetext { grid-column:1 / -1; }
+.session .stagerow .clock { grid-column:1; grid-row:2; justify-self:start; flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:center; gap:4px 8px; padding:8px; max-width:140px; min-height:48px; }
+.session .stagerow .clock .t { font-size:28px; }
+.session .stagerow .clock .s { display:none; }
+.session .stagerow .nextb { grid-column:2; grid-row:2; justify-self:end; width:auto; height:auto; min-height:44px; padding:6px 12px; }
+.session .stagerow .backb { grid-column:1; grid-row:3; justify-self:start; width:auto; min-height:44px; padding:6px 12px; order:0; }
+@media(max-width:360px) { .session .stagerow { gap:6px; } .session .stagetext h1 { font-size:20px; } .session .stagerow .clock { max-width:105px; } }

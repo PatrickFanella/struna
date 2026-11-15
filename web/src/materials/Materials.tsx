@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { api } from "../api.ts";
 import { coachAction } from "../chat/actions.tsx";
@@ -11,7 +11,7 @@ import { screenContext } from "../screen.ts";
 import { FileBody } from "../workspace/Workspace.tsx";
 import { ManagementMenu } from "./ManagementMenu.tsx";
 import { AddPanel, type AddWay } from "./Add.tsx";
-import { externalLabel, materialName, materialProvider, fillInput, FILTER_KINDS, hostOf, KIND_LABEL, materialPaneItem, nameList, uploadProblem, webUrl } from "./item.ts";
+import { externalLabel, materialContext, materialName, materialProvider, fillInput, FILTER_KINDS, KIND_LABEL, materialPaneItem, nameList, uploadProblem, webUrl } from "./item.ts";
 import { findOutcome, type FindOutcome } from "./find.ts";
 import { materialHash, materialListState, materialRoute } from "./route.ts";
 import { readItem, uploadFile } from "./upload.ts";
@@ -33,9 +33,23 @@ async function findPrompt(input: string): Promise<string> {
   return (best && fillInput(best.text, input)) ?? fillInput(FIND_FALLBACK, input)!;
 }
 
-function facts(i: MaterialItem): string {
-  const where = materialProvider(i);
-  return [where, i.level ?? "", i.url && i.src ? `saved from ${hostOf(i.url)}` : ""].filter(Boolean).join(", ");
+function sourceDetails(i: MaterialItem): ReactNode {
+  const displayed = materialName(i);
+  const sourceTitle = i.title.trim() === displayed ? null : i.title;
+  const values = [
+    sourceTitle && ["Source title", sourceTitle],
+    i.note && ["Description", i.note],
+    i.level && ["Difficulty", i.level],
+    i.url && ["Source", materialProvider(i)],
+    i.inPlan && ["Practice", "In your plan"],
+  ].filter((value): value is [string, string] => Boolean(value));
+  if (!values.length) return null;
+  return <details className="material-details">
+    <summary>Details</summary>
+    <dl>
+      {values.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+    </dl>
+  </details>;
 }
 
 const hasFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes("Files");
@@ -349,11 +363,10 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
       <div className="viewer matviewer">
         <button className="linkbtn" onClick={backToList}>{fromPractice ? "Back to practice" : "Back to materials"}</button>
         <h1>{materialName(opened)}</h1>
-        {materialName(opened) !== opened.title && <p className="srcnote">{opened.title}</p>}
         <p className="srcnote">
-          {[KIND_LABEL[opened.kind], facts(opened), opened.size ? megabytes(opened.size) : "", opened.inPlan ? "in your plan" : ""].filter(Boolean).join(", ")}
-          {opened.note ? `. ${opened.note}` : ""}
+          {[materialContext(opened), opened.size ? megabytes(opened.size) : ""].filter(Boolean).join(" · ")}
         </p>
+        {sourceDetails(opened)}
         {notice && <p className="notice" role="alert">{notice}</p>}
         <div className="vacts">
           <button className="btn outline" onClick={() => practice(opened)}>Use in practice</button>
@@ -364,7 +377,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
           {opened.source === "link" && opened.inPlan && <p className="srcnote">This link stays in Materials while the plan uses it. Ask Coach to propose removing it from the plan first.</p>}
         </div>
         <div className="vbody matbody">
-          <FileBody key={pane.key} item={pane} />
+          <FileBody key={pane.key} item={pane} hideLabel />
         </div>
       </div>
     );
@@ -495,14 +508,10 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
               <span className={`thumb kind-${i.kind}`} aria-hidden="true">{KIND_LABEL[i.kind]}</span>
               <span className="itemtext">
                 <span className="itemtitle" id={`title-${i.id}`}>{materialName(i)}</span>
-                {materialName(i) !== i.title && <span className="itemnote">{i.title}</span>}
                 <span className="itemfacts" id={`facts-${i.id}`}>
-                  <span>{facts(i)}</span>
+                  <span>{materialContext(i)}</span>
                   {findStatus?.additions.some(added => added.id === i.id) && <span className="inplan">Added during this search</span>}
-                  {i.inPlan && <span className="inplan">In your plan</span>}
-                  {i.size ? <span className="num">{megabytes(i.size)}</span> : null}
                 </span>
-                {i.note && <span className="itemnote">{i.note}</span>}
                 {i.saveError && !i.src && <span className="itemnote">A copy was not kept: {i.saveError}</span>}
                 {i.saving && !i.src && <span className="itemnote">Saving a copy…</span>}
               </span>

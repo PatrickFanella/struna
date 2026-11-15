@@ -9,6 +9,8 @@ import "./styles/app.css";
 import "./styles/generic.css";
 import "./styles/materials.css";
 import "./styles/coach.css";
+import "./practice/session-header.css";
+import "./practice/stage-controls.css";
 
 migrateSessionStorage();
 createRoot(document.getElementById("root")!).render(

@@ -62,6 +62,11 @@ export const materialName = (i: Pick<MaterialItem, "title" | "shortTitle">): str
 export const materialProvider = (i: Pick<MaterialItem, "provider" | "url" | "source">): string => i.provider?.trim() || (webUrl(i.url) ? hostOf(i.url!) : SOURCE_LABEL[i.source]);
 export const externalLabel = (url: string, provider?: string): string => `Open lesson on ${provider?.trim() || hostOf(url)} (new tab)`;
 
+/** The one compact context line shown beside a musical title in the default list. */
+export function materialContext(i: Pick<MaterialItem, "kind" | "provider" | "url" | "source">): string {
+  return [KIND_LABEL[i.kind], materialProvider(i)].filter(Boolean).join(" · ");
+}
+
 const PANE_KIND: Record<MaterialKind, PaneItem["kind"]> = { pdf: "pdf", video: "video", audio: "audio", image: "image", tab: "tabfile", text: "text", epub: "epub", link: "link", other: "other" };
 
 function withLink(p: PaneItem, url: string | null | undefined, youtube: string | null | undefined, note: string | undefined): PaneItem {
