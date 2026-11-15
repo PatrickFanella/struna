@@ -1,3 +1,4 @@
+import { privateSession } from "../api.ts";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { api } from "../api.ts";
@@ -232,7 +233,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
 
   const practice = (i: MaterialItem) => {
     try {
-      sessionStorage.setItem(LIBRARY_MATERIAL_KEY, JSON.stringify(materialPaneItem(i)));
+      privateSession.setItem(LIBRARY_MATERIAL_KEY, JSON.stringify(materialPaneItem(i)));
     } catch {
       /* storage unavailable */
     }

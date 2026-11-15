@@ -18,6 +18,22 @@ export const privateSession = {
   removeItem: (key: string) => sessionStorage.removeItem(scopedKey(key)),
 };
 
+/** Native readers carry the document session as well as the HttpOnly cookie. */
+export function privateUrl(path: string): string {
+  if (scope.mode !== "hosted" || !scope.session || !path.startsWith("/api/")) return path;
+  const url = new URL(path, location.origin);
+  url.searchParams.set("session", scope.session);
+  return url.pathname + url.search;
+}
+export function accountHeaders(): Record<string, string> {
+  return scope.mode === "hosted" && scope.session ? { "x-struna-session": scope.session, "x-csrf-token": scope.csrf } : {};
+}
+function scopeFiles(value: any): any {
+  if (Array.isArray(value)) return value.map(scopeFiles);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, key === "src" && typeof v === "string" ? privateUrl(v) : scopeFiles(v)]));
+  return value;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -41,7 +57,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   const data = text ? JSON.parse(text) : undefined;
   if (scope.mode === "hosted" && (res.status === 401 || res.status === 409)) { invalidateAccount(); dispatchEvent(new Event("struna:account-changed")); }
   if (!res.ok) throw new ApiError(res.status, data?.error ?? `${res.status} ${res.statusText}`);
-  return data as T;
+  return scopeFiles(data) as T;
 }
 
 export const api = {
