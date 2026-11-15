@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { lookup as dnsLookup } from "node:dns/promises";
-import { createWriteStream } from "node:fs";
-import { link, mkdir, unlink } from "node:fs/promises";
+import { linkSync, unlinkSync, createWriteStream } from "node:fs";
+import { mkdir, unlink } from "node:fs/promises";
 import http, { type IncomingMessage } from "node:http";
 import https from "node:https";
 import { BlockList, isIP } from "node:net";
@@ -76,7 +76,7 @@ export async function placeFile(tmp: string, dir: string, stem: string, ext: str
     for (let n = 1; n < 1000; n++) {
       const name = n === 1 ? `${stem}.${ext}` : `${stem} (${n}).${ext}`;
       try {
-        await link(tmp, join(dir, name));
+        linkSync(tmp, join(dir, name));
         return name;
       } catch (e) {
         if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
@@ -84,7 +84,7 @@ export async function placeFile(tmp: string, dir: string, stem: string, ext: str
     }
     throw new SaveError("too many files with that name");
   } finally {
-    await unlink(tmp).catch(() => {});
+    try { unlinkSync(tmp); } catch { /* Keep the publication error. */ }
   }
 }
 

@@ -27,6 +27,8 @@ test("hosted Materials isolate upload, search, detail, direct/range reads and de
       assert.equal((await fetch(h.base + own.src, { headers: { cookie: p.cookie } })).status, 409);
       for (const id of [fileId("../profile.json"), fileId("/outside/private.txt"), "d0.Zm9yZWlnbi50eHQ"]) assert.equal((await h.call("/api/materials/file?id=" + id, p)).status, 404);
     }
+    const concurrent = await Promise.all(Array.from({ length: 100 }, (_, n) => h.call(`/api/materials/upload?name=batch-${n}.txt`, a, "POST", "synthetic notes")));
+    assert.ok(concurrent.every((r) => r.status === 201));
     assert.equal((await h.call(alice.src)).status, 401);
     const switched = await h.signIn("B", a);
     assert.equal((await fetch(h.base + alice.src + `&session=${a.session}`, { headers: { cookie: switched.cookie } })).status, 409);
