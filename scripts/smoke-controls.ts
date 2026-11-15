@@ -272,7 +272,7 @@ async function semantics(page: Page) {
   await page.locator(".tempocol").press("Enter");
   await state("Click stopped").waitFor();
   const tools = page.getByRole("button", { name: "Tools", exact: true });
-  if (await tools.isVisible()) await tools.click();
+  if (await tools.isVisible()) await tools.press("Enter");
   const record = page.getByRole("button", { name: "Record take", exact: true });
   await record.focus();
   check(await record.evaluate((e) => e.matches(":focus-visible") && getComputedStyle(e).outlineStyle !== "none"), "Recording control has visible keyboard focus");
