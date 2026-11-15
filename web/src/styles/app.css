@@ -591,3 +591,8 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 /* Persistent practice states; live text excludes ticking clocks and beat counters. */
 .sessionstatus{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--muted);font-size:14px}
 .sessionstatus p{margin:0}
+
+.measurement-pick { display:flex; align-items:center; gap:8px; min-width:0; font-size:14px; }
+.measurement-pick select { min-width:0; max-width:300px; width:100%; min-height:44px; }
+.measurements ul { margin:4px 0; padding-left:20px; }
+@media(max-width:719px) { .measurement-pick { flex-wrap:wrap; } }

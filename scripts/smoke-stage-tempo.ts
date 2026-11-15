@@ -88,7 +88,18 @@ try {
       assert.equal(await page.getByRole("button", { name: /Log clean pass/ }).count(), 0);
       await page.getByRole("button", { name: "Tools", exact: true }).click();
     }
+    assert.equal(await page.locator(".measurements").count(), 0, "editing the click records nothing");
     await page.getByRole("button", { name: /Log clean pass/ }).click();
+    await page.getByLabel("Confirmed material tempos").getByText("Baseline roll: 80 BPM", { exact: false }).waitFor();
+    const checkpoint = await page.evaluate(() => JSON.parse(sessionStorage.getItem("struna.session")!).checkpoints[0]);
+    assert.equal(checkpoint.bpm, 80);
+    assert.equal(checkpoint.stageKey, "technique");
+    assert.equal(checkpoint.context, "clean-pass");
+    await page.getByLabel("Measure material", { exact: true }).selectOption("extra:before");
+    assert.equal(await page.getByRole("img", { name: "0 of 3 clean passes", exact: true }).count(), 1);
+    await page.getByRole("button", { name: /Log clean pass/ }).click();
+    await page.getByLabel("Measure material", { exact: true }).selectOption(checkpoint.materialKey);
+    assert.equal(await page.getByRole("img", { name: "1 of 3 clean passes", exact: true }).count(), 1);
     await page.getByRole("button", { name: "Record take", exact: true }).click();
     await page.getByRole("button", { name: /Stop take/ }).waitFor();
     const beforeExpand = await page.evaluate(() => sessionStorage.getItem("struna.session"));
