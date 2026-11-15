@@ -50,7 +50,10 @@ try {
     await page.addInitScript((choice) => { if (choice !== "device") localStorage.setItem("struna.theme", choice); }, theme);
     await page.goto(`${base}/?token=${token}#practice`);
     await page.getByRole("button", { name: /^Quick/ }).click();
+    await page.getByRole("button", { name: "Add pane", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Coach", exact: true }).click();
     await page.getByRole("button", { name: /Next stage/ }).click();
+    await page.locator(".pane-file:not([hidden])").first().waitFor();
     await page.getByText("Suggested 80 BPM", { exact: false }).waitFor();
     assert.match(await page.locator(".stage-tempo").innerText(), /Plan target/);
     await page.getByRole("button", { name: "Tuner", exact: true }).click();
