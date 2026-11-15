@@ -8,9 +8,9 @@ The browser binds API requests to the session represented by its bootstrap, and 
 
 ## Verification
 
-`pnpm typecheck`, `pnpm test` and `pnpm build` pass. The scratch HTTP test uses concurrent synthetic A/B identities and checks different profiles, generated plans, log/tempo readback, leases, forged account/path fields, session mismatch, CSRF/origin denial, delayed-body revocation, stable return identity, private bootstrap, file modes and symlink denial. Existing owner personal/Studio tests also pass.
+`pnpm typecheck`, `pnpm test` (351 tests) and `pnpm build` pass. The scratch HTTP test uses concurrent synthetic A/B identities and checks different profiles, generated plans, log/tempo readback, leases, forged account/path fields, session mismatch, CSRF/origin denial, delayed-body revocation, stable return identity, private bootstrap, file modes and symlink denial. Existing owner personal/Studio tests also pass.
 
-`node scripts/verify-hosted-practice.ts` walks two independent 390×844 Chromium contexts through profile setup, practice, reload, partial review, draft reload and saved-log readback. Both restore their own session and review while an old unscoped owner session remains untouched. The November 15 local receipt is `/tmp/struna-account-ui-mQaN9k`; the script is repeatable and runs in CI. All state is scratch data, and the issuer is an offline adapter.
+`node scripts/verify-hosted-practice.ts` walks two independent 390×844 Chromium contexts through profile setup, practice, reload, partial review, draft reload and saved-log readback. Both restore their own session and review while an old unscoped owner session remains untouched. The November 15 local receipt is `/tmp/struna-account-ui-mQaN9k`; the script is repeatable and runs in CI. A second run with `--without-bootstrap` exercises Vite-style app-info loading before private components mount. This closes the automated review finding about development headers/storage scope. All state is scratch data, and the issuer is an offline adapter.
 
 ## Exposure checkpoint
 
