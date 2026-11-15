@@ -133,6 +133,9 @@ export type Changed = { plan?: boolean; materials?: boolean; profile?: boolean }
 
 /** What `/api/app` returns in either mode. */
 export type AppInfo = {
+  account?: string;
+  session?: string;
+  csrf?: string;
   mode: "personal" | "studio" | "hosted" | "guest";
   name: string;
   /** Sections the app shows. */

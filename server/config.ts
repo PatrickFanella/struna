@@ -37,6 +37,7 @@ const threadDir = join(vaultRoot, threadRel);
 
 export const config = {
   mode,
+  hostedPractice: env.STRUNA_HOSTED_PRACTICE === "1",
   hostedOrigin: env.STRUNA_HOSTED_ORIGIN,
   oidcIssuer: env.STRUNA_OIDC_ISSUER,
   oidcClientId: env.STRUNA_OIDC_CLIENT_ID,

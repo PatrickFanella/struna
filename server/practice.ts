@@ -1,3 +1,4 @@
+import type { IncomingMessage } from "node:http";
 import { submissionId } from "./session-log.ts";
 import type { DatabaseSync } from "node:sqlite";
 
@@ -122,11 +123,13 @@ export function parseReview(input: any): SessionReview {
 }
 
 /** The last clean tempo per fragment; both modes use these two routes. */
-export function tempoRoutes(db: DatabaseSync): void {
-  route("GET", "/api/tempos", (_req, res) => send(res, 200, db.prepare("SELECT fragment, bpm, subdivision, updated FROM tempos ORDER BY updated DESC").all()));
+export function tempoRoutes(database: DatabaseSync | ((req: IncomingMessage) => DatabaseSync), register = route): void {
+  const resolve = (req: IncomingMessage) => typeof database === "function" ? database(req) : database;
+  register("GET", "/api/tempos", (req, res) => send(res, 200, resolve(req).prepare("SELECT fragment, bpm, subdivision, updated FROM tempos ORDER BY updated DESC").all()));
 
-  route("PUT", "/api/tempos", async (req, res) => {
+  register("PUT", "/api/tempos", async (req, res) => {
     const { fragment, bpm, subdivision } = await readJson(req);
+    const db = resolve(req);
     const f = String(fragment ?? "").trim().slice(0, 200);
     const b = Number(bpm);
     if (!f || !Number.isInteger(b) || b < 30 || b > 300) throw new HttpError(400, "fragment and bpm 30–300 required");

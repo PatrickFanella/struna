@@ -1,3 +1,4 @@
+import { hostedPractice } from "./auth/practice.ts";
 import { hostedAuth, hostedInfo } from "./auth/hosted.ts";
 import { chmodSync, rmSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
@@ -30,7 +31,8 @@ import { recordingRoutes } from "./recordings.ts";
 import { codexInstallDir } from "./providers/codex.ts";
 import { tabsRoutes } from "./tabs.ts";
 
-export const db = openDb(config.stateDir);
+if (config.mode === "hosted" && config.hostedPractice && config.production) throw new Error("Hosted practice is scratch-only until the remaining private routes and #94 are qualified");
+export const db = config.mode === "hosted" ? null! : openDb(config.stateDir);
 /**
  * The studio mode on loopback TCP with no edge secret has no login in front of it: other local
  * accounts and host-network containers could reach the port. It then needs its access token.
@@ -41,7 +43,7 @@ export const access: Access | null = config.mode === "studio" && !config.edgeSec
 route("GET", "/api/health", (_req, res) => send(res, 200, { ok: true }));
 /** What `/api/app` answers; also written into index.html, so the first paint needs no extra round trip. */
 let appInfo: () => Promise<AppInfo>;
-const hosted = config.mode === "hosted" ? await hostedAuth(config) : null;
+const hosted = config.mode === "hosted" ? await hostedAuth(config, config.hostedPractice ? hostedPractice(config.stateDir, [config.home, config.vaultRoot, config.mediaRoot, ...config.libraryDirs], config.timeZone) : undefined) : null;
 if (hosted) {
   appInfo = async () => hostedInfo;
 } else if (config.mode === "studio") {
@@ -160,7 +162,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
       return;
     }
     if (url.pathname.startsWith("/api/")) throw new HttpError(404, "not found");
-    if (config.production && (method === "GET" || method === "HEAD")) return await serveStatic(url.pathname, res);
+    if (config.production && (method === "GET" || method === "HEAD")) return await serveStatic(url.pathname, res, hosted ? await hosted.info(req) : undefined);
     throw new HttpError(404, "not found");
   } catch (e) {
     fail(res, e);

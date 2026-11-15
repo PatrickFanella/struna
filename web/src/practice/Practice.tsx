@@ -1,3 +1,4 @@
+import { privateSession } from "../api.ts";
 import { syncPractice } from "./sharedSession.ts";
 import { stopTimer } from "./sessionTimer.ts";
 import { validBpm, type TempoRecord } from "./stageTempo.ts";
@@ -30,10 +31,10 @@ type Phase = { name: "start" } | { name: "session" } | { name: "review" } | { na
 
 function loadSession(): SessionState | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
+    const raw = privateSession.getItem(SESSION_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as SessionState;
-    if (!s.submissionId) { s.submissionId = crypto.randomUUID(); sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+    if (!s.submissionId) { s.submissionId = crypto.randomUUID(); privateSession.setItem(SESSION_KEY, JSON.stringify(s)); }
     return { ...s, panes: Array.isArray(s.panes) ? s.panes : [] };
   } catch {
     return null;
@@ -41,15 +42,15 @@ function loadSession(): SessionState | null {
 }
 function saveSession(s: SessionState | null) {
   try {
-    if (s) sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
-    else sessionStorage.removeItem(SESSION_KEY);
+    if (s) privateSession.setItem(SESSION_KEY, JSON.stringify(s));
+    else privateSession.removeItem(SESSION_KEY);
   } catch {
     /* storage unavailable */
   }
 }
 function libraryItem(): PaneItem | null {
   try {
-    const raw = sessionStorage.getItem(LIBRARY_MATERIAL_KEY);
+    const raw = privateSession.getItem(LIBRARY_MATERIAL_KEY);
     return raw ? (JSON.parse(raw) as PaneItem) : null;
   } catch {
     return null;
@@ -67,7 +68,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   const [extra, setExtra] = useState<PaneItem | null>(libraryItem);
   const [editing, setEditing] = useState(false);
   const app = useApp();
-  const generic = app.mode === "studio";
+  const generic = ["studio", "hosted"].includes(app.mode);
   const m = useMetronome();
   const [leaseUntil, setLeaseUntil] = useState(0);
   const [leaseError, setLeaseError] = useState("");
@@ -249,14 +250,14 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     setSessionState(null);
     // "Use in practice" lasts for one session only.
     try {
-      sessionStorage.removeItem(LIBRARY_MATERIAL_KEY);
+      privateSession.removeItem(LIBRARY_MATERIAL_KEY);
     } catch {
       /* storage unavailable */
     }
     setExtra(null);
     store.set("struna.material-placed", null);
     try {
-      sessionStorage.removeItem(REVIEW_DRAFT_KEY);
+      privateSession.removeItem(REVIEW_DRAFT_KEY);
     } catch {
       /* storage unavailable */
     }

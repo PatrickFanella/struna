@@ -1,3 +1,4 @@
+import { privateSession } from "../api.ts";
 import { ConfirmDiscard } from "./ConfirmDiscard.tsx";
 import { hasIncompleteTiming, playedMinutes } from "./sessionTimer.ts";
 import { sessionChecklist } from "./sessionScope.ts";
@@ -46,7 +47,7 @@ export function GenericReview({ today, session, material, onWritten, onBack, onD
     // After a reload, what the player had typed for this session comes back.
     let stored: string | null = null;
     try {
-      stored = sessionStorage.getItem(REVIEW_DRAFT_KEY);
+      stored = privateSession.getItem(REVIEW_DRAFT_KEY);
     } catch {
       /* storage unavailable */
     }
@@ -55,7 +56,7 @@ export function GenericReview({ today, session, material, onWritten, onBack, onD
   });
   useEffect(() => {
     try {
-      sessionStorage.setItem(REVIEW_DRAFT_KEY, JSON.stringify({ startedAt: session.startedAt, partial: session.partial === true, form: f }));
+      privateSession.setItem(REVIEW_DRAFT_KEY, JSON.stringify({ startedAt: session.startedAt, partial: session.partial === true, form: f }));
     } catch {
       /* storage unavailable */
     }

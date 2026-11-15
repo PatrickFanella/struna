@@ -158,7 +158,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
 }) {
   useWakeLock();
   const m = useMetronome();
-  const generic = useApp().mode === "studio";
+  const generic = ["studio", "hosted"].includes(useApp().mode);
   const kind = sessionKind(today, state.kind);
   const stages = state.stages ?? kind.stages;
   // The coach may shorten the plan while a session runs; stay on its last stage then.

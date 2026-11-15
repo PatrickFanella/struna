@@ -87,8 +87,8 @@ export function App() {
   // Nothing is drawn until the server says which app this is, so the wrong sections never flash.
   if (location.pathname === "/try" || hash === "#try" || info?.mode === "guest") return <Guest />;
   if (!info) return <div className="app"><IconSprite /></div>;
-  if (info.mode === "hosted") return <Account />;
-  const generic = info.mode === "studio";
+  if (info.mode === "hosted" && !info.account) return <Account />;
+  const generic = info.mode === "studio" || info.mode === "hosted";
   const section = sectionFromHash(hash, info.sections);
   const SECTIONS = info.sections.filter((id) => id === "practice" || id === "materials").map((id) => ({ id, ...SECTION[id] }));
   const has = (s: Section) => info.sections.includes(s);
@@ -101,7 +101,7 @@ export function App() {
             {s.label}
           </a>
         ))}
-        {!has("materials") && <a href="#library"><Icon id="i-books" />Materials</a>}
+        {!generic && !has("materials") && <a href="#library"><Icon id="i-books" />Materials</a>}
         <button className="nav-coach" aria-pressed={chat} onClick={openCoach}><Icon id="i-chat" />AI Coach</button>
       </div>
     </nav>
@@ -110,6 +110,7 @@ export function App() {
   return (
     <div className={`app${tool ? " tools" : ""}`}>
       <IconSprite />
+      {info.mode === "hosted" && <Account activeSession={info.session} />}
       <header className="top">
         <div className="wrap">
           <span className="name">
@@ -123,7 +124,7 @@ export function App() {
                 {s.label}
               </a>
             ))}
-            {!has("materials") && <a href="#library"><Icon id="i-books" />Materials</a>}
+            {!generic && !has("materials") && <a href="#library"><Icon id="i-books" />Materials</a>}
           </nav>
           <span className="acts">
             {(has("library") || has("tabs")) && <details className="secondary-nav"><summary>More</summary><div>

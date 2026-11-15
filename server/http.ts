@@ -50,10 +50,14 @@ export async function readBody(req: IncomingMessage, limit: number): Promise<Buf
   return Buffer.concat(chunks);
 }
 
+const jsonBodies = new WeakMap<IncomingMessage, unknown>();
 export async function readJson(req: IncomingMessage): Promise<any> {
+  if (jsonBodies.has(req)) return jsonBodies.get(req);
   const raw = (await readBody(req, 1_000_000)).toString();
   try {
-    return JSON.parse(raw || "{}");
+    const body = JSON.parse(raw || "{}");
+    jsonBodies.set(req, body);
+    return body;
   } catch {
     throw new HttpError(400, "invalid JSON");
   }
@@ -62,32 +66,37 @@ export async function readJson(req: IncomingMessage): Promise<any> {
 export type Handler = (req: IncomingMessage, res: ServerResponse, ctx: { url: URL; params: Record<string, string> }) => unknown;
 
 type Route = { method: string; parts: string[]; handler: Handler };
-const routes: Route[] = [];
+export function createRouter() {
+  const routes: Route[] = [];
 
-/** Register a route. Path segments starting with `:` capture a parameter. */
-export function route(method: string, path: string, handler: Handler): void {
-  routes.push({ method, parts: path.split("/"), handler });
-}
-
-export function match(method: string, path: string): { handler: Handler; params: Record<string, string> } | undefined {
-  const parts = path.split("/");
-  for (const r of routes) {
-    if (r.method !== method || r.parts.length !== parts.length) continue;
-    const params: Record<string, string> = {};
-    let ok = true;
-    for (let i = 0; i < parts.length; i++) {
-      const want = r.parts[i]!;
-      const got = parts[i]!;
-      if (want.startsWith(":")) params[want.slice(1)] = decodeURIComponent(got);
-      else if (want !== got) {
-        ok = false;
-        break;
-      }
-    }
-    if (ok) return { handler: r.handler, params };
+  /** Register a route. Path segments starting with `:` capture a parameter. */
+  function route(method: string, path: string, handler: Handler): void {
+    routes.push({ method, parts: path.split("/"), handler });
   }
-  return undefined;
+
+  function match(method: string, path: string): { handler: Handler; params: Record<string, string> } | undefined {
+    const parts = path.split("/");
+    for (const r of routes) {
+      if (r.method !== method || r.parts.length !== parts.length) continue;
+      const params: Record<string, string> = {};
+      let ok = true;
+      for (let i = 0; i < parts.length; i++) {
+        const want = r.parts[i]!;
+        const got = parts[i]!;
+        if (want.startsWith(":")) params[want.slice(1)] = decodeURIComponent(got);
+        else if (want !== got) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return { handler: r.handler, params };
+    }
+    return undefined;
+  }
+
+  return { route, match };
 }
+export const { route, match } = createRouter();
 
 export function fail(res: ServerResponse, e: unknown): void {
   if (res.headersSent) {

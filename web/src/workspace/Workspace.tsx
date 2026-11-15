@@ -85,7 +85,7 @@ function ImageBody({ src, label }: { src: string; label: string }) {
 
 /** What a pane shows for a file, a link or a tab file. Also the body of the Materials screen's viewer. */
 export function FileBody({ item, onOpen, open, hideLabel = false }: { item: PaneItem; onOpen?: (c: PaneContent) => void; open?: Set<string>; /** The parent supplies the item title, so a reader body must not repeat it. */ hideLabel?: boolean }) {
-  const generic = useApp().mode === "studio";
+  const generic = ["studio", "hosted"].includes(useApp().mode);
   if (item.missing) return <p className="matnote">Material missing: {item.note ?? item.label}. {generic ? "The plan names a file that is not in your materials. Add it, or ask the coach to fix the plan." : "Check the link in the block note."}</p>;
   if (item.kind === "link") return <LinkBody item={item} hideLabel={hideLabel} />;
   if (item.kind === "image" && item.src) return <ImageBody key={item.src} src={item.src} label={item.label} />;
@@ -261,7 +261,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
   }, [menu]);
   const [finder, setFinder] = useState<{ mode: FinderMode; at: number | "add" } | null>(null);
   const app = useApp();
-  const generic = app.mode === "studio";
+  const generic = ["studio", "hosted"].includes(app.mode);
 
   useEffect(() => {
     const el = box.current;

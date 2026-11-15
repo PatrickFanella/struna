@@ -1,3 +1,4 @@
+import { useApp } from "../mode.ts";
 import { useState } from "react";
 
 import { api, store } from "../api.ts";
@@ -65,6 +66,7 @@ export function Setup({ profile, appName, onSaved, onCancel }: {
   const [error, setError] = useState("");
   const set = <K extends keyof SetupForm>(k: K) => (v: SetupForm[K]) => setF((x) => ({ ...x, [k]: v }));
   const first = profile === null;
+  const hosted = useApp().mode === "hosted";
 
   const save = async (input: ProfileInput, skipped: boolean) => {
     setBusy(true);
@@ -74,7 +76,7 @@ export function Setup({ profile, appName, onSaved, onCancel }: {
       const action = profileAction({ before: profile ? fromForm(toForm(profile)) : null, after: input, plan: res.plan, skipped, skippedBefore: store.get(SKIPPED_KEY) === "1" });
       store.set(SKIPPED_KEY, skipped ? "1" : null);
       onSaved();
-      if (action) void coachAction(action);
+      if (action && !hosted) void coachAction(action);
     } catch (e) {
       setError(String((e as Error).message ?? e));
       setBusy(false);

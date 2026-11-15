@@ -15,6 +15,7 @@ export function readAppInfo(v: unknown): AppInfo {
   const sections = (Array.isArray(o.sections) ? o.sections : []).filter((s): s is AppInfo["sections"][number] => typeof s === "string" && SECTIONS.has(s));
   if (!sections.includes("practice")) sections.unshift("practice");
   return {
+    ...(o.mode === "hosted" && typeof o.account === "string" && typeof o.session === "string" && typeof o.csrf === "string" ? { account: o.account, session: o.session, csrf: o.csrf } : {}),
     mode: o.mode === "guest" ? "guest" : o.mode === "hosted" ? "hosted" : o.mode === "studio" || o.mode === "generic" ? "studio" : "personal",
     name: typeof o.name === "string" && o.name.trim() ? o.name.trim() : PERSONAL.name,
     sections,
