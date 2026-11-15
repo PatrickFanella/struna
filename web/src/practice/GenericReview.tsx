@@ -1,4 +1,4 @@
-import { playedMinutes } from "./sessionTimer.ts";
+import { hasIncompleteTiming, playedMinutes } from "./sessionTimer.ts";
 import { sessionChecklist } from "./sessionScope.ts";
 import { useEffect, useState } from "react";
 
@@ -99,6 +99,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
         minutes: Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : 0,
         material: f.material,
         target: f.target,
+        activities: sessionChecklist(session.stages ?? kind.stages, session.addedActivities).map((a) => ({ ...a, attempted: session.attemptedActivities?.includes(a.key) ?? false })),
         startTempo: start === null ? "" : String(start),
         cleanTempo: clean === null ? "" : String(clean),
         subdivision: used && (start !== null || clean !== null) ? subdivision : "",
@@ -133,6 +134,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
         <p className="grp">This session included</p>
         <ul>{sessionChecklist(session.stages ?? kind.stages, session.addedActivities).map((a) => <li key={a.key}>{a.title}{session.attemptedActivities?.includes(a.key) ? " — attempted" : " — unmeasured"}</li>)}</ul>
       </div>
+      {hasIncompleteTiming(session) && <p className="notice" role="status">Earlier stage times were not recorded in this older session. Minutes played includes only recovered timing; adjust it if you know the total.</p>}
       <Text label="What you worked on" value={f.material} onChange={set("material")} placeholder="A song, an exercise, a page" />
       <Text label="Target (optional)" value={f.target} onChange={set("target")} placeholder="What you were aiming for today" />
       <div className="row2">

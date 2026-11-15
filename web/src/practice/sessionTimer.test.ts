@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { activeElapsed, moveStage, pauseTimer, playedMinutes, stopTimer } from "./sessionTimer.ts";
+import { activeElapsed, hasIncompleteTiming, moveStage, pauseTimer, playedMinutes, stopTimer } from "./sessionTimer.ts";
 
 const waiting = { stage: 0, elapsedBefore: 0, resumedAt: null, activeBefore: 0 };
 test("Next and Back preserve waiting/paused/running state while accounting once", () => {
@@ -25,5 +25,9 @@ test("reload retains totals and legacy sessions recover only known current-stage
   assert.equal(activeElapsed(s, 9000), 20_000);
   const moved = moveStage(s, 4, 9000);
   assert.equal(activeElapsed(JSON.parse(JSON.stringify(moved)), 19_000), 30_000);
+  const recovered = stopTimer(pauseTimer(stopTimer(moved, 19_000), 90_000), 100_000);
+  assert.equal(hasIncompleteTiming(recovered), true);
+  assert.equal(hasIncompleteTiming(JSON.parse(JSON.stringify(recovered))), true);
+  assert.equal(hasIncompleteTiming(waiting), false);
   assert.equal(playedMinutes(waiting, 90_000), 0);
 });
