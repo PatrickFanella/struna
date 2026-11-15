@@ -109,3 +109,11 @@ test("one-tap plan prompts change today, not the plan, without evidence from the
   assert.match(text("hand-hurts"), /tell me to stop for today first/);
   assert.doesNotMatch(text("exercise") + text("teach"), /in tab with|diagram or tab and/);
 });
+
+test("plan-changing built-ins carry explicit intent, including changes to next", () => {
+  const purpose = (id: string) => PROMPTS.find((p) => p.id === id)?.purpose;
+  for (const id of ["easier", "harder", "build-plan", "missed-week", "fit-week", "next-plan", "hand-hurts", "new-material", "order-materials", "review-week", "last-session"]) assert.equal(purpose(id), "plan-change", id);
+  assert.equal(purpose("ten-minutes"), "session-length");
+  assert.equal(purpose("listen-for"), "advice");
+  assert.equal(purpose("find-lessons"), "materials");
+});
