@@ -18,7 +18,7 @@ import { StageBar, stageShort } from "./StageBar.tsx";
 import { SessionStatus } from "./SessionStatus.tsx";
 import { resolveStageTempo, validBpm, type StageTempo, type TempoRecord } from "./stageTempo.ts";
 import { refPaneItem } from "../materials/item.ts";
-import { recordPass, emptyPasses, type Checkpoint, type PassState } from "./checkpoints.ts";
+import { recordPass, emptyPasses, measurementChoices, selectedMeasurement, type Checkpoint, type PassState } from "./checkpoints.ts";
 import { SessionDialog, ConfirmDiscard } from "./ConfirmDiscard.tsx";
 import { stopTimer } from "./sessionTimer.ts";
 import { StageMaterialLink } from "./StageMaterialLink.tsx";
@@ -162,8 +162,8 @@ export function Session({ today, state, setState, items, material, onFinish, onD
   const stage = stages[at]!;
   const tempoKey = `${kind.id}:${stage.key}:${stage.material?.key ?? "unassigned"}`;
   const stageTempo = state.stageTempos?.[tempoKey];
-  const measurementItems = [...new Map([...(stage.material ? [refPaneItem(stage.material)] : []), ...state.panes.flatMap((p) => p.content.type === "file" ? [p.content.item] : []), ...items].filter((i) => !i.missing).map((i) => [i.key, i])).values()];
-  const measured = state.measurementMaterials?.[tempoKey] ?? measurementItems[0];
+  const measurementItems = measurementChoices(stage.material ? refPaneItem(stage.material) : undefined, state.panes.map((p) => p.content), items);
+  const measured = selectedMeasurement(measurementItems, state.measurementMaterials?.[tempoKey]);
   const passKey = `${kind.id}:${stage.key}:${measured?.key ?? "unassigned"}`;
   const passState = state.materialPasses?.[passKey] ?? emptyPasses();
   useEffect(() => {
@@ -419,8 +419,8 @@ export function Session({ today, state, setState, items, material, onFinish, onD
             <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
             <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} min` : `over ${stage.minutes} min`) : elapsed ? "paused, tap to resume" : "tap to start the timer"}</span>
           </button>
-          {state.stage > 0 && <button className="btn quiet backb" onClick={back} title="Restart the previous stage timer; keep running or paused" disabled={Boolean(take) || recording !== null}>Back</button>}
-          <button className="btn outline nextb" onClick={next} disabled={Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
+          {state.stage > 0 && <button className="btn quiet backb" onClick={back} title="Restart the previous stage timer; keep running or paused" disabled={finalizing || Boolean(take) || recording !== null}>Back</button>}
+          <button className="btn outline nextb" onClick={next} disabled={finalizing || Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
             <span>{nextStage ? "Next stage" : "Finish"}</span>
             <small>{nextStage ? `Up next: ${stageShort(nextStage)}` : "Write the log"}</small>
           </button>
@@ -454,7 +454,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
             <span className="rec now" aria-hidden="true" />Stop take <span className="num">{fmt(now - recording)}</span>
           </button>
         ) : (
-          <button className="btn quiet" onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
+          <button className="btn quiet" disabled={finalizing || saving} onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
         )}
         </span>
         <button className="linkbtn stoppain" onClick={() => void requestEnd(true)}>Stop: pain or tension</button>
