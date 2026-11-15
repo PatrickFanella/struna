@@ -51,9 +51,10 @@ label.set:focus-within{outline:3px solid var(--focus);outline-offset:2px}
 .counts{margin:0;font-size:var(--fs-meta);color:var(--muted)}
 .counts .num{color:var(--ink)}
 .startfoot .seg{margin:0}
-.themepick{display:flex;align-items:center;gap:12px}
+.themepick{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .themepick .grp{margin:0}
-.themepick .seg{flex:1}
+.themepick .seg{display:flex;flex:0 1 auto;flex-wrap:wrap;min-width:0;max-width:100%;gap:4px}
+.themepick .seg button{flex:1 0 auto;min-width:min-content;max-width:100%;height:auto;min-height:42px;padding:8px 14px;overflow-wrap:anywhere}
 .notice{background:var(--panel);border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:var(--r);padding:12px 14px;margin:0 0 var(--sp);font-size:var(--fs-label);line-height:1.4}
 .notice p{margin:0 0 8px}.notice p:last-child{margin:0}
 .notice .btn{padding:0 18px;height:44px;font-size:var(--fs-label)}
@@ -113,12 +114,9 @@ textarea.input{resize:vertical;line-height:1.4}
 
 /* Coach: a slide-over panel from any screen. */
 .chatwrap{position:fixed;inset:0;z-index:40;pointer-events:none}
-.chatwrap .scrim{position:absolute;inset:0;background:rgba(0,0,0,.28);opacity:0;transition:opacity .2s}
-.chatwrap.open{pointer-events:auto}
-.chatwrap.open .scrim{opacity:1}
-.chat{position:absolute;top:0;right:0;bottom:0;width:min(100%,520px);display:flex;flex-direction:column;background:var(--page);border-left:1px solid var(--rule);transform:translateX(100%);transition:transform .22s ease-out;padding:max(10px,env(safe-area-inset-top)) var(--gap) max(12px,env(safe-area-inset-bottom))}
-.chatwrap.open .chat{transform:none}
-.chatwrap:not(.open) .chat{visibility:hidden;transition:transform .22s ease-out,visibility 0s .22s}
+.chat{position:fixed;inset:0 0 0 auto;margin:0;width:min(100%,520px);max-width:none;height:100dvh;max-height:none;flex-direction:column;background:var(--page);color:var(--ink);border:0;border-left:1px solid var(--rule);padding:max(10px,env(safe-area-inset-top)) var(--gap) max(12px,env(safe-area-inset-bottom));pointer-events:auto}
+.chat[open]{display:flex}
+.chat::backdrop{background:rgba(0,0,0,.28)}
 .chathd{display:flex;align-items:center;gap:10px;padding-bottom:8px}
 .chathd h2{margin:0;font-family:var(--display);font-weight:400;font-size:var(--fs-name)}
 .chathd .seg{flex:1;margin:0}
@@ -283,8 +281,11 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .pane-coach .chathd h2,.pane-coach .chathd .sheetdone{display:none}
 .pane .matnote{padding:12px}
 .emptypane{align-items:center;justify-content:center}
-.panemenu{position:absolute;top:100%;right:8px;z-index:20;display:flex;flex-direction:column;min-width:240px;max-width:min(90vw,360px);max-height:60vh;overflow:auto;padding:6px;background:var(--page);border:1px solid var(--edge);border-radius:var(--r)}
-.panemenu button{text-align:left;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:var(--ink);font-size:14px}
+.panemenu{position:fixed;z-index:40;display:flex;flex-direction:column;width:min(360px,calc(100vw - 24px));overflow:auto;overscroll-behavior:contain;padding:6px;background:var(--page);border:1px solid var(--edge);border-radius:var(--r)}
+.panemenu button{flex:none;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left;padding:10px;border:0;border-radius:6px;background:transparent;color:var(--ink);font-size:14px}
+.panemenu button span,.panemenu button small{display:block}
+.panemenu button span{font-weight:700}
+.panemenu button small{margin-top:4px;color:var(--muted);font-size:12px}
 .panemenu button:hover,.panemenu button:focus-visible{background:var(--wash)}
 .panemenu .grp{margin:8px 10px 2px;font-size:12px}
 .panetabs{display:flex;gap:6px;overflow-x:auto}
@@ -445,8 +446,6 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
   .topnav a svg{width:20px;height:20px}
   .topnav a[aria-current]{color:var(--ink);font-weight:700;background:var(--wash);box-shadow:inset 0 0 0 2px var(--ink)}
   .tabs{display:none}
-  .themepick .seg{flex:none;width:auto}
-  .themepick .seg button{height:34px;padding:0 14px}
   .paneacts .tool{height:28px;min-width:28px;font-size:13px}
 }
 .top .wrap{gap:8px}

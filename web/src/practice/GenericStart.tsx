@@ -1,3 +1,4 @@
+import { durationSummary } from "./sessionScope.ts";
 import { useEffect, useState } from "react";
 
 import { api, store } from "../api.ts";
@@ -145,7 +146,10 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
 
       <div className="startacts">
         {b && kinds.map((k, i) => (
-          <button key={k.id} className={`btn ${i === 0 ? "primary" : "outline"} full`} onClick={() => onStart(k.id)}>{kindLabel(k)}</button>
+          <div key={k.id} className="session-choice">
+            <button className={`btn ${i === 0 ? "primary" : "outline"} full`} aria-describedby={`scope-${k.id}`} onClick={() => onStart(k.id)}>{kindLabel(k)}</button>
+            <p className="srcnote" id={`scope-${k.id}`}>{durationSummary(k.stages)}</p>
+          </div>
         ))}
         <button className="btn quiet full" onClick={onTune}><Icon id="i-fork" />Tune first</button>
         {b && b.crossTraining.length > 0 && kinds[0] && (
