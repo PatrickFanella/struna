@@ -70,6 +70,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
   const openId = route.type === "item" ? route.id : null;
   const detail = route.type !== "list";
   const [openError, setOpenError] = useState("");
+  const [detailRetry, setDetailRetry] = useState(0);
   const restoreScroll = useRef<number | null>(null);
   const setOpenId = (id: string | null) => {
     if (id && detail) {
@@ -153,7 +154,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
       () => { if (live) setOpenError("This material could not be opened. It may have been removed, or access may have changed."); },
     );
     return () => { live = false; };
-  }, [active, openId, data]);
+  }, [active, openId, data, detailRetry]);
 
   useEffect(() => {
     if (!active || detail) return;
@@ -353,7 +354,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
       <button className="linkbtn" onClick={backToList}>{fromPractice ? "Back to practice" : "Back to materials"}</button>
       <h1>{missing ? "Material unavailable" : "Opening material"}</h1>
       <p className="srcnote" role="status">{missing ? openError || "This material address is invalid. Return to Materials to choose an item." : "Loading your material…"}</p>
-      {openError && <button className="btn outline" onClick={() => void load()}>Try again</button>}
+      {openError && <button className="btn outline" onClick={() => setDetailRetry((n) => n + 1)}>Try again</button>}
     </div>;
   }
   if (detail && opened) {
@@ -395,6 +396,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
           <button className="btn outline" aria-expanded={add !== null} onClick={() => (setAdd(add ? null : "upload"), setFinding(false))}>Add</button>
         </div>
       </div>
+      <p className="collection-note">Your private music collection. Open something to read, or use it in today’s practice.</p>
       {drag && <p className="dropnote" aria-hidden="true">Drop the files to add them to your materials.</p>}
 
       {finding && (
@@ -448,13 +450,14 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
               </li>
             ))}
           </ul>
+          {uploads.some((u) => u.state === "failed") && <button className="btn outline" onClick={() => setAdd("upload")}>Choose files again</button>}
           {!sending && <button className="linkbtn" onClick={() => setUploads([])}>Clear this list</button>}
         </section>
       )}
 
       {notice && <p className="notice" role="alert">{notice}</p>}
       {data?.linksError && <p className="notice" role="alert"><b>The link list cannot be read.</b> {data.linksError} Ask the coach to fix <code>materials/links.json</code>.</p>}
-      {error && <p className="notice" role="alert">{error}</p>}
+      {error && <div className="notice" role="alert"><p>{error}</p><button className="btn outline" onClick={() => void load()}>Retry loading materials</button></div>}
 
       {(items.length > 0 || filtered) && (
         <>
@@ -488,7 +491,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
       )}
       {data && items.length === 0 && !filtered && !error && (
         <div className="empty matempty">
-          <p className="instr">Nothing here yet. This is where your sheet music, tabs, lesson videos, backing tracks and links live, so the coach can build them into your plan and you can open them while you practice.</p>
+          <img className="collection-illustration" src="/brand/practice-illustration.svg" alt="" /><h2>Make room for your music</h2><p className="instr">Keep your sheets, tabs, recordings and lesson links together. Add something you have permission to use, then bring it into practice.</p>
           <ol className="ways">
             <li><b>Add your own.</b> Upload files, save a web link, or paste lyrics, a chord chart or text tab.</li>
             {app.web && <li><b>Have the coach find some.</b> Say what you want to learn or play, and the coach searches the web and adds what suits your level.</li>}
@@ -515,6 +518,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
                 {i.saveError && !i.src && <span className="itemnote">A copy was not kept: {i.saveError}</span>}
                 {i.saving && !i.src && <span className="itemnote">Saving a copy…</span>}
               </span>
+              <span className="item-open-hint" aria-hidden="true">Open</span>
             </button>
             <span className="matacts">
               <button className="linkbtn" onClick={() => practice(i)}>Use in practice</button>
