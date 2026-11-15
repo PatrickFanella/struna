@@ -51,9 +51,10 @@ label.set:focus-within{outline:3px solid var(--focus);outline-offset:2px}
 .counts{margin:0;font-size:var(--fs-meta);color:var(--muted)}
 .counts .num{color:var(--ink)}
 .startfoot .seg{margin:0}
-.themepick{display:flex;align-items:center;gap:12px}
+.themepick{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .themepick .grp{margin:0}
-.themepick .seg{flex:1}
+.themepick .seg{display:flex;flex:0 1 auto;flex-wrap:wrap;min-width:0;max-width:100%;gap:4px}
+.themepick .seg button{flex:1 0 auto;min-width:min-content;max-width:100%;height:auto;min-height:42px;padding:8px 14px;overflow-wrap:anywhere}
 .notice{background:var(--panel);border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:var(--r);padding:12px 14px;margin:0 0 var(--sp);font-size:var(--fs-label);line-height:1.4}
 .notice p{margin:0 0 8px}.notice p:last-child{margin:0}
 .notice .btn{padding:0 18px;height:44px;font-size:var(--fs-label)}
@@ -445,8 +446,6 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
   .topnav a svg{width:20px;height:20px}
   .topnav a[aria-current]{color:var(--ink);font-weight:700;background:var(--wash);box-shadow:inset 0 0 0 2px var(--ink)}
   .tabs{display:none}
-  .themepick .seg{flex:none;width:auto}
-  .themepick .seg button{height:34px;padding:0 14px}
   .paneacts .tool{height:28px;min-width:28px;font-size:13px}
 }
 .top .wrap{gap:8px}
