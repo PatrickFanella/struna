@@ -12,6 +12,7 @@ import { blockName, sessionKind, type Stage, type Today, todayLine } from "../ty
 import type { PaneItem } from "./Material.tsx";
 import { type PaneState, Workspace } from "../workspace/Workspace.tsx";
 import { StageBar, stageShort } from "./StageBar.tsx";
+import { SessionStatus } from "./SessionStatus.tsx";
 import { TempoRow } from "./TempoRow.tsx";
 
 export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
@@ -326,8 +327,8 @@ export function Session({ today, state, setState, items, material, onFinish, clo
           onFinish();
         }}>Stop: pain or tension</button>
       </div>
+      <SessionStatus timerRunning={state.resumedAt !== null} recording={recording !== null} take={take !== null} saving={saving} saved={state.recording !== null} error={recError} />
       {state.recording && !take && <p className="srcnote takesaved">Saved take: {state.recording.path}</p>}
-      {recError && <p className="notice" role="alert">{recError}</p>}
       {take && (
         <div className="takebox" role="dialog" aria-label="Save this take">
           <p className="grp">Save this take (<span className="num">{Math.round(take.seconds)}</span> s)</p>
@@ -339,7 +340,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
           <input className="input" placeholder="Purpose, in one line" value={purpose} onChange={(e) => setPurpose(e.target.value)} aria-label="Purpose" />
           <div className="row2">
             <button className="btn outline" disabled={saving} onClick={saveTake}>{saving ? "Saving" : "Save take"}</button>
-            <button className="btn quiet" onClick={() => setTake(null)}>Discard</button>
+            <button className="btn quiet" disabled={saving} onClick={() => setTake(null)}>Discard</button>
           </div>
         </div>
       )}

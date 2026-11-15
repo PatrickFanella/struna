@@ -217,6 +217,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     return (
       <div className="start">
         <h1>Log written</h1>
+        <p className="srcnote" role="status">Session log saved</p>
         <p className="instr">{phase.file}</p>
         <p className="srcnote">{generic ? "In the logs folder of your studio. The app never changes it again; the coach reads it to plan what comes next." : "In Practice/Logs in the vault. The app never edits it again; commit it when you review."}</p>
         <button className={`btn primary full${generic ? "" : " push"}`} onClick={() => {
