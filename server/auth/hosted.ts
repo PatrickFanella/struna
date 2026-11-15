@@ -9,7 +9,7 @@ import { HttpError, readJson, send } from "../http.ts";
 import type { AppInfo } from "../generic/types.ts";
 
 export const hostedInfo: AppInfo = { mode: "hosted", name: "Struna", sections: ["practice"], web: false, profile: false };
-const SESSION = "__Host-struna-session", FLOW = "__Host-struna-login";
+const SESSION = "__Host-struna-session", FLOW = "__Host-struna-login", RATE = "__Host-struna-rate";
 const DAY = 86_400_000;
 const random = () => randomBytes(32).toString("base64url");
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -73,13 +73,17 @@ export function createHostedAuth({ stateDir, origin, adapter, now = Date.now }: 
   function mutation(req: IncomingMessage) {
     if (req.headers.origin !== origin || req.headers["x-struna"] !== "1") throw new HttpError(403, "Use this app on its own origin");
   }
-  function rate(req: IncomingMessage) {
-    // Ignore forwarded client headers; proxy deployments need an edge limiter as well.
-    const key = hash(req.socket.remoteAddress ?? "unknown");
+  function rate(req: IncomingMessage): string {
+    // A browser gets its own quota. A separate generous aggregate bounds cookieless churn;
+    // never treat a reverse proxy address as one player's identity.
+    const browser = cookie(req, RATE) || random();
     db.prepare("DELETE FROM rate WHERE started < ?").run(now() - 600_000);
-    db.prepare("INSERT INTO rate VALUES(?, ?, 1) ON CONFLICT(hash) DO UPDATE SET count=count+1").run(key, now());
-    const row = db.prepare("SELECT count FROM rate WHERE hash=?").get(key) as { count: number };
-    if (row.count > 30) throw new HttpError(429, "Too many sign-in attempts. Try again in ten minutes.");
+    for (const [key, limit] of [["aggregate", 1000], [hash(browser), 30]] as const) {
+      db.prepare("INSERT INTO rate VALUES(?, ?, 1) ON CONFLICT(hash) DO UPDATE SET count=count+1").run(key, now());
+      const row = db.prepare("SELECT count FROM rate WHERE hash=?").get(key) as { count: number };
+      if (row.count > limit) throw new HttpError(429, "Too many sign-in attempts. Try again in ten minutes.");
+    }
+    return browser;
   }
   return {
     close: () => db.close(),
@@ -92,7 +96,7 @@ export function createHostedAuth({ stateDir, origin, adapter, now = Date.now }: 
         send(res, 200, current ? { signedIn: true, account: current.account, csrf: csrf(current.token) } : { signedIn: false }); return true;
       }
       if (method === "POST" && path === "/auth/login") {
-        mutation(req); rate(req);
+        mutation(req); const browser = rate(req);
         const body = await readJson(req);
         db.prepare("DELETE FROM attempts WHERE created < ?").run(now() - 600_000);
         const count = db.prepare("SELECT count(*) AS n FROM attempts").get() as { n: number };
@@ -101,11 +105,10 @@ export function createHostedAuth({ stateDir, origin, adapter, now = Date.now }: 
         const destination = returnTo(body.returnTo);
         const redirect = await adapter.begin(state, nonce, verifier);
         db.prepare("INSERT INTO attempts VALUES(?, ?, ?, ?, ?, ?)").run(hash(token), state, nonce, verifier, destination, now());
-        res.setHeader("set-cookie", setCookie(FLOW, token, 600));
+        res.setHeader("set-cookie", [setCookie(FLOW, token, 600), setCookie(RATE, browser, 600)]);
         send(res, 200, { redirect }); return true;
       }
       if (method === "GET" && path === "/auth/callback") {
-        rate(req);
         const flow = hash(cookie(req, FLOW));
         const attempt = db.prepare("SELECT * FROM attempts WHERE hash=?").get(flow) as
           { state: string; nonce: string; verifier: string; destination: string; created: number } | undefined;
