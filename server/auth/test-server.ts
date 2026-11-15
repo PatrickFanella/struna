@@ -6,9 +6,9 @@ import { createHostedAuth } from "./hosted.ts";
 import { hostedPractice } from "./practice.ts";
 import { fail } from "../http.ts";
 export type Player = { cookie: string; account: string; session: string; csrf: string };
-export async function testHosted() {
+export async function testHosted(options: Parameters<typeof hostedPractice>[3] = {}) {
   const root = mkdtempSync(join(tmpdir(), "struna-wave4-")), origin = "https://practice.example";
-  const practice = hostedPractice(root, [], "UTC");
+  const practice = hostedPractice(root, [], "UTC", options);
   const auth = createHostedAuth({ stateDir: root, origin, practice, adapter: {
     issuer: "https://identity.example", async begin(state) { return `https://identity.example/?state=${state}`; },
     async finish(url) { return { subject: url.searchParams.get("code")! }; },

@@ -185,17 +185,17 @@ export function parseActionModes(input: unknown): Partial<Record<ActionId, Actio
 }
 
 /** The selectable prompts and automatic actions. The personal mode has none. */
-export function promptRoutes(db: DatabaseSync, mode: "personal" | "studio"): void {
+export function promptRoutes(db: DatabaseSync, mode: "personal" | "studio", register = route): void {
   if (mode === "personal") {
-    route("GET", "/api/prompts", (_req, res) => send(res, 200, { prompts: [], actions: [] }));
+    register("GET", "/api/prompts", (_req, res) => send(res, 200, { prompts: [], actions: [] }));
     return;
   }
-  route("GET", "/api/prompts", (_req, res) => send(res, 200, listPrompts(db)));
-  route("PUT", "/api/prompts/custom", async (req, res) => {
+  register("GET", "/api/prompts", (_req, res) => send(res, 200, listPrompts(db)));
+  register("PUT", "/api/prompts/custom", async (req, res) => {
     setSetting(db, CUSTOM_KEY, JSON.stringify(parseCustom(await readJson(req))));
     send(res, 200, listPrompts(db));
   });
-  route("PUT", "/api/prompts/actions", async (req, res) => {
+  register("PUT", "/api/prompts/actions", async (req, res) => {
     const modes = { ...stored<Record<string, unknown>>(db, ACTIONS_KEY, {}), ...parseActionModes(await readJson(req)) };
     setSetting(db, ACTIONS_KEY, JSON.stringify(modes));
     send(res, 200, listPrompts(db));

@@ -127,7 +127,8 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
         db.prepare("INSERT OR IGNORE INTO accounts(id, issuer, subject) VALUES(?, ?, ?)").run(randomUUID(), adapter.issuer, identity.subject);
         const account = db.prepare("SELECT id, disabled FROM accounts WHERE issuer=? AND subject=?").get(adapter.issuer, identity.subject) as { id: string; disabled: number };
         if (account.disabled) throw new HttpError(403, "Account unavailable");
-        db.prepare("UPDATE sessions SET revoked=1 WHERE hash=?").run(hash(cookie(req, SESSION)));
+        const prior = hash(cookie(req, SESSION));
+        db.prepare("UPDATE sessions SET revoked=1 WHERE hash=?").run(prior); practice?.revoke(prior);
         const token = random();
         db.prepare("INSERT INTO sessions VALUES(?, ?, ?, ?, 0)").run(hash(token), account.id, now(), now());
         res.setHeader("set-cookie", [setCookie(FLOW, "", 0), setCookie(SESSION, token, 30 * 86400)]);
@@ -138,7 +139,7 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
         const current = session(req);
         if (!current) throw new HttpError(401, "Your session expired. Sign in again.");
         if (!equal(String(req.headers["x-csrf-token"] ?? ""), csrf(current.token))) throw new HttpError(403, "Invalid CSRF token");
-        db.prepare("UPDATE sessions SET revoked=1 WHERE hash=?").run(current.hash);
+        db.prepare("UPDATE sessions SET revoked=1 WHERE hash=?").run(current.hash); practice?.revoke(current.hash);
         res.setHeader("set-cookie", setCookie(SESSION, "", 0)); send(res, 200, { signedIn: false }); return true;
       }
       if ((method === "GET" || method === "HEAD") && path === "/api/app") { send(res, 200, await this.info(req)); return true; }
