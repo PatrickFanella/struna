@@ -1,7 +1,7 @@
 /** Scratch-only stage metadata regression. pnpm build; node scripts/smoke-stage-tempo.ts */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
@@ -18,7 +18,7 @@ await writeFile(join(home, "materials/roll.md"), "# Baseline roll\n\n```\ne|----
 const plan = {
   version: 1, id: "wave-one", title: "Scratch practice", started: "2026-01-01", goal: "Play comfortably", next: "Tune, then play", extras: [],
   phases: [{ title: "Clean notes", summary: "Listen", sessions: 6, focus: {} }],
-  materials: [{ label: "Baseline roll", file: "materials/roll.md" }],
+  materials: [{ label: "Baseline roll", file: "materials/roll.md" }, { label: "Workspace addition", url: "https://example.invalid/workspace" }],
   sessions: [{ id: "custom-quick", label: "Quick", stages: [
     { key: "tune", title: "Tuning", minutes: 2, task: "Tune up." },
     { key: "technique", title: "Technique", minutes: 6, task: "Play the roll.", material: { file: "materials/roll.md" }, targetBpm: 80 },
@@ -55,9 +55,14 @@ try {
     assert.doesNotMatch(await page.locator("#scope-custom-quick").innerText(), /Tune practice/);
     assert.match(await page.locator("#scope-custom-full").innerText(), /Tune practice · 10 min/);
     assert.equal(await page.locator("#scope-custom-short").innerText(), "Technique · 6 min");
+    await page.evaluate(() => sessionStorage.setItem("struna.material", JSON.stringify({ key: "extra:before", label: "Extra before start", kind: "link", src: null, url: "https://example.invalid/extra" })));
+    await page.reload();
     await page.getByRole("button", { name: /^Quick/ }).click();
+    await page.getByRole("button", { name: "Add pane", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Coach", exact: true }).click();
     await page.getByRole("button", { name: /Next stage/ }).click();
     assert.equal(await page.locator(".clock.waiting").count(), 1, "Next retains the waiting timer");
+    await page.locator(".pane-file:not([hidden])").first().waitFor();
     await page.getByText("Suggested 80 BPM", { exact: false }).waitFor();
     assert.match(await page.locator(".stage-tempo").innerText(), /Plan target/);
     await page.getByRole("button", { name: "Tuner", exact: true }).click();
@@ -79,6 +84,8 @@ try {
     const focus = await page.locator(".clock").evaluate((el) => getComputedStyle(el).outlineStyle);
     assert.notEqual(focus, "none", "clock has visible keyboard focus");
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-session.png`), fullPage: true });
+    await page.getByRole("button", { name: "Add pane", exact: true }).click();
+    await page.getByRole("menuitem", { name: /Workspace addition/ }).click();
     await page.clock.install();
     await page.getByRole("button", { name: "Start the stage timer", exact: true }).click();
     await page.clock.fastForward(65_000);
@@ -87,17 +94,46 @@ try {
     await page.getByRole("button", { name: "Pause the stage timer", exact: true }).click();
     assert.match(await page.locator(".session-time").innerText(), /Active practice 1:05/);
     const checklist = page.getByRole("group", { name: "Session checklist (optional)" });
-    assert.equal(await checklist.getByRole("checkbox").count(), 3);
+    assert.equal(await checklist.getByRole("checkbox").count(), 5);
+    assert.equal(await checklist.getByRole("checkbox", { name: "Extra before start", exact: true }).count(), 1);
+    assert.equal(await checklist.getByRole("checkbox", { name: "Workspace addition", exact: true }).count(), 1);
     assert.doesNotMatch(await checklist.innerText(), /Tune practice/);
     await checklist.getByRole("checkbox", { name: "Technique", exact: true }).check();
     await page.reload();
     assert.equal(await page.getByRole("checkbox", { name: "Technique", exact: true }).isChecked(), true);
-    await page.getByRole("button", { name: /Finish/ }).click();
+    const beforeReview = await page.evaluate(() => sessionStorage.getItem("struna.session"));
+    await page.getByRole("button", { name: /Finish/ }).press("Enter");
     assert.match(await page.locator(".greview").innerText(), /Technique — attempted/);
     assert.equal(await page.getByLabel("Minutes played", { exact: true }).inputValue(), "1");
     assert.doesNotMatch(await page.locator(".greview").innerText(), /Tune practice/);
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}.png`), fullPage: true });
+    await page.getByRole("button", { name: "Write the log", exact: true }).click();
+    await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
+    if (width === 390 && theme === "light") {
+      await page.evaluate((raw) => {
+        const s = JSON.parse(raw!);
+        delete s.activeBefore; delete s.timingIncomplete; delete s.reviewing;
+        s.stage = 1; s.elapsedBefore = 20_000; s.resumedAt = null;
+        sessionStorage.setItem("struna.session", JSON.stringify(s));
+      }, beforeReview);
+      await page.reload();
+      await page.getByText(/Earlier stage times were not recorded/).waitFor();
+      await page.getByRole("button", { name: "Resume the stage timer", exact: true }).click();
+      await page.getByRole("button", { name: "Pause the stage timer", exact: true }).click();
+      await page.reload();
+      await page.getByText(/Earlier stage times were not recorded/).waitFor();
+      await page.getByRole("button", { name: /Next stage/ }).click();
+      await page.getByRole("button", { name: /Finish/ }).press("Enter");
+      await page.getByRole("status").filter({ hasText: "Minutes played includes only recovered timing" }).waitFor();
+    }
     await context.close();
+  }
+  for (const name of await readdir(join(home, "logs"))) {
+    const log = await readFile(join(home, "logs", name), "utf8");
+    assert.match(log, /Technique: attempted/);
+    assert.match(log, /Extra before start: unmeasured/);
+    assert.match(log, /Workspace addition: unmeasured/);
+    assert.doesNotMatch(log, /Tune practice/);
   }
   console.log(`Stage tempo smoke passed: 9 width/theme cases; artifacts ${dir}`);
 } finally {
