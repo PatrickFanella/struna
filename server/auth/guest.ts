@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { readGuest, guestExercise } from "../../shared/guest.ts";
 import { readPlan, readProfile, type Studio } from "../generic/studio.ts";
 import { HttpError, readJson, send, type route } from "../http.ts";
@@ -28,9 +28,9 @@ export function guestImportRoutes(s: Studio, identity: PracticeIdentity, registe
      const current = await snapshot();
      if(body.revision!==current.revision)throw new HttpError(409,"Your account work changed. Review the import again.");
      identity.assertActive?.();
-     const exercise = guestExercise(state), name = `guest-${body.id}.md`;
+     const exercise = guestExercise(state), name = `guest-${body.id}/Guest practice reflection.md`;
      const text = `# Guest practice reflection\n\nFocus: ${state.focus}\nExperience: ${state.experience}\nActivity: ${state.mode === "explore" ? "Explored without a guitar" : "Player-reported practice"}\n\n${state.reflection || "No reflection added."}\n\n${body.choice === "starter" ? `## ${exercise.title}\n\n${exercise.instruction}\n\n~~~text\n${exercise.music}\n~~~\n` : ""}\nThis is a player report, not measured improvement.\n`;
-     const dir=join(s.home,"materials"),file=join(dir,name);mkdirSync(dir,{recursive:true,mode:0o700});
+     const file=join(s.home,"materials",name);mkdirSync(dirname(file),{recursive:true,mode:0o700});
      try {writeFileSync(file,text,{flag:"wx",mode:0o600});} catch(e) {
        if((e as NodeJS.ErrnoException).code!=="EEXIST" || readFileSync(file,"utf8")!==text)throw new HttpError(409,"The saved guest material conflicts. Keep it and start a new handoff.");
      }

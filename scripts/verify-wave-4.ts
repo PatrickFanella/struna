@@ -12,6 +12,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? 
 const receipts: unknown[] = [];
 try {
  for (const [width,height] of [[320,700],[390,844],[844,390],[820,1180],[1153,814],[1440,900],[576,407]] as const) for (const theme of ["light","dark","device-light","device-dark"]) {
+  if(process.argv.includes("--quick") && !((width === 390 && theme === "light") || (width === 1440 && theme === "dark")))continue;
   const zoom = width === 576;
   const options={viewport:{width:zoom?1153:width,height:zoom?814:height},colorScheme:theme.endsWith("dark")?"dark" as const:"light" as const,reducedMotion:"reduce" as const};
   const context=zoom?await chromium.launchPersistentContext(resolve(h.root,`zoom-${theme}`),{...options,executablePath:process.env.CHROMIUM ?? (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : chromium.executablePath())}):await browser.newContext(options);
@@ -67,6 +68,7 @@ try {
   await page.reload();
   await page.getByRole("button",{name:"Open saved practice",exact:true}).click();
   try { await page.locator(".matbody").getByText("Guest note "+width,{exact:true}).waitFor({timeout:5000}); } catch(e) { console.log(await page.locator("body").innerText()); throw e; }
+  assert.equal(await page.locator(".matviewer h1").innerText(),"Guest practice reflection");
   await page.screenshot({path:resolve(out,`guest-import-${width}-${theme}.png`)});
   // A normal profile/plan makes the Materials-to-practice action usable.
   await page.getByRole("link",{name:"Today",exact:true}).first().click();
