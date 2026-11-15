@@ -55,7 +55,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   const text = await res.text();
   if (invalidated) throw new ApiError(409, "Your account changed. Reload before continuing.");
   const data = text ? JSON.parse(text) : undefined;
-  if (scope.mode === "hosted" && (res.status === 401 || res.status === 409)) { invalidateAccount(); dispatchEvent(new Event("struna:account-changed")); }
+  if (scope.mode === "hosted" && (res.status === 401 || (res.status === 409 && data?.error === "Your account changed. Reload before continuing."))) { invalidateAccount(); dispatchEvent(new Event("struna:account-changed")); }
   if (!res.ok) throw new ApiError(res.status, data?.error ?? `${res.status} ${res.statusText}`);
   return scopeFiles(data) as T;
 }
