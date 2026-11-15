@@ -177,6 +177,18 @@ try {
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByRole("button", { name: /Stop take/ }).click();
     await page.locator(".takebox").getByRole("button", { name: "Discard", exact: true }).click();
+    await page.evaluate(() => { (window as unknown as { micMode: string }).micMode = "pending"; });
+    await page.getByRole("button", { name: "Record take", exact: true }).click();
+    await page.getByRole("status").filter({ hasText: "Waiting for microphone permission" }).waitFor();
+    await page.getByRole("button", { name: "End session", exact: true }).click();
+    await page.getByRole("button", { name: "Resume session", exact: true }).click();
+    await page.evaluate(() => { (window as unknown as { resolveMic: () => void }).resolveMic(); });
+    await page.waitForFunction(() => (window as unknown as { streams: MediaStream[] }).streams.at(-1)?.getTracks()[0]?.readyState === "ended");
+    await page.evaluate(() => { (window as unknown as { micMode: string }).micMode = "success"; });
+    await page.getByRole("button", { name: "Record take", exact: true }).click();
+    await page.getByRole("button", { name: /Stop take/ }).waitFor();
+    await page.getByRole("button", { name: /Stop take/ }).click();
+    await page.locator(".takebox").getByRole("button", { name: "Discard", exact: true }).click();
     assert.deepEqual(errors, []);
     results.push(`${label}: direct click, idle, denied/missing/unavailable, retry, requesting/active/stop, independent lease, close and late release passed`);
     await context.close();
