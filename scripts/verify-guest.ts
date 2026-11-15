@@ -95,6 +95,13 @@ try {
     await page.screenshot({ path: join(evidence, `${width}-${theme}-guest.png`), fullPage: true });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.getByRole("button", { name: "Choose a different focus", exact: true }).click();
+    await page.getByRole("button", { name: "Try the 2-minute exercise", exact: true }).click();
+    await page.getByRole("button", { name: "Finish practice", exact: true }).click();
+    assert.equal(await page.getByRole("textbox", { name: "My reflection (optional)", exact: true }).inputValue(), "", "a different attempt never inherits a completed reflection");
+    await page.getByRole("textbox", { name: "My reflection (optional)", exact: true }).fill("This note will be skipped");
+    await page.getByRole("button", { name: "Skip reflection", exact: true }).click();
+    assert.equal(await page.locator("blockquote").count(), 0, "skipped reflection is not saved against the next activity");
+    await page.getByRole("button", { name: "Choose a different focus", exact: true }).click();
     await page.getByRole("button", { name: "Explore without a guitar", exact: true }).click();
     await page.getByRole("button", { name: "Finish exploring", exact: true }).click();
     await page.getByRole("button", { name: "Skip reflection", exact: true }).click();

@@ -48,14 +48,14 @@ export function Guest() {
         <h1>{state.mode === "explore" ? "What did you notice?" : "Leave yourself a small note"}</h1><p>Reflection is optional. Only you can say what felt different; Struna has not listened to or assessed your playing.</p>
         <label className="field"><span>My reflection (optional)</span><textarea className="input" rows={4} maxLength={2000} value={state.reflection} onChange={(e) => setState((s) => ({ ...s, reflection: e.target.value }))} /></label>
         <button className="btn primary full" onClick={() => setState((s) => ({ ...s, step: "done" }))}>Keep this on this device</button>
-        <button className="btn quiet" onClick={() => setState((s) => ({ ...s, step: "done" }))}>Skip reflection</button>
+        <button className="btn quiet" onClick={() => setState((s) => ({ ...s, step: "done", reflection: "" }))}>Skip reflection</button>
         <button className="linkbtn" onClick={() => setState((s) => ({ ...s, step: "practice" }))}>Back to the exercise</button>
       </>}
       {state.step === "done" && <>
         <h1>{state.mode === "explore" ? "Exercise explored" : "Practice marked complete"}</h1><p>{storage === "ready" ? "Your choices and any reflection are kept in this browser on this device." : "Your choices and reflection are available in this open page only."} This is your report of the activity, not a measured result.</p>
         {state.reflection && <blockquote><p className="grp">Your reflection</p><p>{state.reflection}</p></blockquote>}
         <button className="btn primary full" onClick={() => start(state.mode)}>Try this exercise again</button>
-        <button className="btn quiet" onClick={() => setState((s) => ({ ...s, step: "welcome" }))}>Choose a different focus</button>
+        <button className="btn quiet" onClick={() => setState((s) => ({ ...s, step: "welcome", reflection: "" }))}>Choose a different focus</button>
       </>}
       <footer className="guest-limits"><p>Guest practice stays on this device. Clearing site data or using another browser removes access to it. Accounts and AI are optional next steps and are not needed here.</p>
         <div className="guest-theme"><label>Theme <select className="input" value={theme ?? "device"} onChange={(e) => { const choice = e.target.value === "device" ? null : e.target.value as "light" | "dark"; setTheme(choice); setThemeChoice(choice); }}><option value="device">Device</option><option value="light">Light</option><option value="dark">Dark</option></select></label></div>

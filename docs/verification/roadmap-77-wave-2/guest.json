@@ -6,7 +6,7 @@
       "theme": "light",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
@@ -24,15 +24,15 @@
       "theme": "dark",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
+        "/brand/app-favicon.svg",
         "/brand/app-mark.svg",
         "/brand/fonts/AtkinsonHyperlegibleNext-Regular.otf",
         "/brand/fonts/Jost-Regular.ttf",
         "/brand/fonts/AtkinsonHyperlegibleNext-Bold.otf",
-        "/brand/app-favicon.svg",
         "/brand/fonts/SplineSansMono-Regular.ttf"
       ]
     },
@@ -42,7 +42,7 @@
       "theme": "device",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
@@ -60,15 +60,15 @@
       "theme": "light",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
-        "/brand/app-favicon.svg",
         "/brand/app-mark.svg",
         "/brand/fonts/AtkinsonHyperlegibleNext-Regular.otf",
         "/brand/fonts/Jost-Regular.ttf",
         "/brand/fonts/AtkinsonHyperlegibleNext-Bold.otf",
+        "/brand/app-favicon.svg",
         "/brand/fonts/SplineSansMono-Regular.ttf"
       ]
     },
@@ -78,15 +78,15 @@
       "theme": "dark",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
-        "/brand/app-favicon.svg",
         "/brand/app-mark.svg",
         "/brand/fonts/AtkinsonHyperlegibleNext-Regular.otf",
         "/brand/fonts/Jost-Regular.ttf",
         "/brand/fonts/AtkinsonHyperlegibleNext-Bold.otf",
+        "/brand/app-favicon.svg",
         "/brand/fonts/SplineSansMono-Regular.ttf"
       ]
     },
@@ -96,15 +96,15 @@
       "theme": "device",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
+        "/brand/app-favicon.svg",
         "/brand/app-mark.svg",
         "/brand/fonts/AtkinsonHyperlegibleNext-Regular.otf",
         "/brand/fonts/Jost-Regular.ttf",
         "/brand/fonts/AtkinsonHyperlegibleNext-Bold.otf",
-        "/brand/app-favicon.svg",
         "/brand/fonts/SplineSansMono-Regular.ttf"
       ]
     },
@@ -114,7 +114,7 @@
       "theme": "light",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
@@ -132,7 +132,7 @@
       "theme": "dark",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
@@ -150,7 +150,7 @@
       "theme": "device",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
@@ -168,15 +168,15 @@
       "theme": "light",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
+        "/brand/app-favicon.svg",
         "/brand/app-mark.svg",
         "/brand/fonts/AtkinsonHyperlegibleNext-Regular.otf",
         "/brand/fonts/Jost-Regular.ttf",
         "/brand/fonts/AtkinsonHyperlegibleNext-Bold.otf",
-        "/brand/app-favicon.svg",
         "/brand/fonts/SplineSansMono-Regular.ttf"
       ]
     },
@@ -186,15 +186,15 @@
       "theme": "dark",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
+        "/brand/app-favicon.svg",
         "/brand/app-mark.svg",
         "/brand/fonts/AtkinsonHyperlegibleNext-Regular.otf",
         "/brand/fonts/Jost-Regular.ttf",
         "/brand/fonts/AtkinsonHyperlegibleNext-Bold.otf",
-        "/brand/app-favicon.svg",
         "/brand/fonts/SplineSansMono-Regular.ttf"
       ]
     },
@@ -204,7 +204,7 @@
       "theme": "device",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
@@ -222,15 +222,15 @@
       "theme": "light",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
+        "/brand/app-favicon.svg",
         "/brand/app-mark.svg",
         "/brand/fonts/AtkinsonHyperlegibleNext-Regular.otf",
         "/brand/fonts/Jost-Regular.ttf",
         "/brand/fonts/AtkinsonHyperlegibleNext-Bold.otf",
-        "/brand/app-favicon.svg",
         "/brand/fonts/SplineSansMono-Regular.ttf"
       ]
     },
@@ -240,15 +240,15 @@
       "theme": "dark",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
+        "/brand/app-favicon.svg",
         "/brand/app-mark.svg",
         "/brand/fonts/AtkinsonHyperlegibleNext-Regular.otf",
         "/brand/fonts/Jost-Regular.ttf",
         "/brand/fonts/AtkinsonHyperlegibleNext-Bold.otf",
-        "/brand/app-favicon.svg",
         "/brand/fonts/SplineSansMono-Regular.ttf"
       ]
     },
@@ -258,7 +258,7 @@
       "theme": "device",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
@@ -276,7 +276,7 @@
       "theme": "light",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
@@ -294,7 +294,7 @@
       "theme": "dark",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
@@ -312,7 +312,7 @@
       "theme": "device",
       "requests": [
         "/try",
-        "/assets/index-D_HZhBT_.js",
+        "/assets/index-Nd4xLFPM.js",
         "/assets/alphaTab.core-fFDhBJpm.js",
         "/assets/index-BHnjMDy2.css",
         "/brand/practice-illustration.svg",
