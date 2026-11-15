@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import { chromium } from "playwright-core";
+import { nextStage } from "./practice-steps.ts";
 import { normalizeProfile } from "../server/generic/studio.ts";
 
 const before = process.argv.includes("--before");
@@ -71,6 +72,21 @@ try {
       await timer.click();
       await page.getByRole("button",{name:"Pause the stage timer",exact:true}).click();
       await page.getByRole("button",{name:"Resume the stage timer",exact:true}).waitFor();
+      assert.equal(await page.locator(".stage-tempo").count(),0,"Tune up has no fallback BPM prompt");
+      assert.equal(await page.getByRole("button",{name:/Log clean pass/}).count(),0);
+      await nextStage(page);
+      await page.getByRole("button",{name:/Log clean pass/}).waitFor();
+      await page.getByRole("button",{name:"Adjust tempo",exact:true}).click();
+      await page.getByLabel("BPM",{exact:true}).fill("91");
+      await page.getByLabel("BPM",{exact:true}).press("Enter");
+      await page.getByRole("button",{name:"Done",exact:true}).click();
+      await page.getByText("Your tempo: 91 BPM",{exact:false}).waitFor();
+      await page.getByRole("button",{name:"Tools",exact:true}).click();
+      await page.getByRole("button",{name:"Tools",exact:true}).click();
+      await page.getByText("Your tempo: 91 BPM",{exact:false}).waitFor();
+      await nextStage(page);
+      await page.getByRole("button",{name:"Record take",exact:true}).waitFor();
+      assert.equal(await page.getByRole("button",{name:/Log clean pass/}).count(),0,"Recording leads with recorder");
     }
     await page.screenshot({path:join(dir,`${width}-${theme}-stage.png`)});
     await context.close();

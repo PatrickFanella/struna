@@ -1,0 +1,8 @@
+/* Relevance, independent of viewport: Tools reveals optional controls. */
+.session .session-tools-toggle { display:inline-flex; }
+.session .sessionbar .passrow { display:flex; }
+.session .sessionbar { flex-wrap:wrap; }
+.session .sessionbar .met { flex:1 1 auto; flex-wrap:wrap; }
+.session .sessionbar .record-controls { display:inline-flex; }
+.session .sessionbar .stoppain { white-space:normal; }
+.session .sessionbar .suggest { position:static; width:auto; max-width:100%; }
