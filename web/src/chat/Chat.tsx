@@ -204,6 +204,10 @@ async function pump() {
     if (!providers) await loadProviders();
     for (let next = state.queue.shift(); next; next = state.queue.shift()) {
       emit();
+      if (accountHeaders()["x-struna-session"] && !readiness(await loadProviders(), state.provider).ok) {
+        draftText = next.text; state.settings = true; openCoach(); emit();
+        next.done({ ok: false, complete: true, additions: null, problem: "Connect your AI or keep practicing" }); dropQueue(); break;
+      }
       const result = await send(next.text, next.auto, next.find);
       next.done(result);
       if (!result.ok && state.queue.length) {
@@ -236,6 +240,7 @@ export function openCoach(): void {
 function enqueue(text: string, opts: { auto?: ActionId; open?: boolean; find?: boolean } = {}): Promise<FindTurn> {
   const t = text.trim();
   if (!t) return Promise.resolve({ ok: false, complete: true, additions: null, problem: "The request is blank" });
+  if (accountHeaders()["x-struna-session"] && opts.auto) return Promise.resolve({ ok: false, complete: true, additions: null, problem: "Choose Send in Coach to use your API account" });
   state.more = false;
   const result = new Promise<FindTurn>((done) => state.queue.push({ text: t, ...(opts.auto ? { auto: opts.auto } : {}), ...(opts.find ? { find: true } : {}), done }));
   emit();
@@ -356,7 +361,8 @@ function PromptSheet({ prompts, screen, sheetRef }: { prompts: Prompt[]; screen:
 /** The coach conversation: in the slide-over, or in a workspace pane (no Done button there). */
 export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (() => void) | undefined; onPin?: (() => void) | undefined }) {
   useChat();
-  const generic = useApp().mode === "studio";
+  const hosted = useApp().mode === "hosted";
+  const generic = useApp().mode === "studio" || hosted;
   const { prompts } = usePrompts();
   const text = draftText;
   const [list, setList] = useState<Conv[] | null>(null);
@@ -375,7 +381,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
   // The settings changed a coach: the module already asked again; show its answer.
   useEffect(() => {
     if (!generic) return;
-    const on = () => void loadProviders().then((p) => p && setStatus(p));
+    const on = () => void loadProviders().then(setStatus);
     addEventListener(PROVIDERS_CHANGED, on);
     return () => removeEventListener(PROVIDERS_CHANGED, on);
   }, [generic]);
@@ -423,6 +429,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
     e?.preventDefault();
     const t = text.trim();
     if (!t || state.busy || state.queue.length) return;
+    if (hosted && !readiness(status, state.provider).ok) { state.settings = true; emit(); return; }
     draftText = "";
     emit();
     void askCoach(t);
@@ -454,7 +461,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
   /** Studio mode: this conversation's coach cannot answer, but another one can. */
   const notReady = current && !current.ok && ready.length > 0 ? current : null;
   const name = generic ? "the coach" : NAMES[state.provider];
-  const settingsLink = <button className="linkbtn" onClick={() => setSettings(true)}>Coach settings</button>;
+  const settingsLink = <button className="linkbtn" onClick={() => setSettings(true)}>{hosted ? "Connect your AI" : "Coach settings"}</button>;
 
   // Focus goes to what is showing: the prompt list's first button, or the message box. A workspace
   // pane that appears by itself does not take focus; one the player is using does (More unmounts the box).
@@ -513,7 +520,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
           {generic && !showSettings && <button className="linkbtn" onClick={() => {
             setList(null);
             setSettings(true);
-          }}>Coach settings</button>}
+          }}>{hosted ? "Connect your AI" : "Coach settings"}</button>}
           <button className="linkbtn" disabled={Boolean(state.busy)} onClick={() => {
             newConversation(coaches && !current?.ok ? fallback : state.provider);
             setList(null);
@@ -552,16 +559,16 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
           </ul>
         ) : showSettings ? (
           <div className="chatsettings">
-            <CoachProviders />
+            <CoachProviders onDone={() => setSettings(false)} onSkip={() => { setSettings(false); onClose?.(); }} />
           </div>
         ) : showMore ? (
           <PromptSheet prompts={prompts} screen={screen} sheetRef={sheet} />
         ) : (
           <div className="chatlog" ref={log} aria-live="polite">
-            {generic && <PlanCandidates />}
+            {generic && !hosted && <PlanCandidates />}
             {state.messages.length === 0 && (
               <div className="chatempty">
-                <p>{generic
+                <p>{hosted ? "AI coaching is optional. Send shares your question and recent conversation with your OpenAI API account. Coach cannot read files or change your plan. Your practice tools work without it." : generic
                   ? "Ask about today's session, a song, a chord, or what to practise next. The coach sees your plan, the stage you are on and the tempo, and can propose plan changes. Review the before/after preview and choose Apply to change Today."
                   : "Ask about today's session, a passage, or a block review. The coach sees the current block, stage and tempo."}</p>
                 {!coaches && st && !st.ok && <p className="notice">{NAMES[state.provider]} is not signed in on {status?.host ?? "Kvant"}: {st.detail}</p>}
@@ -600,7 +607,8 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
         )}
         {!list && !showMore && !showSettings && !retired && noCoach && (
           <div className="composer nocoach">
-            <p className="notice">No coach is set up. {settingsLink}</p>
+            <p className="notice">{hosted ? "AI coaching is optional. Your OpenAI API account pays for requests; a ChatGPT subscription alone does not provide an API key." : "No coach is set up."} {settingsLink}</p>
+            {hosted && <button className="btn quiet" onClick={() => onClose?.()}>Keep practicing without AI</button>}
           </div>
         )}
         {!list && !showMore && !showSettings && !retired && notReady && (
@@ -609,7 +617,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
             <button className="btn outline" disabled={Boolean(state.busy)} onClick={() => newConversation(fallback)}>New conversation with {nameOf(fallback, status)}</button>
           </div>
         )}
-        {!list && !showMore && !showSettings && !retired && !noCoach && (
+        {!list && !showMore && !showSettings && !retired && (!noCoach || hosted) && (
           <form className="composer" onSubmit={submit}>
             <textarea
               ref={input}

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import { ConnectAI } from "../account/ConnectAI.tsx";
+import { useApp } from "../mode.ts";
 import { api } from "../api.ts";
 import { codeParts, countdown, type Preset, type ProviderRow, type ProviderStatus } from "./providers.ts";
 
@@ -34,7 +36,11 @@ const sameOrigin = (a: string, b: string) => {
  * Host logins show the terminal command; ChatGPT signs in with a code; keys and endpoints are typed here
  * and only ever come back as their last four characters.
  */
-export function CoachProviders() {
+export function CoachProviders(props: { onDone?: (() => void) | undefined; onSkip?: (() => void) | undefined } = {}) {
+  return useApp().mode === "hosted" ? <ConnectAI {...props} /> : <OwnerProviders />;
+}
+
+function OwnerProviders() {
   const [status, setStatus] = useState<ProviderStatus | null>(null);
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);

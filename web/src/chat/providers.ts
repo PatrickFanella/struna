@@ -11,7 +11,7 @@ export type Preset = { id: string; label: string; baseUrl: string; header: "bear
 export type ProviderRow = {
   id: string;
   label: string;
-  via: "Claude Code" | "Codex";
+  via: "Claude Code" | "Codex" | "OpenAI Responses API";
   setup: "host" | "device" | "key" | "endpoint";
   ok: boolean;
   detail: string;
