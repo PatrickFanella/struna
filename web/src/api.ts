@@ -1,3 +1,23 @@
+/** Fixed for this document: a stale tab cannot follow a changed session cookie. */
+function bootstrap() {
+  try { return JSON.parse(document.getElementById("app-info")?.textContent ?? "{}"); } catch { return {}; }
+}
+let scope = bootstrap();
+let scopeReady = typeof scope.mode === "string";
+export function initializeAccountScope(info: { mode: string; account?: string; session?: string; csrf?: string }) {
+  if (scopeReady) return;
+  scope = { ...info };
+  scopeReady = true;
+}
+let invalidated = false;
+export function invalidateAccount() { invalidated = true; }
+const scopedKey = (key: string) => scope.mode === "hosted" ? `struna.account.${scope.account ?? "anonymous"}.${key}` : key;
+export const privateSession = {
+  getItem: (key: string) => sessionStorage.getItem(scopedKey(key)),
+  setItem: (key: string, value: string) => sessionStorage.setItem(scopedKey(key), value),
+  removeItem: (key: string) => sessionStorage.removeItem(scopedKey(key)),
+};
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -7,14 +27,19 @@ export class ApiError extends Error {
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { method, headers: { "x-struna": "1" } };
+  if (invalidated) throw new ApiError(409, "Your account changed. Reload before continuing.");
+  const headers: Record<string, string> = { "x-struna": "1" };
+  if (scope.mode === "hosted" && scope.session) { headers["x-struna-session"] = scope.session; headers["x-csrf-token"] = scope.csrf; }
+  const init: RequestInit = { method, headers };
   if (body !== undefined) {
-    init.headers = { "x-struna": "1", "content-type": "application/json" };
+    headers["content-type"] = "application/json";
     init.body = JSON.stringify(body);
   }
   const res = await fetch(path, init);
   const text = await res.text();
+  if (invalidated) throw new ApiError(409, "Your account changed. Reload before continuing.");
   const data = text ? JSON.parse(text) : undefined;
+  if (scope.mode === "hosted" && (res.status === 401 || res.status === 409)) { invalidateAccount(); dispatchEvent(new Event("struna:account-changed")); }
   if (!res.ok) throw new ApiError(res.status, data?.error ?? `${res.status} ${res.statusText}`);
   return data as T;
 }
@@ -45,8 +70,8 @@ export function migrateSessionStorage(): void {
 export const store = {
   get(key: string): string | null {
     try {
-      const value = localStorage.getItem(key);
-      if (value !== null || !key.startsWith("struna.")) return value;
+      const value = localStorage.getItem(key === "struna.theme" ? key : scopedKey(key));
+      if (value !== null || scope.mode === "hosted" || !key.startsWith("struna.")) return value;
       const previous = localStorage.getItem(key.replace(/^struna\./, "guitar-room."));
       if (previous !== null) {
         try { localStorage.setItem(key, previous); } catch { /* A full store can still be read. */ }
@@ -58,8 +83,9 @@ export const store = {
   },
   set(key: string, value: string | null): void {
     try {
-      if (value === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, value);
+      const target = key === "struna.theme" ? key : scopedKey(key);
+      if (value === null) localStorage.removeItem(target);
+      else localStorage.setItem(target, value);
       if (key.startsWith("struna.")) localStorage.removeItem(key.replace(/^struna\./, "guitar-room."));
     } catch {
       /* storage unavailable */

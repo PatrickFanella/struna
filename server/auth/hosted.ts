@@ -1,3 +1,4 @@
+import type { hostedPractice } from "./practice.ts";
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdirSync, readFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
@@ -49,9 +50,9 @@ export async function oidcAdapter(issuer: string, clientId: string, secret: stri
   };
 }
 
-/** No owner routes are registered in hosted mode. This boundary handles auth and denies all private APIs. */
-export function createHostedAuth({ stateDir, origin, adapter, now = Date.now }: {
-  stateDir: string; origin: string; adapter: IdentityAdapter; now?: () => number;
+/** No owner routes are registered in hosted mode. Only explicitly ported practice handlers can receive verified identity. */
+export function createHostedAuth({ stateDir, origin, adapter, practice, now = Date.now }: {
+  stateDir: string; origin: string; adapter: IdentityAdapter; practice?: ReturnType<typeof hostedPractice> | undefined; now?: () => number;
 }) {
   if (new URL(origin).origin !== origin || !origin.startsWith("https://")) throw new Error("Hosted origin must be an exact HTTPS origin");
   mkdirSync(stateDir, { recursive: true, mode: 0o700 });
@@ -87,13 +88,17 @@ export function createHostedAuth({ stateDir, origin, adapter, now = Date.now }: 
   }
   return {
     close: () => db.close(),
+    info(req: IncomingMessage) {
+      const current = session(req);
+      return current && practice ? practice.info({ account: current.account, session: current.hash, csrf: csrf(current.token) }) : Promise.resolve(hostedInfo);
+    },
     async handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
       res.setHeader("cache-control", "no-store");
       res.setHeader("referrer-policy", "no-referrer");
       const method = req.method ?? "GET", path = url.pathname;
       if (method === "GET" && path === "/api/account") {
         const current = session(req);
-        send(res, 200, current ? { signedIn: true, account: current.account, csrf: csrf(current.token) } : { signedIn: false }); return true;
+        send(res, 200, current ? { signedIn: true, account: current.account, session: current.hash, csrf: csrf(current.token) } : { signedIn: false }); return true;
       }
       if (method === "POST" && path === "/auth/login") {
         mutation(req); const browser = rate(req);
@@ -136,17 +141,28 @@ export function createHostedAuth({ stateDir, origin, adapter, now = Date.now }: 
         db.prepare("UPDATE sessions SET revoked=1 WHERE hash=?").run(current.hash);
         res.setHeader("set-cookie", setCookie(SESSION, "", 0)); send(res, 200, { signedIn: false }); return true;
       }
-      if ((method === "GET" || method === "HEAD") && path === "/api/app") { send(res, 200, hostedInfo); return true; }
+      if ((method === "GET" || method === "HEAD") && path === "/api/app") { send(res, 200, await this.info(req)); return true; }
       if ((method === "GET" || method === "HEAD") && path === "/api/health") { send(res, 200, { ok: true }); return true; }
       // Only the public shell and build-owned assets pass to the static server.
       if ((method === "GET" || method === "HEAD") && (path === "/" || /^\/(?:assets|brand|starter)\/[a-zA-Z0-9_./-]+$/.test(path) || path === "/manifest.webmanifest")) return false;
-      if (!session(req)) throw new HttpError(401, "Sign in to your private account");
+      // Consume a mutation before resolving identity: a delayed body cannot retain a revoked session.
+      if (method !== "GET" && method !== "HEAD") await readJson(req);
+      const current = session(req);
+      if (!current) throw new HttpError(401, "Sign in to your private account");
+      if (practice) {
+        if (req.headers["x-struna-session"] !== current.hash) throw new HttpError(409, "Your account changed. Reload before continuing.");
+        if (method !== "GET" && method !== "HEAD") {
+          mutation(req);
+          if (!equal(String(req.headers["x-csrf-token"] ?? ""), csrf(current.token))) throw new HttpError(403, "Invalid CSRF token");
+        }
+        if (await practice.handle(req, res, url, { account: current.account, session: current.hash, csrf: csrf(current.token) })) return true;
+      }
       throw new HttpError(503, "Private practice is not enabled yet");
     },
   };
 }
-export async function hostedAuth(config: Config) {
+export async function hostedAuth(config: Config, practice?: ReturnType<typeof hostedPractice>) {
   if (!config.hostedOrigin || !config.oidcIssuer || !config.oidcClientId || !config.oidcSecretFile) throw new Error("Hosted mode requires an HTTPS origin and a configured OIDC issuer, client id and secret file; public practice remains disabled");
   const adapter = await oidcAdapter(config.oidcIssuer, config.oidcClientId, readFileSync(config.oidcSecretFile, "utf8").trim(), config.hostedOrigin);
-  return createHostedAuth({ stateDir: config.stateDir, origin: config.hostedOrigin, adapter });
+  return createHostedAuth({ stateDir: config.stateDir, origin: config.hostedOrigin, adapter, practice });
 }

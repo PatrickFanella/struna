@@ -1,3 +1,4 @@
+import { privateSession } from "../api.ts";
 import { REVIEW_DRAFT_KEY, restoreReviewDraft } from "./genericLogic.ts";
 import { ConfirmDiscard } from "./ConfirmDiscard.tsx";
 import { useEffect, useState } from "react";
@@ -64,10 +65,10 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
     next: today.next.text,
     observation: "",
     };
-    try { const restored = restoreReviewDraft(sessionStorage.getItem(REVIEW_DRAFT_KEY), session.startedAt, fresh); return { ...restored, pain: session.pain ? "yes" : restored.pain }; } catch { return fresh; }
+    try { const restored = restoreReviewDraft(privateSession.getItem(REVIEW_DRAFT_KEY), session.startedAt, fresh); return { ...restored, pain: session.pain ? "yes" : restored.pain }; } catch { return fresh; }
   });
   useEffect(() => {
-    try { sessionStorage.setItem(REVIEW_DRAFT_KEY, JSON.stringify({ startedAt: session.startedAt, form: f })); } catch { /* unavailable storage */ }
+    try { privateSession.setItem(REVIEW_DRAFT_KEY, JSON.stringify({ startedAt: session.startedAt, form: f })); } catch { /* unavailable storage */ }
   }, [f, session.startedAt]);
   const [discarding, setDiscarding] = useState(false);
   const [busy, setBusy] = useState(false);

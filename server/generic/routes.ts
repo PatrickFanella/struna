@@ -1,3 +1,4 @@
+import type { IncomingMessage } from "node:http";
 import { submissionId } from "../session-log.ts";
 import { planLock } from "./planCandidates.ts";
 import { mkdir, rename, writeFile } from "node:fs/promises";
@@ -46,15 +47,18 @@ export async function genericAppInfo(s: Studio, opts: { tabs?: boolean }): Promi
   };
 }
 
-export function genericRoutes(s: Studio, opts: { tabs?: boolean } = {}): void {
-  route("GET", "/api/app", async (_req, res) => {
+export function genericRoutes(studio: Studio | ((req: IncomingMessage) => Studio), opts: { tabs?: boolean } = {}, register = route): void {
+  const resolve = (req: IncomingMessage) => typeof studio === "function" ? studio(req) : studio;
+  register("GET", "/api/app", async (req, res) => {
+    const s = resolve(req);
     send(res, 200, await genericAppInfo(s, opts));
   });
 
-  route("GET", "/api/profile", async (_req, res) => send(res, 200, { profile: await readProfile(s) }));
+  register("GET", "/api/profile", async (req, res) => send(res, 200, { profile: await readProfile(resolve(req)) }));
 
-  route("PUT", "/api/profile", async (req, res) => {
+  register("PUT", "/api/profile", async (req, res) => {
     const body = await readJson(req);
+    const s = resolve(req);
     if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "profile fields are required");
     if (body.level !== undefined && !LEVELS.includes(body.level as Level)) throw new HttpError(400, `level must be one of: ${LEVELS.join(", ")}`);
     const existing = await readProfile(s);
@@ -64,10 +68,11 @@ export function genericRoutes(s: Studio, opts: { tabs?: boolean } = {}): void {
     send(res, 200, { profile, plan: await ensureStarterPlan(s, profile, now) });
   });
 
-  route("GET", "/api/today", async (_req, res) => send(res, 200, await genericToday(s)));
+  register("GET", "/api/today", async (req, res) => send(res, 200, await genericToday(resolve(req))));
 
-  route("POST", "/api/sessions", async (req, res) => {
+  register("POST", "/api/sessions", async (req, res) => {
     const body = await readJson(req);
+    const s = resolve(req);
     const review = parseGenericReview(body);
     const { file, replayed } = await writeGenericLog(s.home, review, new Date(), s.timeZone, submissionId(body.submissionId));
     // A cache failure must never turn a saved log into a failed save (and a duplicate on retry).
@@ -89,9 +94,10 @@ export function genericRoutes(s: Studio, opts: { tabs?: boolean } = {}): void {
     send(res, 200, { file, warnings });
   });
 
-  tempoRoutes(s.db);
+  tempoRoutes((req) => resolve(req).db, register);
 
-  route("GET", "/api/logs", async (_req, res, { url }) => {
+  register("GET", "/api/logs", async (req, res, { url }) => {
+    const s = resolve(req);
     const limit = Math.min(200, Math.max(1, Math.round(Number(url.searchParams.get("limit")) || 20)));
     const logs = (await readLogs(s.home)).reverse().slice(0, limit);
     send(
