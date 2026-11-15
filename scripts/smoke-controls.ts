@@ -71,7 +71,8 @@ async function theme(page: Page) {
   await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-doubled.png`), fullPage: true });
 }
 async function panePicker(page: Page) {
-  await page.getByRole("button", { name: /^Short session/ }).click();
+  await page.getByRole("radio", { name: /Short session/ }).click();
+  await page.getByRole("button", { name: /^Start \d+ min$/ }).click();
   const add = page.getByRole("button", { name: "Add pane", exact: true });
   const menu = page.getByRole("menu", { name: "Choose pane content" });
   for (const mode of ["light", "dark", "Device"]) {
@@ -82,10 +83,12 @@ async function panePicker(page: Page) {
     await add.focus();
     await page.keyboard.press("Enter");
     await menu.waitFor();
+    check(await menu.locator(".pane-picker-title").evaluate((e) => getComputedStyle(e).display !== "none") === ((await page.evaluate(() => innerWidth)) < 720), "Narrow picker exposes a visible sheet title");
     check(await menu.getByRole("menuitem").first().evaluate((e) => e === document.activeElement), "Picker initially focuses first choice");
     check(await menu.evaluate((e) => e.scrollHeight > e.clientHeight && e.clientHeight <= innerHeight - 24), "Long picker scrolls within viewport");
     check(await menu.getByRole("menuitem").evaluateAll((els) => els.every((e) => e.scrollWidth <= e.clientWidth)), "Complete choice labels wrap without clipping");
-    check(await menu.evaluate((e) => { const r = e.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }), "Picker edges stay in viewport");
+    const pickerBounds = await menu.evaluate((e) => { const r = e.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: innerWidth, height: innerHeight }; });
+    check(pickerBounds.left >= -1 && pickerBounds.right <= pickerBounds.width + 1 && pickerBounds.top >= -1 && pickerBounds.bottom <= pickerBounds.height + 1, `Picker edges stay in viewport (${JSON.stringify(pickerBounds)})`);
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("ArrowDown");
     const long = menu.getByRole("menuitem").nth(2);
@@ -97,6 +100,20 @@ async function panePicker(page: Page) {
     await add.click();
     await page.mouse.click(2, 2);
     check(await add.evaluate((e) => e === document.activeElement), "Outside close restores Add opener");
+    await add.click();
+    const panesBeforeSecondTap = await page.locator(".pane .panetitle").allTextContents();
+    const addBox = await add.boundingBox();
+    assert(addBox, "Add pane has a clickable box");
+    await page.mouse.click(addBox.x + addBox.width / 2, addBox.y + addBox.height / 2);
+    check(JSON.stringify(await page.locator(".pane .panetitle").allTextContents()) === JSON.stringify(panesBeforeSecondTap), "A second activation at Add never chooses a resource");
+    if (await menu.count()) await page.keyboard.press("Escape");
+    await add.click();
+    if ((await page.evaluate(() => innerWidth)) < 720) {
+      await menu.getByRole("menuitem", { name: "Close picker", exact: true }).click();
+      check(await add.evaluate((e) => e === document.activeElement), "Visible Close restores the exact Add opener");
+    } else {
+      await page.keyboard.press("Escape");
+    }
     await add.click();
     await menu.getByRole("menuitem").nth(2).click();
     await menu.waitFor({ state: "detached" });

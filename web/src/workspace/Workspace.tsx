@@ -13,6 +13,7 @@ import type { PaneItem } from "../practice/Material.tsx";
 import { PdfView } from "../practice/PdfView.tsx";
 import { TabPlayer } from "../tabs/TabPlayer.tsx";
 import { Finder, type FinderMode, libraryContent } from "./Finder.tsx";
+import "./pane-picker.css";
 
 export { materialPane } from "../materials/item.ts";
 
@@ -46,7 +47,7 @@ function slotsFor(width: number): number {
 }
 
 /** A web link: a YouTube video plays here, from the address that sets no cookies; anything else opens in a new tab. */
-function LinkBody({ item }: { item: PaneItem }) {
+function LinkBody({ item, hideLabel = false }: { item: PaneItem; hideLabel?: boolean }) {
   const url = webUrl(item.url);
   const yt = youtubeId(item.youtube);
   if (!url && !yt) return <p className="matnote">This link has no web address.</p>;
@@ -58,7 +59,7 @@ function LinkBody({ item }: { item: PaneItem }) {
         </div>
       )}
       <div className="linkcard">
-        {!yt && <p className="linktitle">{item.label}</p>}
+        {!yt && !hideLabel && <p className="linktitle">{item.label}</p>}
         {item.note && <p className="matnote">{item.note}</p>}
         {url && (
           <p className="linkacts">
@@ -83,10 +84,10 @@ function ImageBody({ src, label }: { src: string; label: string }) {
 }
 
 /** What a pane shows for a file, a link or a tab file. Also the body of the Materials screen's viewer. */
-export function FileBody({ item, onOpen, open }: { item: PaneItem; onOpen?: (c: PaneContent) => void; open?: Set<string> }) {
+export function FileBody({ item, onOpen, open, hideLabel = false }: { item: PaneItem; onOpen?: (c: PaneContent) => void; open?: Set<string>; /** The parent supplies the item title, so a reader body must not repeat it. */ hideLabel?: boolean }) {
   const generic = useApp().mode === "studio";
   if (item.missing) return <p className="matnote">Material missing: {item.note ?? item.label}. {generic ? "The plan names a file that is not in your materials. Add it, or ask the coach to fix the plan." : "Check the link in the block note."}</p>;
-  if (item.kind === "link") return <LinkBody item={item} />;
+  if (item.kind === "link") return <LinkBody item={item} hideLabel={hideLabel} />;
   if (item.kind === "image" && item.src) return <ImageBody key={item.src} src={item.src} label={item.label} />;
   if (item.kind === "text" && item.src) return <TextView src={item.src} label={item.label} />;
   if (item.kind === "tabfile" && item.src) return <TabPlayer src={item.src} title={item.label} />;
@@ -310,6 +311,14 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
     if (!menu) return;
     const down = (e: PointerEvent) => {
       const t = e.target as HTMLElement;
+      const anchor = opener.current?.getBoundingClientRect();
+      // A narrow-screen sheet can visually cover its original trigger. Treat a second
+      // tap at that trigger's coordinates as dismissal before its sheet row can act.
+      if (anchor && e.clientX >= anchor.left && e.clientX <= anchor.right && e.clientY >= anchor.top && e.clientY <= anchor.bottom) {
+        e.preventDefault();
+        dismissMenu();
+        return;
+      }
       if (!t.closest(".panemenu") && !t.closest("[aria-haspopup='menu']")) {
         e.preventDefault();
         dismissMenu();
@@ -345,6 +354,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
       e.preventDefault();
       buttons[next]?.focus();
     }}>
+      <p className="pane-picker-title">Choose content</p>
       <button role="menuitem" onClick={() => open({ type: "coach" }, at)}>Coach</button>
       {materials.length > 0 && <p className="grp">{generic ? "From your plan" : "Block material"}</p>}
       {materials.map((m) => {
@@ -362,6 +372,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
         <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "library", at }))}>A lesson, sheet or book…</button>
       )}
       {(!generic || app.sections.includes("tabs")) && <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "tabs", at }))}>A Guitar Pro tab…</button>}
+      <button className="pane-picker-close" role="menuitem" onClick={dismissMenu}>Close picker</button>
     </div>, document.body,
   );
 
