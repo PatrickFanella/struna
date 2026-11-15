@@ -528,6 +528,10 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
     send(res, 200, await listMaterials(s, { q: (url.searchParams.get("q") ?? "").slice(0, 200), kind: url.searchParams.get("kind") ?? "", limit }));
   });
 
+  route("GET", "/api/materials/item", async (_req, res, { url }) => {
+    send(res, 200, await found(url.searchParams.get("id") ?? ""));
+  });
+
   route("GET", "/api/materials/file", async (req: IncomingMessage, res: ServerResponse, { url }) => {
     const at = await locate(s, url.searchParams.get("id") ?? "");
     const ext = extOf(at.path);
