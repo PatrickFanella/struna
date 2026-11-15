@@ -1,3 +1,4 @@
+import type { Tool } from "../App.tsx";
 import { activeElapsed, moveStage, pauseTimer } from "./sessionTimer.ts";
 import { sessionChecklist, type Activity } from "./sessionScope.ts";
 import { useEffect, useRef, useState } from "react";
@@ -126,7 +127,7 @@ function Instruction({ text }: { text: string }) {
 
 export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function Session({ today, state, setState, items, material, onFinish, closeTools }: {
+export function Session({ today, state, setState, items, material, onFinish, closeTools, openTool }: {
   today: Today;
   state: SessionState;
   setState: (fn: (s: SessionState) => SessionState) => void;
@@ -135,6 +136,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   material: string;
   onFinish: () => void;
   closeTools: () => void;
+  openTool: (tool: Tool) => void;
 }) {
   useWakeLock();
   const m = useMetronome();
@@ -257,6 +259,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
     setState((s) => ({ ...s, suggestion: null, passes: 0 }));
   };
 
+  const [showTools, setShowTools] = useState(false);
   const [addSlot, setAddSlot] = useState<HTMLElement | null>(null);
 
   // The coach's short note for the stage, asked once per stage and kept with the session.
@@ -365,9 +368,12 @@ export function Session({ today, state, setState, items, material, onFinish, clo
 
       <Workspace panes={state.panes} setPanes={(fn) => setState((s) => ({ ...s, panes: fn(s.panes) }))} materials={items} addSlot={addSlot} />
 
-      <div className="sessionbar">
+      <div className={`sessionbar${showTools || recording !== null || take ? " tools-visible" : ""}`}>
+        <button className="btn outline session-tools-toggle" aria-expanded={showTools} onClick={() => setShowTools(!showTools)}>Tools</button>
+        {stage.key === "tune" && <button className="btn outline" onClick={() => openTool("tuner")}>Tuner</button>}
         <TempoRow passes={state.passes} suggestion={state.suggestion} onClean={() => log("clean")} onMiss={() => log("miss")} onApply={apply} />
         <span className="barsp" />
+        <span className="session-secondary">
         {recording ? (
           <button className="btn quiet recording" onClick={stopTake}>
             <span className="rec now" aria-hidden="true" />Stop take <span className="num">{fmt(now - recording)}</span>
@@ -375,6 +381,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
         ) : (
           <button className="btn quiet" onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
         )}
+        </span>
         <button className="linkbtn stoppain" onClick={() => {
           if (take && !confirm("Discard the unsaved take and stop?")) return;
           rec.current?.cancel();

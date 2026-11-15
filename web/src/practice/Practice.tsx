@@ -314,6 +314,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
         setPhase({ name: "review" });
       }}
       closeTools={closeTools}
+      openTool={openTool}
     />
     </>
   );
