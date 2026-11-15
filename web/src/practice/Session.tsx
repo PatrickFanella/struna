@@ -419,8 +419,8 @@ export function Session({ today, state, setState, items, material, onFinish, onD
             <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
             <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} min` : `over ${stage.minutes} min`) : elapsed ? "paused, tap to resume" : "tap to start the timer"}</span>
           </button>
-          {state.stage > 0 && <button className="btn quiet backb" onClick={back} title="Restart the previous stage timer; keep running or paused" disabled={Boolean(take) || recording !== null}>Back</button>}
-          <button className="btn outline nextb" onClick={next} disabled={Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
+          {state.stage > 0 && <button className="btn quiet backb" onClick={back} title="Restart the previous stage timer; keep running or paused" disabled={finalizing || Boolean(take) || recording !== null}>Back</button>}
+          <button className="btn outline nextb" onClick={next} disabled={finalizing || Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
             <span>{nextStage ? "Next stage" : "Finish"}</span>
             <small>{nextStage ? `Up next: ${stageShort(nextStage)}` : "Write the log"}</small>
           </button>
@@ -454,7 +454,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
             <span className="rec now" aria-hidden="true" />Stop take <span className="num">{fmt(now - recording)}</span>
           </button>
         ) : (
-          <button className="btn quiet" onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
+          <button className="btn quiet" disabled={finalizing || saving} onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
         )}
         </span>
         <button className="linkbtn stoppain" onClick={() => void requestEnd(true)}>Stop: pain or tension</button>

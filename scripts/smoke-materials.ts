@@ -72,7 +72,8 @@ try {
       if (issue === 21) {
         assert.equal(await row.getByRole("button", { name: "Black Mountain Rag", exact: true }).count(), 1);
         assert.equal(await row.getByRole("button", { name: "Use in practice", exact: true }).count(), 1);
-        const manage = row.getByRole("button", { name: "Manage Black Mountain Rag", exact: true });
+        const managed = page.locator(".matitem").filter({ hasText: "First Waltz" });
+        const manage = managed.getByRole("button", { name: "Manage First Waltz", exact: true });
         await manage.click();
         await page.getByRole("menuitem", { name: "Save a copy", exact: true }).waitFor();
         await page.keyboard.press("End");
@@ -81,8 +82,8 @@ try {
         assert.equal(await manage.evaluate(el => el === document.activeElement), true);
         await manage.click();
         await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
-        await row.getByRole("button", { name: "Keep it", exact: true }).click();
-        assert.equal(await row.getByRole("button", { name: "Yes, delete", exact: true }).count(), 0);
+        await managed.getByRole("button", { name: "Keep it", exact: true }).click();
+        assert.equal(await managed.getByRole("button", { name: "Yes, delete", exact: true }).count(), 0);
         const rect = await manage.boundingBox(); assert.ok(rect && rect.height >= 44);
       }
       await screenshot(page, `${prefix}-list`);

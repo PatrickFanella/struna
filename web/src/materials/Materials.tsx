@@ -275,7 +275,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
     }
   };
 
-  const canDelete = (i: MaterialItem) => !i.planOnly && i.source !== "folder";
+  const canDelete = (i: MaterialItem) => !i.planOnly && !(i.source === "link" && i.inPlan) && i.source !== "folder";
   const canSave = (i: MaterialItem) => !i.src && Boolean(webUrl(i.url)) && !i.youtube;
   const sending = uploads.some((u) => u.state === "waiting" || u.state === "sending");
 
@@ -361,6 +361,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
           {url && opened.src && <a className="linkbtn" href={url} target="_blank" rel="noreferrer noopener">{externalLabel(url, opened.provider)}</a>}
           {opened.src && <a className="linkbtn" href={opened.src} download={opened.path?.split(/[/:]/).pop() ?? opened.title}>Download</a>}
           {canDelete(opened) && deleteAsk(opened)}
+          {opened.source === "link" && opened.inPlan && <p className="srcnote">This link stays in Materials while the plan uses it. Ask Coach to propose removing it from the plan first.</p>}
         </div>
         <div className="vbody matbody">
           <FileBody key={pane.key} item={pane} />
