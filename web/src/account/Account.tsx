@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Export } from "./Export.tsx";
 import { api, invalidateAccount } from "../api.ts";
 
 type AccountState = { signedIn: boolean; account?: string; csrf?: string; session?: string };
@@ -27,7 +28,7 @@ export function Account({ activeSession }: { activeSession?: string | undefined 
       invalidateAccount(); location.replace("/");
     } catch { setError("Could not sign out. Try again."); setBusy(false); }
   };
-  if (activeSession) return <div className="wrap"><span>Private account</span> <button className="btn quiet" disabled={busy || !state} onClick={() => void logout()}>Sign out</button>{error && <p role="alert">{error}</p>}</div>;
+  if (activeSession) return <div className="wrap"><Export /><span>Private account</span> <button className="btn quiet" disabled={busy || !state} onClick={() => void logout()}>Sign out</button>{error && <p role="alert">{error}</p>}</div>;
   return <div className="app"><main className="wrap"><div className="start gstart">
     <span className="brandmark" aria-hidden="true" /><h1>Your private practice</h1>
     {state === null ? <p role="status">Checking your session…</p> : <>

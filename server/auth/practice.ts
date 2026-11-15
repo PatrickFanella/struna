@@ -1,3 +1,4 @@
+import { exportRoutes } from "./export.ts";
 import { guestImportRoutes } from "./guest.ts";
 import { accountCredentials } from "./credentials.ts";
 import { accountCoach, type HostedReply } from "./coach.ts";
@@ -67,6 +68,7 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
   function privateRoutes(s: Studio, identity: PracticeIdentity) {
     const privateRouter = createRouter();
     guestImportRoutes(s, identity, privateRouter.route);
+    exportRoutes(s, identity, privateRouter.route);
     const connection = credentials.register(s, identity, privateRouter.route);
     coach.register(s, identity, privateRouter.route, connection.connection);
     hostedRecordingRoutes({ mediaRoot: s.home, db: s.db, assertActive: identity.assertActive }, privateRouter.route);
@@ -80,7 +82,7 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     revoke: (session: string) => { coach.revoke(session); credentials.revoke(session); },
     async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
       // Registrations close over this request’s verified workspace, never a global owner.
-      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:conversations|prompts|chat|providers|guest-import)(?:\/|$)/.test(url.pathname)) {
+      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:account|conversations|prompts|chat|providers|guest-import)(?:\/|$)/.test(url.pathname)) {
         return await withStudio(identity, async (s) => {
           const privateRouter = privateRoutes(s, identity);
           const found = privateRouter.match(req.method === "HEAD" ? "GET" : req.method ?? "GET", url.pathname);
