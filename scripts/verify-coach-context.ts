@@ -12,6 +12,7 @@ const executablePath=process.env.CHROMIUM??(existsSync("/usr/bin/chromium")?"/us
 const browser=await chromium.launch({executablePath});const receipts:unknown[]=[];
 try {
  for(const [width,height] of [[320,700],[390,844],[844,390],[820,1180],[1153,814],[1440,900],[576,407]] as const) for(const theme of ["light","dark","device-light","device-dark"]) {
+  if(process.argv.includes("--zoom")&&width!==576)continue;
   if(process.argv.includes("--quick")&&!((width===390&&theme==="light")||(width===1440&&theme==="dark")||(width===844&&theme==="dark")))continue;
   const zoom=width===576,options={viewport:{width:zoom?1153:width,height:zoom?814:height},colorScheme:theme.endsWith("dark")?"dark" as const:"light" as const,reducedMotion:"reduce" as const};
   const context=zoom?await chromium.launchPersistentContext(resolve(h.root,`zoom-${theme}`),{...options,executablePath}):await browser.newContext(options);
@@ -132,7 +133,9 @@ try {
  await send("Cancel on account switch");
  const b=await h.signIn(`Other-${width}-${theme}`,a);
  await context.addCookies([{name:"__Host-struna-session",value:b.cookie.split("=")[1]!,domain:"practice.example",path:"/",secure:true,httpOnly:true,sameSite:"Lax"}]);
- await page.evaluate(()=>dispatchEvent(new Event("focus")));
+ // Session invalidation may already be navigating when the explicit focus event runs.
+ // Accept only that navigation race; the new-account bootstrap and empty-state checks below stay mandatory.
+ await page.evaluate(()=>dispatchEvent(new Event("focus"))).catch(e=>{if(!String(e.message).includes("Execution context was destroyed"))throw e;});
  await page.waitForFunction(account=>JSON.parse(document.getElementById("app-info")?.textContent??"{}").account===account,b.account);
  assert.equal(await page.locator(".msg").count(),0);
  assert.equal(await page.getByText("Review question",{exact:true}).count(),0);
