@@ -32,7 +32,7 @@ test("WebFetch may open public https pages only", async () => {
 
 test("the hook denies through Claude Code's PreToolUse answer and ignores other tools", async () => {
   assert.deepEqual(await hookAnswer({ tool_name: "WebFetch", tool_input: { url: "https://127.0.0.1/" } }, resolve), {
-    hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "Guitar Room: addresses given as an IP number are not opened; use the site's name." },
+    hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "Struna: addresses given as an IP number are not opened; use the site's name." },
   });
   assert.equal(await hookAnswer({ tool_name: "WebFetch", tool_input: { url: "https://lessons.example.org/" } }, resolve), null);
   assert.equal(await hookAnswer({ tool_name: "Read", tool_input: {} }, resolve), null);

@@ -16,7 +16,7 @@ export type ClaudeOptions = {
   settings?: string | undefined;
   timeoutMs?: number | undefined;
   /**
-   * A coach the app signs in itself (generic mode): the whole child environment (see `appEnv`). With it
+   * A coach the app signs in itself (studio mode): the whole child environment (see `appEnv`). With it
    * set, `CLAUDE_MODEL` no longer applies; `model` does, passed attached as `--model=<value>`.
    */
   env?: NodeJS.ProcessEnv | undefined;

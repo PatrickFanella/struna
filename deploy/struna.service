@@ -1,5 +1,8 @@
+# Existing personal-install template: the unit is branded Struna while the
+# checkout, socket and secret paths stay compatible. Change these paths together
+# with the tunnel and proxy only during a separately verified deployment.
 [Unit]
-Description=Guitar Room (practice app with subscription-backed coach chat)
+Description=Struna (practice app with subscription-backed coach chat)
 After=network-online.target
 
 [Service]

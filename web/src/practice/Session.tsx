@@ -16,7 +16,7 @@ import { TempoRow } from "./TempoRow.tsx";
 
 export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
 export type SessionState = {
-  /** The session kind's id: `full` or `floor` in personal mode, the plan's own ids in generic mode. */
+  /** The session kind's id: `full` or `floor` in personal mode, the plan's own ids in studio mode. */
   kind: string;
   cross: string | null;
   /** Epoch ms when the session began, for the minutes in the generic review. */
@@ -36,7 +36,7 @@ export type SessionState = {
   pain: boolean;
   /** What the session shows, side by side: the lesson, its sheet music or a tab, the coach. */
   panes: PaneState[];
-  /** Generic mode: the review form is open, so a reload returns to it rather than to the session. */
+  /** Studio mode: the review form is open, so a reload returns to it rather than to the session. */
   reviewing?: true;
   /** Totals for the review sheet. */
   cleanTotal?: number;
@@ -90,7 +90,7 @@ function useWakeLock() {
 }
 
 function instruction(stage: Stage, today: Today, cross: string | null): string {
-  // Generic mode: the server sends the instruction whole. An extra session keeps the stage's own task.
+  // Studio mode: the server sends the instruction whole. An extra session keeps the stage's own task.
   if (stage.instruction !== undefined) return cross ? `${cross.replace(/[.;]$/, "")}. ${stage.output}` : stage.instruction;
   const week = today.block?.weeks[today.position.week - 1];
   if (stage.key === "target") return today.next.text;
@@ -127,7 +127,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
 }) {
   useWakeLock();
   const m = useMetronome();
-  const generic = useApp().mode === "generic";
+  const generic = useApp().mode === "studio";
   const kind = sessionKind(today, state.kind);
   const stages = kind.stages;
   // The coach may shorten the plan while a session runs; stay on its last stage then.
@@ -185,7 +185,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
     try {
       const res = await fetch(`/api/recordings?blockId=${encodeURIComponent(today.block.id)}&label=${takeLabel}&ext=${take.ext}`, {
         method: "POST",
-        headers: { "x-guitar-room": "1", "content-type": take.blob.type || "application/octet-stream" },
+        headers: { "x-struna": "1", "content-type": take.blob.type || "application/octet-stream" },
         body: take.blob,
       });
       const data = await res.json();
@@ -222,7 +222,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   const [addSlot, setAddSlot] = useState<HTMLElement | null>(null);
 
   // The coach's short note for the stage, asked once per stage and kept with the session.
-  const [guideOn, setGuideOn] = useState(() => store.get("guitar-room.guide") !== "off");
+  const [guideOn, setGuideOn] = useState(() => store.get("struna.guide") !== "off");
   const [guideState, setGuideState] = useState<"idle" | "loading" | { error: string }>("idle");
   const [guideTry, setGuideTry] = useState(0);
   const stageText = instruction(stage, today, state.cross);
@@ -234,7 +234,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
     setGuideState("loading");
     fetch("/api/coach/guide", {
       method: "POST",
-      headers: { "x-guitar-room": "1", "content-type": "application/json" },
+      headers: { "x-struna": "1", "content-type": "application/json" },
       body: JSON.stringify({ stage: { title: stage.title, output: stage.output, instruction: stageText }, bpm: metronome.get().bpm, ...(material ? { fragment: material } : {}) }),
       signal: abort.signal,
     })
@@ -250,7 +250,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
     return () => abort.abort();
   }, [state.stage, guideOn, guideTry]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleGuide = () => {
-    store.set("guitar-room.guide", guideOn ? "off" : null);
+    store.set("struna.guide", guideOn ? "off" : null);
     setGuideOn(!guideOn);
   };
   const left = total - elapsed;

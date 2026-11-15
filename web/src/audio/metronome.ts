@@ -20,7 +20,7 @@ export const TIME_SIGNATURES = [
   { label: "6/8", beats: 6 },
 ];
 
-const KEY = "guitar-room.metronome";
+const KEY = "struna.metronome";
 const LOOKAHEAD_MS = 25;
 const AHEAD_S = 0.1;
 

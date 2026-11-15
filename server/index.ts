@@ -29,16 +29,16 @@ import { tabsRoutes } from "./tabs.ts";
 
 export const db = openDb(config.stateDir);
 /**
- * The generic mode on loopback TCP with no edge secret has no login in front of it: other local
+ * The studio mode on loopback TCP with no edge secret has no login in front of it: other local
  * accounts and host-network containers could reach the port. It then needs its access token.
  * The personal mode, a Unix socket (owner-only directory) and the edge-secret deployment do not.
  */
-export const access: Access | null = config.mode === "generic" && !config.edgeSecret && !config.socket ? loadAccess(config.stateDir, config.port) : null;
+export const access: Access | null = config.mode === "studio" && !config.edgeSecret && !config.socket ? loadAccess(config.stateDir, config.port) : null;
 
 route("GET", "/api/health", (_req, res) => send(res, 200, { ok: true }));
 /** What `/api/app` answers; also written into index.html, so the first paint needs no extra round trip. */
 let appInfo: () => Promise<AppInfo>;
-if (config.mode === "generic") {
+if (config.mode === "studio") {
   // One studio folder instead of the vault: the profile, the plan, logs, materials and recordings.
   await ensureStudio(config.home);
   // The coach reads the studio and the library folders: the saved keys and the coaches' own logins must be elsewhere.
@@ -70,7 +70,7 @@ if (config.mode === "generic") {
   // A running ChatGPT sign-in must not outlive the server.
   process.on("exit", coaches.stop);
   for (const sig of ["SIGINT", "SIGTERM"] as const) process.once(sig, () => process.exit(sig === "SIGINT" ? 130 : 143));
-  if (config.tabsDir) tabsRoutes({ root: config.tabsDir, autoScan: !process.env.GUITAR_NO_SCAN }, db);
+  if (config.tabsDir) tabsRoutes({ root: config.tabsDir, autoScan: !config.noScan }, db);
 } else {
   const info: AppInfo = { mode: "personal", name: config.appName, sections: ["practice", "library", "tabs"], web: false, profile: true };
   route("GET", "/api/app", (_req, res) => send(res, 200, info));
@@ -79,8 +79,8 @@ if (config.mode === "generic") {
   recordingRoutes(config);
   chatRoutes(config, db, conversations(db));
   coachOnceRoutes(config, db);
-  const tabs = tabsRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN }, db);
-  libraryRoutes({ ...config, autoScan: !process.env.GUITAR_NO_SCAN, onScan: () => tabs.rescan() }, db);
+  const tabs = tabsRoutes({ ...config, autoScan: !config.noScan }, db);
+  libraryRoutes({ ...config, autoScan: !config.noScan, onScan: () => tabs.rescan() }, db);
   mediaRoutes(config, db);
 }
 promptRoutes(db, config.mode);
@@ -92,9 +92,11 @@ const TYPES: Record<string, string> = {
   ".css": "text/css",
   ".svg": "image/svg+xml",
   ".json": "application/json",
+  ".webmanifest": "application/manifest+json",
   ".woff2": "font/woff2",
   ".woff": "font/woff",
   ".otf": "font/otf",
+  ".ttf": "font/ttf",
   ".png": "image/png",
   ".wasm": "application/wasm",
   ".sf2": "application/octet-stream",
@@ -131,7 +133,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     if (access && checkAccess(req, res, url, access)) return;
     const method = req.method ?? "GET";
     // A custom header forces a CORS preflight, which this server never answers.
-    if (method !== "GET" && method !== "HEAD" && req.headers["x-guitar-room"] !== "1") throw new HttpError(403, "missing app header");
+    if (method !== "GET" && method !== "HEAD" && req.headers["x-struna"] !== "1" && req.headers["x-guitar-room"] !== "1") throw new HttpError(403, "missing app header");
     const found = match(method === "HEAD" ? "GET" : method, url.pathname);
     if (found) {
       await found.handler(req, res, { url, params: found.params });
@@ -148,8 +150,8 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
 if (import.meta.main) {
   const server = createServer(handle);
   const started = (where: string) => () => {
-    console.log(`guitar-room on ${where}`);
-    if (config.mode === "generic") {
+    console.log(`struna on ${where}`);
+    if (config.mode === "studio") {
       console.log(`  studio ${config.home}`);
       if (access) {
         const link = `http://${config.host === "127.0.0.1" || config.host === "::1" ? "localhost" : config.host}:${config.port}/?token=`;

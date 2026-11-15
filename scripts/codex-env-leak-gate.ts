@@ -187,7 +187,7 @@ async function gate(id: "endpoint" | "openai"): Promise<boolean> {
   COMMAND = command(join(state, STORE_FILE));
   console.log(`\n== ${id}`);
   try {
-    const coach = genericCoach({ home, db, timeZone: "UTC", libraryDirs: [], web: true, appName: "Guitar Room" }, {}, { codexInstall, store, policy: coachPolicy({ local: true, codexSandboxed: Boolean(codexInstall) }) });
+    const coach = genericCoach({ home, db, timeZone: "UTC", libraryDirs: [], web: true, appName: "Struna" }, {}, { codexInstall, store, policy: coachPolicy({ local: true, codexSandboxed: Boolean(codexInstall) }) });
     const picked = coach.forProvider!(id)!;
     const system = typeof picked.profile.system === "string" ? picked.profile.system : await picked.profile.system();
     const events: { type: string; message?: string; text?: string }[] = [];
@@ -257,7 +257,7 @@ async function redirectGate(): Promise<boolean> {
   redirecting = true;
   console.log("\n== redirect");
   try {
-    const coach = genericCoach({ home, db, timeZone: "UTC", libraryDirs: [], web: false, appName: "Guitar Room" }, {}, { codexInstall, store, policy: coachPolicy({ local: true, codexSandboxed: Boolean(codexInstall) }) });
+    const coach = genericCoach({ home, db, timeZone: "UTC", libraryDirs: [], web: false, appName: "Struna" }, {}, { codexInstall, store, policy: coachPolicy({ local: true, codexSandboxed: Boolean(codexInstall) }) });
     const picked = coach.forProvider!("endpoint")!;
     const system = typeof picked.profile.system === "string" ? picked.profile.system : await picked.profile.system();
     const events: { type: string; message?: string }[] = [];

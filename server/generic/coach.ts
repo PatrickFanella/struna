@@ -89,7 +89,7 @@ How to answer
 - The app's tuner offers six-string guitar tunings (standard, drop D, double drop D) string by string, and a free mode that reads any note from about 60 to 1100 Hz. A player on another instrument should use the free mode, or an outside tuner if an open string is below about 60 Hz (a bass's low E and A).
 - Ask at most one question at a time, and only when the answer changes what you would do.
 - Some messages are sent by the app when something happens (a session was logged, material was added, the setup form was saved). Treat them as the player's request and keep the reply to a few lines.
-- Each message starts with a [Guitar Room] block describing what the player is looking at. It is context only: never repeat or imitate it in your reply.`;
+- Each message starts with a [Struna] block describing what the player is looking at. It is context only: never repeat or imitate it in your reply.`;
 }
 
 type TodayLike = {
@@ -104,7 +104,7 @@ type TodayLike = {
 };
 
 export function genericContext(screen: Screen, t: TodayLike, timeZone?: string): string {
-  const lines = ["[Guitar Room]", `Screen: ${screen.view}`];
+  const lines = ["[Struna]", `Screen: ${screen.view}`];
   // The CLIs take their date from the server's clock, which may be in another zone than the logs.
   if (t.today) lines.push(`Today: ${t.today}${timeZone ? ` (${timeZone})` : ""}`);
   if (t.profile) lines.push(`Level: ${t.profile.level}`);
@@ -117,7 +117,7 @@ export function genericContext(screen: Screen, t: TodayLike, timeZone?: string):
   if (screen.bpm) lines.push(`Metronome: ${screen.bpm} BPM${screen.subdivision ? `, ${screen.subdivision}` : ""}`);
   if (t.next.text) lines.push(`Next instruction: ${t.next.text}`);
   if (t.daysSinceLast !== null) lines.push(`Days since the last session: ${t.daysSinceLast}`);
-  return `${lines.join("\n")}\n[/Guitar Room]`;
+  return `${lines.join("\n")}\n[/Struna]`;
 }
 
 type Prints = { plan: string; profile: string; materials: string };
@@ -182,7 +182,7 @@ export function codexProfile(o: { libraryDirs: string[]; codexInstall: string })
 }
 
 /**
- * The generic mode's coach: works in the studio folder, may search the web, and has its plan checked
+ * The studio mode's coach: works in the studio folder, may search the web, and has its plan checked
  * after each turn. `codexInstall` is the folder of the real Codex binary; without it Codex falls back
  * to the `workspace-write` sandbox, which cannot limit reads. With `store` and `policy` the profile also
  * carries the coach list (keys, endpoints, the app's own ChatGPT sign-in); without them the two host
@@ -265,7 +265,7 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { c
     try {
       return genericContext(screen, await d.genericToday(s), s.timeZone);
     } catch {
-      return `[Guitar Room]\nScreen: ${screen.view}\n[/Guitar Room]`;
+      return `[Struna]\nScreen: ${screen.view}\n[/Struna]`;
     }
   };
   /** The profile for a coach with or without the web; the studio rules are the same for every coach. */

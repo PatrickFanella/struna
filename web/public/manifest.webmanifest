@@ -1,0 +1,13 @@
+{
+  "name": "Struna",
+  "short_name": "Struna",
+  "description": "A practice room for guitar you host yourself.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#ECE8E1",
+  "background_color": "#ECE8E1",
+  "icons": [
+    { "src": "/brand/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/brand/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

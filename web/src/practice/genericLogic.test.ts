@@ -23,7 +23,7 @@ test("personal mode keeps its two fixed session kinds", () => {
   assert.equal(sessionKind(personal, "floor").stages, personal.stages.floor);
 });
 
-test("generic mode uses the plan's kinds, and a removed kind falls back to the first", () => {
+test("studio mode uses the plan's kinds, and a removed kind falls back to the first", () => {
   const today: Today = { ...personal, sessions: [{ id: "quick", label: "Quick", minutes: 8, stages: [stage("tune", 8)] }, { id: "usual", label: "Usual", minutes: 20, stages: [stage("tune", 20)] }] };
   assert.deepEqual(sessionKinds(today).map((k) => k.id), ["quick", "usual"]);
   assert.equal(sessionKind(today, "usual").label, "Usual");

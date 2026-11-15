@@ -38,7 +38,7 @@ const SERVER_ENV = {
   AWS_PROFILE: "work",
   AZURE_OPENAI_API_KEY: "host-azure",
   GOOGLE_APPLICATION_CREDENTIALS: "/home/p/gcp.json",
-  GUITAR_ROOM_ENDPOINT_KEY: "host-endpoint",
+  STRUNA_ENDPOINT_KEY: "host-endpoint",
   SOME_SERVICE_PASSWORD: "hunter2",
 };
 
@@ -61,7 +61,7 @@ test("subscriptionEnv is unchanged: the key variables go, everything else (the h
       AWS_PROFILE: "work",
       AZURE_OPENAI_API_KEY: "host-azure",
       GOOGLE_APPLICATION_CREDENTIALS: "/home/p/gcp.json",
-      GUITAR_ROOM_ENDPOINT_KEY: "host-endpoint",
+      STRUNA_ENDPOINT_KEY: "host-endpoint",
       SOME_SERVICE_PASSWORD: "hunter2",
       NO_COLOR: "1",
     },
@@ -82,5 +82,5 @@ test("appEnv keeps only the allowlist and adds exactly the chosen variables", ()
     CLAUDE_CONFIG_DIR: "/state/cli/anthropic",
     ANTHROPIC_API_KEY: "player-key",
   });
-  for (const k of ["CLAUDE_CODE_OAUTH_TOKEN", "CODEX_ACCESS_TOKEN", "CODEX_HOME", "AWS_BEARER_TOKEN_BEDROCK", "AWS_PROFILE", "AZURE_OPENAI_API_KEY", "GUITAR_ROOM_ENDPOINT_KEY", "SOME_SERVICE_PASSWORD"]) assert.ok(!(k in env), k);
+  for (const k of ["CLAUDE_CODE_OAUTH_TOKEN", "CODEX_ACCESS_TOKEN", "CODEX_HOME", "AWS_BEARER_TOKEN_BEDROCK", "AWS_PROFILE", "AZURE_OPENAI_API_KEY", "STRUNA_ENDPOINT_KEY", "SOME_SERVICE_PASSWORD"]) assert.ok(!(k in env), k);
 });

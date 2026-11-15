@@ -29,10 +29,10 @@ export async function ensureStarterPlan(s: Studio, profile: Profile, now = new D
   return "created";
 }
 
-/** What `/api/app` says in the generic mode; the page also carries it, so the app draws without asking. */
+/** What `/api/app` says in the studio mode; the page also carries it, so the app draws without asking. */
 export async function genericAppInfo(s: Studio, opts: { tabs?: boolean }): Promise<AppInfo> {
   return {
-    mode: "generic",
+    mode: "studio",
     name: s.appName,
     sections: ["practice", "materials", ...(opts.tabs ? (["tabs"] as const) : [])],
     web: s.web,

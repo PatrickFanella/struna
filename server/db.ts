@@ -1,10 +1,12 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 export function openDb(stateDir: string): DatabaseSync {
   mkdirSync(stateDir, { recursive: true, mode: 0o700 });
-  const db = new DatabaseSync(join(stateDir, "guitar-room.sqlite"));
+  const current = join(stateDir, "struna.sqlite");
+  const legacy = join(stateDir, "guitar-room.sqlite");
+  const db = new DatabaseSync(existsSync(current) || !existsSync(legacy) ? current : legacy);
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA busy_timeout = 5000;

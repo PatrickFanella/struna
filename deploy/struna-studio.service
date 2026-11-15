@@ -1,17 +1,17 @@
-# Example user unit for the generic mode. Copy it to ~/.config/systemd/user/, replace the
-# placeholders, then: systemctl --user daemon-reload && systemctl --user enable --now guitar-room-generic
+# Example user unit for the studio mode. Copy it to ~/.config/systemd/user/, replace the
+# placeholders, then: systemctl --user daemon-reload && systemctl --user enable --now struna-studio
 #
 #   CHECKOUT      the folder holding this repository, after `pnpm install && pnpm build`
 #   STUDIO        the player's studio folder (created at start)
 #   NODE          the full path of Node 24 or later (`command -v node`)
 #
 # One player per unit: for a second player, copy the unit under a new name and change STUDIO,
-# GUITAR_STATE_DIR and PORT.
+# STRUNA_STATE_DIR and PORT.
 #
 # Access: on loopback TCP the server has no login of its own, and any other account on this machine
 # or any container on the host network can connect to 127.0.0.1. So it answers only browsers that
 # have opened its access link once: `http://localhost:5184/?token=` followed by the contents of
-# GUITAR_STATE_DIR/access-token (mode 600, created at first start; the journal shows the command).
+# STRUNA_STATE_DIR/access-token (mode 600, created at first start; the journal shows the command).
 # Anyone with the link can use the coach (this account's Claude and ChatGPT logins, and any keys
 # saved under Coach settings) and change the studio folder.
 #
@@ -19,7 +19,7 @@
 # socket lines below (the runtime directory is owner-only), add the public name to ALLOWED_HOSTS,
 # and see the README for REQUIRE_USER and EDGE_SECRET_FILE. A socket needs no access link.
 #
-# What the coach can read: Claude reads only the studio and GUITAR_LIBRARY_DIRS. Codex runs with a
+# What the coach can read: Claude reads only the studio and STRUNA_LIBRARY_DIRS. Codex runs with a
 # permission profile that hides the rest of the disk from its commands, but only when the server
 # finds Codex's install folder (set CODEX_BIN to the real binary's full path if the log warns); if it
 # cannot, every Codex coach is turned off, since Codex could then read the saved keys. Either way,
@@ -28,43 +28,43 @@
 # The coach: the `claude` and `codex` CLIs must be on PATH (or set CLAUDE_BIN and CODEX_BIN). On this
 # loopback instance the player can use this account's own logins (`claude auth login`, `codex login
 # --device-auth`), sign in to ChatGPT from the app, or save an API key or a provider endpoint under
-# Coach settings; keys go in GUITAR_STATE_DIR/coach-providers.json (mode 600). Behind a reverse proxy
+# Coach settings; keys go in STRUNA_STATE_DIR/coach-providers.json (mode 600). Behind a reverse proxy
 # (a socket, an edge secret, REQUIRE_USER, or a public name in ALLOWED_HOSTS) this account's logins
-# are off unless GUITAR_COACH_HOST_LOGINS=1 ("1" or "0"; anything else stops the server), which
+# are off unless STRUNA_COACH_HOST_LOGINS=1 ("1" or "0"; anything else stops the server), which
 # is for the operator's own use only: both vendors forbid making an account available to others. Keys
 # and endpoints there need REQUIRE_USER, since anyone who can open the instance spends them. See the
 # README, "Coach sign-in and keys". ffmpeg is needed only to play videos that are not MP4.
 
 [Unit]
-Description=Guitar Room, generic mode (practice app with a coach)
+Description=Struna, studio mode (practice app with a coach)
 After=network-online.target
 
 [Service]
 Type=simple
 WorkingDirectory=CHECKOUT
 Environment=NODE_ENV=production
-Environment=GUITAR_MODE=generic
-Environment="GUITAR_HOME=STUDIO"
-Environment="GUITAR_STATE_DIR=%h/.local/state/guitar-room-generic"
+Environment=STRUNA_MODE=studio
+Environment="STRUNA_HOME=STUDIO"
+Environment="STRUNA_STATE_DIR=%h/.local/state/struna-studio"
 Environment=HOST=127.0.0.1
 Environment=PORT=5184
 # For a reverse proxy: listen on an owner-only Unix socket instead of TCP.
-#RuntimeDirectory=guitar-room-generic
+#RuntimeDirectory=struna-studio
 #RuntimeDirectoryMode=0700
-#Environment=SOCKET_PATH=%t/guitar-room-generic/http.sock
+#Environment=SOCKET_PATH=%t/struna-studio/http.sock
 # Optional; remove the leading # to use them.
-#Environment="GUITAR_LIBRARY_DIRS=/path/to/lessons:/path/to/sheet music"
-#Environment="GUITAR_TABS_DIR=/path/to/guitar pro files"
-#Environment=GUITAR_TIMEZONE=Europe/Berlin
-#Environment=GUITAR_COACH_WEB=0
-#Environment="GUITAR_APP_NAME=Guitar Room"
-#Environment=ALLOWED_HOSTS=guitar.example.org
+#Environment="STRUNA_LIBRARY_DIRS=/path/to/lessons:/path/to/sheet music"
+#Environment="STRUNA_TABS_DIR=/path/to/guitar pro files"
+#Environment=STRUNA_TIMEZONE=Europe/Berlin
+#Environment=STRUNA_COACH_WEB=0
+#Environment="STRUNA_APP_NAME=Struna"
+#Environment=ALLOWED_HOSTS=struna.example.org
 #Environment=CODEX_BIN=/full/path/to/codex
 # The coach list (README, "Coach sign-in and keys").
-#Environment=GUITAR_COACH_HOST_LOGINS=0
-#Environment=GUITAR_COACH_DEVICE_SIGNIN=1
-#Environment=GUITAR_COACH_PRIVATE_ENDPOINTS=1
-#Environment=GUITAR_COACH_MAX_BUDGET_USD=2
+#Environment=STRUNA_COACH_HOST_LOGINS=0
+#Environment=STRUNA_COACH_DEVICE_SIGNIN=1
+#Environment=STRUNA_COACH_PRIVATE_ENDPOINTS=1
+#Environment=STRUNA_COACH_MAX_BUDGET_USD=2
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=NODE server/index.ts
 Restart=on-failure

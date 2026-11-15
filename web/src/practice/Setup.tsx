@@ -6,7 +6,7 @@ import type { Profile, ProfileInput } from "../generic.ts";
 import { defaultProfile, fromForm, INSTRUMENTS, LEVELS, MINUTES, profileAction, READS, type SetupForm, STYLES, toForm } from "./genericLogic.ts";
 
 /** Set when the player skipped the form, so the first real save still gets the coach's onboarding. */
-const SKIPPED_KEY = "guitar-room.setup-skipped";
+const SKIPPED_KEY = "struna.setup-skipped";
 
 function Pick<T extends string | number>({ label, value, options, onChange, words }: { label: string; value: T; options: [T, string][]; onChange: (v: T) => void; words?: boolean }) {
   return (

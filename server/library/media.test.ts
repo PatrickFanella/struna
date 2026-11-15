@@ -13,12 +13,12 @@ await cp(join(fx, "media"), join(tmp, "media"), { recursive: true });
 const book = join(tmp, "media/Books/Test Book (z-library.sk, 1lib.sk, z-lib.sk).pdf");
 await writeFile(join(tmp, "secret.txt"), "secret");
 await symlink(join(tmp, "secret.txt"), join(tmp, "media/Books/escape.pdf"));
-process.env.GUITAR_VAULT_ROOT = join(fx, "vault");
-process.env.GUITAR_MEDIA_ROOT = join(tmp, "media");
-process.env.GUITAR_STATE_DIR = join(tmp, "state");
-process.env.GUITAR_CACHE_DIR = join(tmp, "cache");
-process.env.GUITAR_CALIBRE_RECEIPT = join(fx, "calibre-receipt.json");
-process.env.GUITAR_NO_SCAN = "1";
+process.env.STRUNA_VAULT_ROOT = join(fx, "vault");
+process.env.STRUNA_MEDIA_ROOT = join(tmp, "media");
+process.env.STRUNA_STATE_DIR = join(tmp, "state");
+process.env.STRUNA_CACHE_DIR = join(tmp, "cache");
+process.env.STRUNA_CALIBRE_RECEIPT = join(fx, "calibre-receipt.json");
+process.env.STRUNA_NO_SCAN = "1";
 
 const { handle, db } = await import("../index.ts");
 const { writeIndex, searchLibrary } = await import("./index-db.ts");

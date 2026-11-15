@@ -46,11 +46,11 @@ export function App() {
       const d = (e as CustomEvent<unknown>).detail;
       setUnread(!(d === false || (typeof d === "object" && d !== null && (d as { unread?: unknown }).unread === false)));
     };
-    addEventListener("guitar-room:coach-open", open);
-    addEventListener("guitar-room:coach-unread", mark);
+    addEventListener("struna:coach-open", open);
+    addEventListener("struna:coach-unread", mark);
     return () => {
-      removeEventListener("guitar-room:coach-open", open);
-      removeEventListener("guitar-room:coach-unread", mark);
+      removeEventListener("struna:coach-open", open);
+      removeEventListener("struna:coach-unread", mark);
     };
   }, []);
   useEffect(() => {
@@ -59,9 +59,9 @@ export function App() {
   useEffect(() => {
     if (info) document.title = info.name;
   }, [info]);
-  // Generic mode takes file drops: one that lands outside the Materials list must not open the file in
+  // Studio mode takes file drops: one that lands outside the Materials list must not open the file in
   // the tab and leave the app. Materials handles its own drops first (on the document).
-  const takesDrops = info?.mode === "generic";
+  const takesDrops = info?.mode === "studio";
   useEffect(() => {
     if (!takesDrops) return;
     const stray = (e: DragEvent) => {
@@ -80,7 +80,7 @@ export function App() {
 
   // Nothing is drawn until the server says which app this is, so the wrong sections never flash.
   if (!info) return <div className="app"><IconSprite /></div>;
-  const generic = info.mode === "generic";
+  const generic = info.mode === "studio";
   const section = sectionFromHash(hash, info.sections);
   const SECTIONS = info.sections.map((id) => ({ id, ...SECTION[id] }));
   const has = (s: Section) => info.sections.includes(s);
@@ -102,7 +102,13 @@ export function App() {
       <IconSprite />
       <header className="top">
         <div className="wrap">
-          <span className="name">{info.name}</span>
+          <span className="name">
+            <span className="brandmark" aria-hidden="true">
+              <img className="mark-light" src="/brand/mark-primary.svg" width="28" height="28" alt="" />
+              <img className="mark-dark" src="/brand/mark-dark.svg" width="28" height="28" alt="" />
+            </span>
+            {info.name.toLowerCase() === "struna" ? "struna" : info.name}
+          </span>
           <nav className="topnav" aria-label="Sections">
             {SECTIONS.map((s) => (
               <a key={s.id} href={`#${s.id}`} {...(section === s.id ? { "aria-current": "page" as const } : {})}>

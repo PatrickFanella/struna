@@ -19,9 +19,9 @@ import { Session, type SessionState } from "./Session.tsx";
 import { Setup } from "./Setup.tsx";
 import { Start } from "./Start.tsx";
 
-const SESSION_KEY = "guitar-room.session";
+const SESSION_KEY = "struna.session";
 /** Set by the library's "Use in practice"; read for the current session only. */
-export const LIBRARY_MATERIAL_KEY = "guitar-room.material";
+export const LIBRARY_MATERIAL_KEY = "struna.material";
 
 type Phase = { name: "start" } | { name: "session" } | { name: "review" } | { name: "done"; file: string };
 
@@ -63,7 +63,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   const [extra, setExtra] = useState<PaneItem | null>(libraryItem);
   const [editing, setEditing] = useState(false);
   const app = useApp();
-  const generic = app.mode === "generic";
+  const generic = app.mode === "studio";
   const m = useMetronome();
 
   const load = useCallback(() => {
@@ -76,19 +76,19 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     );
   }, []);
   useEffect(load, [load]);
-  // Generic mode: the coach changed the plan or the profile, so today is out of date.
+  // Studio mode: the coach changed the plan or the profile, so today is out of date.
   useEffect(() => {
     const on = (e: Event) => {
       const d = (e as CustomEvent<Changed | undefined>).detail;
       if (d?.plan || d?.profile) load();
     };
-    addEventListener("guitar-room:changed", on);
-    return () => removeEventListener("guitar-room:changed", on);
+    addEventListener("struna:changed", on);
+    return () => removeEventListener("struna:changed", on);
   }, [load]);
   useEffect(() => {
     const on = () => setExtra(libraryItem());
-    addEventListener("guitar-room:material", on);
-    return () => removeEventListener("guitar-room:material", on);
+    addEventListener("struna:material", on);
+    return () => removeEventListener("struna:material", on);
   }, []);
 
   const setSession = useCallback((fn: (s: SessionState) => SessionState) => {
@@ -135,7 +135,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   const [offer, setOffer] = useState<PaneItem | null>(null);
   useEffect(() => {
     if (!extra || !session) return;
-    if (store.get("guitar-room.material-placed") === extra.key) return; // Already answered; it must stick across reloads.
+    if (store.get("struna.material-placed") === extra.key) return; // Already answered; it must stick across reloads.
     if (session.panes.some((p) => p.content.type === "file" && p.content.item.key === extra.key)) return;
     setOffer(extra);
   }, [extra, Boolean(session)]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -143,7 +143,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     const item = offer;
     setOffer(null);
     if (!item) return;
-    store.set("guitar-room.material-placed", item.key);
+    store.set("struna.material-placed", item.key);
     if (how === "no") return;
     const cs = await withCompanion({ type: "file", item });
     setSession((s) => {
@@ -156,12 +156,12 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
 
   const start = async (kind: string, cross?: string) => {
     // An item sent from the library ("Use in practice") leads this session; otherwise the block's first PDF.
-    // In generic mode the coach orders the plan's materials, so the first one that exists leads.
+    // In studio mode the coach orders the plan's materials, so the first one that exists leads.
     const first = generic ? (extra ?? items.find((i) => !i.missing)) : (extra ?? items.find((i) => !i.missing && i.kind === "pdf") ?? items[0]);
     const lead = first ? await withCompanion({ type: "file", item: first }) : [];
     // On a wide screen the coach opens beside the lesson.
     const panes = [...lead.map(pane), ...(window.innerWidth >= 1180 && lead.length < 3 ? [pane({ type: "coach" })] : [])];
-    if (extra) store.set("guitar-room.material-placed", extra.key);
+    if (extra) store.set("struna.material-placed", extra.key);
     // Start from the last clean working tempo stored for this material, when there is one.
     if (first) {
       const tempos = await api.get<{ fragment: string; bpm: number }[]>("/api/tempos").catch(() => []);
@@ -202,7 +202,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       /* storage unavailable */
     }
     setExtra(null);
-    store.set("guitar-room.material-placed", null);
+    store.set("struna.material-placed", null);
     try {
       sessionStorage.removeItem(REVIEW_DRAFT_KEY);
     } catch {
@@ -312,7 +312,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       items={items}
       material={material?.label ?? ""}
       onFinish={() => {
-        // Generic mode remembers that the review is open, so a reload (or a discarded tab) comes back to it.
+        // Studio mode remembers that the review is open, so a reload (or a discarded tab) comes back to it.
         setSession((s) => ({ ...s, elapsedBefore: s.elapsedBefore + (s.resumedAt ? Date.now() - s.resumedAt : 0), resumedAt: null, ...(generic ? { reviewing: true as const } : {}) }));
         setPhase({ name: "review" });
       }}

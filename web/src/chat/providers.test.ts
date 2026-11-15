@@ -31,7 +31,7 @@ test("with no coach, the notes say nothing will change, and the pain note still 
 const row = (id: string, ok: boolean): ProviderRow => ({ id, label: id, via: "Codex", setup: "key", ok, detail: ok ? "ready" : "No key saved", web: true, model: null, notes: [] });
 const generic = (last: string, ...list: ProviderRow[]): ProviderStatus => ({ ...status(false, false, "claude"), last, list });
 
-test("with the generic mode's list, a fresh page picks the last coach when ready, else the first ready one", () => {
+test("with the studio mode's list, a fresh page picks the last coach when ready, else the first ready one", () => {
   assert.equal(pickProvider(generic("openai", row("anthropic", true), row("openai", true))), "openai");
   assert.equal(pickProvider(generic("openai", row("anthropic", true), row("openai", false))), "anthropic");
   assert.equal(pickProvider(generic("claude", row("anthropic", false), row("endpoint", true))), "endpoint"); // claude turned off here

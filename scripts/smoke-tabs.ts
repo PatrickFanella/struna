@@ -5,13 +5,13 @@
  *
  *   node scripts/smoke-tabs.ts <state-dir> <screenshot-prefix>
  *
- * Needs `pnpm build`, Chromium, and GUITAR_MEDIA_ROOT (default: the real Guitar folder).
+ * Needs `pnpm build`, Chromium, and STRUNA_MEDIA_ROOT (default: the real Guitar folder).
  */
 import { spawn } from "node:child_process";
 import { chromium } from "playwright-core";
 const [state, out] = process.argv.slice(2) as [string, string];
 const port = 5191;
-const srv = spawn("node", ["server/index.ts"], { cwd: process.cwd(), env: { ...process.env, NODE_ENV: "production", PORT: String(port), GUITAR_STATE_DIR: state }, stdio: ["ignore", "ignore", "inherit"] });
+const srv = spawn("node", ["server/index.ts"], { cwd: process.cwd(), env: { ...process.env, NODE_ENV: "production", PORT: String(port), STRUNA_STATE_DIR: state }, stdio: ["ignore", "ignore", "inherit"] });
 const base = `http://localhost:${port}`;
 for (let i = 0; i < 50 && !(await fetch(`${base}/api/health`).then((r) => r.ok, () => false)); i++) await new Promise((r) => setTimeout(r, 200));
 for (let i = 0; i < 200; i++) { const s = await (await fetch(`${base}/api/tabs`)).json(); if (!s.scanning && s.total) { console.log("tabs indexed:", s.total); break; } await new Promise((r) => setTimeout(r, 300)); }

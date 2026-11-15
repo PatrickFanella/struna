@@ -32,7 +32,7 @@ after(async () => {
 
 test("the token is made once, owner-only, and kept across starts", async () => {
   assert.match(access.token, /^[0-9a-f]{64}$/);
-  assert.equal(access.cookie, "guitar_room_5199");
+  assert.equal(access.cookie, "struna_5199");
   const file = join(tmp, "state", TOKEN_FILE);
   assert.equal((await stat(file)).mode & 0o777, 0o600);
   assert.equal((await readFile(file, "utf8")).trim(), access.token);
@@ -41,7 +41,7 @@ test("the token is made once, owner-only, and kept across starts", async () => {
 
 test("without the token: the API is refused, a page explains, the health check stays open", async () => {
   assert.equal((await fetch(`${base}/api/app`)).status, 403);
-  const post = await fetch(`${base}/api/chat`, { method: "POST", headers: { "x-guitar-room": "1" }, body: "{}" });
+  const post = await fetch(`${base}/api/chat`, { method: "POST", headers: { "x-struna": "1" }, body: "{}" });
   assert.equal(post.status, 403);
   const page = await fetch(`${base}/`);
   assert.equal(page.status, 403);
@@ -60,7 +60,16 @@ test("the access link stores an HttpOnly, SameSite=Strict cookie, and the cookie
   assert.ok(!html.includes(access.token), "the page does not repeat the token");
   assert.match(html, /location\.replace\("\/"\)/);
   assert.equal((await fetch(`${base}/api/app`, { headers: { cookie: `other=1; ${access.cookie}=${access.token}` } })).status, 200);
-  assert.equal((await fetch(`${base}/api/app`, { headers: { "x-guitar-room-token": access.token } })).status, 200);
+  assert.equal((await fetch(`${base}/api/app`, { headers: { "x-struna-token": access.token } })).status, 200);
   // The token never works as an API query parameter, which would end up in logs and history.
   assert.equal((await fetch(`${base}/api/app?token=${access.token}`)).status, 403);
+});
+
+test("legacy access headers and cookies remain valid, but still require the exact token", async () => {
+  for (const headers of [{ "x-guitar-room-token": access.token }, { cookie: `guitar_room_5199=${access.token}` }]) {
+    assert.equal((await fetch(`${base}/api/app`, { headers })).status, 200);
+  }
+  for (const headers of [{ "x-guitar-room-token": "wrong" }, { cookie: "guitar_room_5199=wrong" }]) {
+    assert.equal((await fetch(`${base}/api/app`, { headers })).status, 403);
+  }
 });

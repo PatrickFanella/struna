@@ -128,7 +128,7 @@ function main() {
     if (slow) await new Promise((r) => setTimeout(r, slow));
     if (input.includes("BREAK THE PLAN")) writeFileSync("plan/plan.json", '{"version": 2}');
     if (input.includes("Fix the file") && existsSync(file("good-plan.json"))) copyFileSync(file("good-plan.json"), "plan/plan.json");
-    const key = env.ANTHROPIC_API_KEY ?? env.CODEX_API_KEY ?? env.GUITAR_ROOM_ENDPOINT_KEY ?? env.AWS_BEARER_TOKEN_BEDROCK ?? "";
+    const key = env.ANTHROPIC_API_KEY ?? env.CODEX_API_KEY ?? env.STRUNA_ENDPOINT_KEY ?? env.AWS_BEARER_TOKEN_BEDROCK ?? "";
     if (claude) {
       const resume = argv.includes("--resume") ? argv[argv.indexOf("--resume") + 1]! : "";
       out({ type: "system", subtype: "init", session_id: resume || "fake-claude-1", apiKeySource: env.ANTHROPIC_API_KEY ? "ANTHROPIC_API_KEY" : "none" });

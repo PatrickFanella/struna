@@ -1,31 +1,26 @@
-/* Tokens copied verbatim from docs/design-system.html (round 10).
-   The theme follows the device; data-theme="light|dark" on <html> overrides it. */
-/* ---- Tokens: "Method book" ---- */
+/* Struna: “The string”. Studio owns struna.css; this file maps it to the app.
+   See docs/struna-design.md and docs/struna-assets.json for source and hashes. */
+@import "./struna.css";
+@import "./fonts.css";
+
 :root{
+  color-scheme:light;
+  font-synthesis:none;
   --wedge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 10'%3E%3Cpath d='M1.5 1.5 16.5 5 1.5 8.5' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --chk:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.3 4.8 9 10 3' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  --page:#FCFCFA; --panel:#FFFFFF; --rule:#E3E3DE; --ink:#1A1A1A; --graphite:#5C5C58;
-  --pencil:#C2271B; --empty:#E3E3DE; --on-ink:#FFFFFF; --wash:#EFEFEB;
-  --edge:#8E8E88;            /* interactive outlines, >= 3:1 on page and panel */
-  --done:#5C5C58;
-  --serif:"Source Serif 4",Georgia,serif; --sans:"Atkinson Hyperlegible Next",system-ui,sans-serif;
-  --mono:ui-monospace,Menlo,Consolas,monospace;
-  --r:10px; --gap:16px; --col:760px;
-  /* type and size scale, phone */
-  --fs-meta:14px; --fs-h1:28px; --fs-instr:18px; --fs-label:15px; --fs-clock:56px; --fs-bpm:46px; --sp:14px;
-  --btn-h:52px; --fs-btn:17px; --dot:24px; --ib-h:44px; --fs-nav:14px; --icon-nav:24px; --fs-unit:16px; --fs-cap:15px; --fs-ib:15px; --fs-name:20px; --bar:20px; --fs-note:140px; --beat:44px;
+  --page:var(--struna-bg); --panel:var(--struna-panel); --ink:var(--struna-ink);
+  --muted:var(--struna-muted); --edge:var(--struna-edge); --rule:var(--struna-rule); --wash:var(--struna-wash);
+  --ring:var(--struna-ring); --ring-ink:var(--struna-ring-ink); --err:var(--struna-err);
+  --focus:var(--ring-ink); --on-ink:var(--page);
+  --on-ring:#1A1714; /* Dark ink stays readable inside bronze fills in both modes. */
+  --display:var(--struna-font-display); --sans:var(--struna-font-body); --mono:var(--struna-font-label);
+  --r:8px; --gap:16px; --col:760px; --sp:14px;
+  /* The brand's reading scale stays consistent across devices; touch controls stay large. */
+  --fs-meta:14px; --fs-h1:30px; --fs-instr:18px; --fs-label:16px; --fs-clock:36px; --fs-bpm:34px;
+  --btn-h:52px; --fs-btn:16px; --dot:24px; --ib-h:44px; --fs-nav:14px; --icon-nav:24px;
+  --fs-unit:16px; --fs-cap:14px; --fs-ib:16px; --fs-name:24px; --bar:16px; --fs-note:140px; --beat:44px;
 }
-:root[data-theme="dark"]{
-  --page:#232428; --panel:#2B2D32; --rule:#393B42; --ink:#ECEBE6; --graphite:#A3A29C;
-  --pencil:#F87D70; --empty:#393B42; --on-ink:#1A1A1A; --wash:#353840; --edge:#7A7C83; --done:#A3A29C;
-}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-  --page:#232428; --panel:#2B2D32; --rule:#393B42; --ink:#ECEBE6; --graphite:#A3A29C;
-  --pencil:#F87D70; --empty:#393B42; --on-ink:#1A1A1A; --wash:#353840; --edge:#7A7C83; --done:#A3A29C;
-}
-}
-@media (min-width:700px){
-  :root{ --gap:28px; --fs-meta:16px; --fs-h1:38px; --fs-instr:24px; --fs-label:18px; --fs-clock:104px; --fs-bpm:72px;
-         --btn-h:64px; --fs-btn:22px; --dot:36px; --ib-h:48px; --fs-nav:16px; --icon-nav:26px; --sp:22px; --fs-unit:21px; --fs-cap:18px; --fs-ib:18px; --fs-name:24px; --bar:18px; --fs-note:200px; --beat:56px; }
-}
+:root[data-theme="dark"]{color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark}}
+@media (min-width:700px){:root{--gap:28px;--sp:18px}}
+@media (min-width:700px) and (pointer:fine){:root{--gap:24px;--sp:14px;--btn-h:48px;--dot:22px;--ib-h:44px;--bar:14px}}

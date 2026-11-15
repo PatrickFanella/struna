@@ -6,13 +6,13 @@
  *
  *   node scripts/smoke-library.ts <vault-copy> <state-dir> <cache-dir> <screenshot-prefix>
  *
- * Needs `pnpm build`, Chromium, and GUITAR_MEDIA_ROOT (default: the real Guitar folder).
+ * Needs `pnpm build`, Chromium, and STRUNA_MEDIA_ROOT (default: the real Guitar folder).
  */
 import { spawn } from "node:child_process";
 import { chromium, type Page } from "playwright-core";
 const [vault, state, cache, out] = process.argv.slice(2) as [string, string, string, string];
 const port = 5190;
-const srv = spawn("node", ["server/index.ts"], { cwd: process.cwd(), env: { ...process.env, NODE_ENV: "production", PORT: String(port), GUITAR_VAULT_ROOT: vault, GUITAR_STATE_DIR: state, GUITAR_CACHE_DIR: cache }, stdio: ["ignore", "ignore", "inherit"] });
+const srv = spawn("node", ["server/index.ts"], { cwd: process.cwd(), env: { ...process.env, NODE_ENV: "production", PORT: String(port), STRUNA_VAULT_ROOT: vault, STRUNA_STATE_DIR: state, STRUNA_CACHE_DIR: cache }, stdio: ["ignore", "ignore", "inherit"] });
 const base = `http://localhost:${port}`;
 for (let i = 0; i < 50 && !(await fetch(`${base}/api/health`).then((r) => r.ok, () => false)); i++) await new Promise((r) => setTimeout(r, 200));
 for (let i = 0; i < 100; i++) { const s = await (await fetch(`${base}/api/library`)).json(); if (!s.scanning && s.scannedAt) break; await new Promise((r) => setTimeout(r, 300)); }

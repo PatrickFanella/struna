@@ -7,14 +7,14 @@ import { after, before, test } from "node:test";
 
 const tmp = await mkdtemp(join(tmpdir(), "guitar-app-"));
 await cp(join(import.meta.dirname, "fixtures/vault"), join(tmp, "vault"), { recursive: true });
-delete process.env.GUITAR_MODE;
-delete process.env.GUITAR_APP_NAME;
-delete process.env.GUITAR_TIMEZONE;
-process.env.GUITAR_VAULT_ROOT = join(tmp, "vault");
-process.env.GUITAR_STATE_DIR = join(tmp, "state");
-process.env.GUITAR_MEDIA_ROOT = join(tmp, "media");
-process.env.GUITAR_HOME = join(tmp, "studio");
-process.env.GUITAR_NO_SCAN = "1";
+delete process.env.STRUNA_MODE;
+delete process.env.STRUNA_APP_NAME;
+delete process.env.STRUNA_TIMEZONE;
+process.env.STRUNA_VAULT_ROOT = join(tmp, "vault");
+process.env.STRUNA_STATE_DIR = join(tmp, "state");
+process.env.STRUNA_MEDIA_ROOT = join(tmp, "media");
+process.env.STRUNA_HOME = join(tmp, "studio");
+process.env.STRUNA_NO_SCAN = "1";
 
 const { handle } = await import("./index.ts");
 const { config } = await import("./config.ts");
@@ -39,8 +39,16 @@ test("personal is the default mode and its config is unchanged", () => {
 });
 
 test("GET /api/app and /api/prompts in personal mode", async () => {
-  assert.deepEqual(await (await fetch(`${base}/api/app`)).json(), { mode: "personal", name: "Guitar Room", sections: ["practice", "library", "tabs"], web: false, profile: true });
+  assert.deepEqual(await (await fetch(`${base}/api/app`)).json(), { mode: "personal", name: "Struna", sections: ["practice", "library", "tabs"], web: false, profile: true });
   assert.deepEqual(await (await fetch(`${base}/api/prompts`)).json(), { prompts: [], actions: [] });
+});
+
+test("both app header names pass the mutation guard; an absent or wrong header does not", async () => {
+  for (const name of ["x-struna", "x-guitar-room"]) {
+    assert.equal((await fetch(`${base}/api/not-a-route`, { method: "POST", headers: { [name]: "1" } })).status, 404);
+    assert.equal((await fetch(`${base}/api/not-a-route`, { method: "POST", headers: { [name]: "wrong" } })).status, 403);
+  }
+  assert.equal((await fetch(`${base}/api/not-a-route`, { method: "POST" })).status, 403);
 });
 
 test("the personal mode has no generic routes and never creates a studio folder", async () => {

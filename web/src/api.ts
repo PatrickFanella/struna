@@ -7,9 +7,9 @@ export class ApiError extends Error {
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { method, headers: { "x-guitar-room": "1" } };
+  const init: RequestInit = { method, headers: { "x-struna": "1" } };
   if (body !== undefined) {
-    init.headers = { "x-guitar-room": "1", "content-type": "application/json" };
+    init.headers = { "x-struna": "1", "content-type": "application/json" };
     init.body = JSON.stringify(body);
   }
   const res = await fetch(path, init);
@@ -27,11 +27,31 @@ export const api = {
   del: <T,>(path: string) => call<T>("DELETE", path),
 };
 
+/** Carry an open tab's session and review draft forward without replacing newer state. */
+export function migrateSessionStorage(): void {
+  try {
+    for (const key of Object.keys(sessionStorage)) {
+      if (!key.startsWith("guitar-room.")) continue;
+      const current = key.replace(/^guitar-room\./, "struna.");
+      if (sessionStorage.getItem(current) === null) sessionStorage.setItem(current, sessionStorage.getItem(key)!);
+      sessionStorage.removeItem(key);
+    }
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 /** localStorage that never throws (private windows, blocked storage). */
 export const store = {
   get(key: string): string | null {
     try {
-      return localStorage.getItem(key);
+      const value = localStorage.getItem(key);
+      if (value !== null || !key.startsWith("struna.")) return value;
+      const previous = localStorage.getItem(key.replace(/^struna\./, "guitar-room."));
+      if (previous !== null) {
+        try { localStorage.setItem(key, previous); } catch { /* A full store can still be read. */ }
+      }
+      return previous;
     } catch {
       return null;
     }
@@ -40,6 +60,7 @@ export const store = {
     try {
       if (value === null) localStorage.removeItem(key);
       else localStorage.setItem(key, value);
+      if (key.startsWith("struna.")) localStorage.removeItem(key.replace(/^struna\./, "guitar-room."));
     } catch {
       /* storage unavailable */
     }

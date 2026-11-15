@@ -1,5 +1,5 @@
 /**
- * The generic mode's types, as the web app needs them. They mirror
+ * The studio mode's types, as the web app needs them. They mirror
  * `server/generic/types.ts`; change both together.
  */
 
@@ -118,17 +118,17 @@ export type LogSummary = {
   next: string;
 };
 
-/** The detail of the window event `guitar-room:changed`, sent after a coach turn. */
+/** The detail of the window event `struna:changed`, sent after a coach turn. */
 export type Changed = { plan?: boolean; materials?: boolean; profile?: boolean };
 
 /** What `/api/app` returns in either mode. */
 export type AppInfo = {
-  mode: "personal" | "generic";
+  mode: "personal" | "studio";
   name: string;
   /** Sections the app shows. */
   sections: ("practice" | "library" | "materials" | "tabs")[];
-  /** Whether the coach may search the web (generic mode). */
+  /** Whether the coach may search the web (studio mode). */
   web: boolean;
-  /** Generic mode: whether `profile.json` exists yet. */
+  /** Studio mode: whether `profile.json` exists yet. */
   profile: boolean;
 };

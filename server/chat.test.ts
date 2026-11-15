@@ -250,7 +250,7 @@ await ensureStudio(home);
 await writeFile(goodPlan, JSON.stringify(starterPlan(normalizeProfile({ level: "beginner" }, new Date().toISOString()), "2026-11-14")));
 const db: DatabaseSync = openDb(join(dir, "state"));
 const store = conversations(db);
-chatRoutes(genericCoach({ home, db, timeZone: "UTC", libraryDirs: [], web: true, appName: "Guitar Room" }), db, store);
+chatRoutes(genericCoach({ home, db, timeZone: "UTC", libraryDirs: [], web: true, appName: "Struna" }), db, store);
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   const found = match(req.method ?? "GET", url.pathname);
@@ -278,7 +278,7 @@ test("generic chat: an invalid plan gets one fix on the same thread, in the same
 
   const [first, second] = await cliCalls();
   assert.equal(first!.cwd, home);
-  assert.match(first!.input, /^\[Guitar Room\]\nScreen: review\nToday: \d{4}-\d{2}-\d{2} \(UTC\)\nProfile: not set up yet\nPlan: No plan yet\nMaterial: Em to G\n\[\/Guitar Room\]\n\nI just logged a session\. BREAK THE PLAN$/);
+  assert.match(first!.input, /^\[Struna\]\nScreen: review\nToday: \d{4}-\d{2}-\d{2} \(UTC\)\nProfile: not set up yet\nPlan: No plan yet\nMaterial: Em to G\n\[\/Struna\]\n\nI just logged a session\. BREAK THE PLAN$/);
   assert.ok(first!.argv.includes("Edit(plan/**),Write(plan/**),Edit(materials/**),Write(materials/**),Edit(coach-notes.md),Write(coach-notes.md),Edit(profile.json),Write(profile.json),WebSearch,WebFetch"));
   assert.ok(!first!.argv.includes("--resume"));
   assert.equal(second!.argv[second!.argv.indexOf("--resume") + 1], "sess-1");
