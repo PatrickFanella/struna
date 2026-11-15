@@ -156,7 +156,7 @@ type Menu = { at: number | "add" } | null;
  * Side-by-side panes: the lesson, its sheet music or a tab, and the coach. Up to three show at
  * once on a wide screen, two on an iPad, one on a phone, with a switcher for the rest.
  */
-export function Workspace({ panes, setPanes, materials, empty, addSlot, focusRequest }: {
+export function Workspace({ panes, setPanes, materials, empty, addSlot, focusRequest, onOpenContent }: {
   panes: PaneState[];
   setPanes: (fn: (p: PaneState[]) => PaneState[]) => void;
   materials: PaneItem[];
@@ -164,6 +164,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
   /** Where the Add pane control goes (for example the session's stage line); defaults to a bar above the panes. */
   addSlot?: HTMLElement | null;
   focusRequest?: { itemKey: string; stageKey: string } | undefined;
+  onOpenContent?: (content: PaneContent) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [slots, setSlots] = useState(1);
@@ -227,6 +228,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
     setMenu(null);
     setFinder(null);
     place(await withCompanion(c), at);
+    onOpenContent?.(c);
   };
   const close = (i: number) => {
     setMenu(null);

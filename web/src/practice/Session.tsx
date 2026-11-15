@@ -359,7 +359,10 @@ export function Session({ today, state, setState, items, material, onFinish, clo
         </div>
       </div>
 
-      <Workspace focusRequest={state.focusRequest} panes={state.panes} setPanes={(fn) => setState((s) => ({ ...s, panes: fn(s.panes) }))} materials={items} addSlot={addSlot} />
+      <Workspace onOpenContent={(content) => {
+        const activity = content.type === "file" ? { key: content.item.key, title: content.item.label } : content.type === "tab" ? { key: `tab:${content.tabId}`, title: content.title } : null;
+        if (activity) setState((s) => ({ ...s, addedActivities: [...(s.addedActivities ?? []).filter((a) => a.key !== activity.key), activity] }));
+      }} focusRequest={state.focusRequest} panes={state.panes} setPanes={(fn) => setState((s) => ({ ...s, panes: fn(s.panes) }))} materials={items} addSlot={addSlot} />
 
       <div className="sessionbar">
         <TempoRow passes={state.passes} suggestion={state.suggestion} onClean={() => log("clean")} onMiss={() => log("miss")} onApply={apply} />

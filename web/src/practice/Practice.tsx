@@ -171,6 +171,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     const s: SessionState = {
       kind,
       stages: sessionKind(today!, kind).stages,
+      addedActivities: extra ? [{ key: extra.key, title: extra.label }] : [],
       cross: cross ?? null,
       startedAt: Date.now(),
       stage: 0,
