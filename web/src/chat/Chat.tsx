@@ -4,6 +4,7 @@ import Markdown from "react-markdown";
 import { api } from "../api.ts";
 import type { ActionId, Prompt } from "../generic.ts";
 import { useApp } from "../mode.ts";
+import { addedMaterials, type FindTurn, type MaterialsSnapshot } from "../materials/find.ts";
 import { screenContext } from "../screen.ts";
 import { CoachProviders, PROVIDERS_CHANGED } from "./CoachProviders.tsx";
 import { fillPrompt, GROUPS, promptsFor, screenId, usePrompts } from "./prompts.ts";
@@ -14,8 +15,8 @@ import { applyEvent, type Msg } from "./stream.ts";
 type Provider = ProviderId;
 type Conv = { id: string; provider: Provider; title: string; updated: string };
 type Status = ProviderStatus;
-/** `done` hears whether the turn ran to its end; a message dropped from the queue hears false. */
-type Queued = { text: string; auto?: ActionId; done?: (ok: boolean) => void };
+/** Each queued request resolves its own outcome, including requests dropped before sending. */
+type Queued = { text: string; auto?: ActionId; find?: boolean; done: (result: FindTurn) => void };
 const NAMES: Record<string, string> = { claude: "Claude", codex: "ChatGPT" };
 /** The studio mode's names for the host logins, also when they are turned off and not in the list (as in server/generic/providers.ts CATALOG). */
 const HOST_LABELS: Record<string, string> = { claude: "Claude plan (this computer)", codex: "ChatGPT plan (this computer)" };
@@ -92,16 +93,37 @@ export async function coachReady(): Promise<{ ok: boolean; detail: string }> {
 function dropQueue() {
   const dropped = state.queue;
   state.queue = [];
-  for (const q of dropped) q.done?.(false);
+  for (const q of dropped) q.done({ ok: false, complete: true, additions: null, problem: "The queued request was cancelled" });
 }
 
-/** Returns whether the turn ran to its end without an error or a stop. */
-async function send(text: string, auto?: ActionId): Promise<boolean> {
+/** Collect terminal status and, for a find request, the actual Materials additions. */
+async function send(text: string, auto?: ActionId, find = false): Promise<FindTurn> {
   const abort = new AbortController();
   state.busy = abort;
   let ok = true;
+  let complete = false;
+  let problem = "";
+  let unavailable = false;
+  let additions: FindTurn["additions"] = null;
+  let before: MaterialsSnapshot | null = null;
+  let sent = false;
+  const snapshot = () => api.get<MaterialsSnapshot>("/api/materials?limit=40000");
   update((m) => [...m, { role: "user", text, ...(auto ? { auto } : {}) }, { role: "assistant", text: "", streaming: true }]);
   try {
+    if (find) {
+      // This happens when this request reaches the front of the queue, after earlier turns.
+      const status = await loadProviders(true);
+      const ready = readiness(status, state.provider);
+      const current = status?.list?.find(row => row.id === state.provider);
+      if (!ready.ok || (current && !current.web)) {
+        unavailable = true;
+        complete = true;
+        throw new Error(!ready.ok ? ready.detail : "this coach has no web access");
+      }
+      before = await snapshot();
+      addedMaterials(before, before); // Refuse an incomplete baseline before sending a turn.
+    }
+    sent = true;
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "x-struna": "1", "content-type": "application/json" },
@@ -110,6 +132,7 @@ async function send(text: string, auto?: ActionId): Promise<boolean> {
     });
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
+      complete = true;
       throw new Error(err.error ?? res.statusText);
     }
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -128,15 +151,27 @@ async function send(text: string, auto?: ActionId): Promise<boolean> {
         const d = JSON.parse(data);
         if (ev === "conversation") state.conversation = d.id;
         else if (ev === "delta" || ev === "notice" || ev === "error") {
-          if (ev === "error") ok = false;
+          if (ev === "error") { ok = false; problem = d.message ?? "The Coach reported an error"; }
           update((m) => applyEvent(m, ev, d));
         }
         // The coach changed the plan, the materials or the profile: the screens showing them reload.
-        else if (ev === "changed") dispatchEvent(new CustomEvent("struna:changed", { detail: d }));
+        else if (ev === "changed") {
+          dispatchEvent(new CustomEvent("struna:changed", { detail: d }));
+        } else if (ev === "done") {
+          complete = true;
+          if (d.aborted) { ok = false; problem = "The Coach stopped"; }
+        }
       }
+    }
+    if (find && complete && before) {
+      try { additions = addedMaterials(before, await snapshot()); }
+      catch (e) { problem = (e as Error).message; }
     }
   } catch (e) {
     ok = false;
+    problem = String((e as Error).message ?? e);
+    // No request was sent if the initial snapshot or readiness check failed.
+    if (find && !sent) complete = true;
     if ((e as Error).name !== "AbortError") update((m) => [...m, { role: "error", text: String((e as Error).message ?? e) }]);
   } finally {
     state.busy = null;
@@ -146,7 +181,7 @@ async function send(text: string, auto?: ActionId): Promise<boolean> {
         .filter((x) => !(x.role === "assistant" && !x.text)),
     );
   }
-  return ok && !abort.signal.aborted;
+  return { ok: ok && complete && !abort.signal.aborted, complete, additions, problem, ...(unavailable ? { unavailable } : {}) };
 }
 
 let pumping = false;
@@ -160,9 +195,9 @@ async function pump() {
     if (!providers) await loadProviders();
     for (let next = state.queue.shift(); next; next = state.queue.shift()) {
       emit();
-      const ok = await send(next.text, next.auto);
-      next.done?.(ok);
-      if (!ok && state.queue.length) {
+      const result = await send(next.text, next.auto, next.find);
+      next.done(result);
+      if (!result.ok && state.queue.length) {
         dropQueue();
         emit();
       }
@@ -183,15 +218,30 @@ export function openCoach(): void {
  * Send a message to the coach from anywhere in the app. It joins the current conversation and
  * waits its turn behind a running reply. `auto` marks a message the app sent because something happened.
  */
-export function askCoach(text: string, opts: { auto?: ActionId; open?: boolean } = {}): Promise<boolean> {
+function enqueue(text: string, opts: { auto?: ActionId; open?: boolean; find?: boolean } = {}): Promise<FindTurn> {
   const t = text.trim();
-  if (!t) return Promise.resolve(false);
+  if (!t) return Promise.resolve({ ok: false, complete: true, additions: null, problem: "The request is blank" });
   state.more = false;
-  const result = new Promise<boolean>((done) => state.queue.push({ text: t, ...(opts.auto ? { auto: opts.auto } : {}), done }));
+  const result = new Promise<FindTurn>((done) => state.queue.push({ text: t, ...(opts.auto ? { auto: opts.auto } : {}), ...(opts.find ? { find: true } : {}), done }));
   emit();
   if (opts.open) openCoach();
   void pump();
   return result;
+}
+
+export function askCoach(text: string, opts: { auto?: ActionId; open?: boolean } = {}): Promise<boolean> {
+  return enqueue(text, opts).then(result => result.ok);
+}
+
+/** Resolve only this queued request, using the actual Materials changes during its turn. */
+export function findMaterialsWithCoach(text: string): Promise<FindTurn> {
+  return enqueue(text, { find: true });
+}
+
+export function openCoachSettings(): void {
+  state.settings = true;
+  emit();
+  openCoach();
 }
 
 /** Put text in the message box for the player to finish, and open the coach. */

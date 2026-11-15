@@ -53,6 +53,7 @@ try {
   const token = readFileSync(join(scratch, "state/access-token"), "utf8").trim();
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
   for (const [width, height] of [[320, 700], [390, 844], [1003, 814]] as const) {
+    if (process.env.SMOKE_WIDTH && width !== Number(process.env.SMOKE_WIDTH)) continue;
     for (const theme of ["light", "dark", "device-light", "device-dark"] as const) {
       const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme.endsWith("dark") ? "dark" : "light" });
       await context.addInitScript(t => { if (t.startsWith("device")) localStorage.removeItem("struna.theme"); else localStorage.setItem("struna.theme", t); }, theme);
@@ -75,13 +76,16 @@ try {
       assert.equal(await link.getAttribute("href"), entries[0]!.url);
       assert.equal(await link.getAttribute("target"), "_blank");
       await screenshot(page, `${prefix}-details`);
+      if (width === 1003) await zoomCheck(page, `${prefix}-details-zoom-200`);
       if (issue >= 14) await routeChecks(page, base, prefix);
+      if (issue >= 22) await findChecks(page, base, prefix);
       // Text zoom equivalent, explicitly distinct from browser chrome zoom.
       await page.evaluate(() => document.documentElement.style.fontSize = "200%");
       await screenshot(page, `${prefix}-text-200`);
       assert.deepEqual(errors, []);
       if (issue >= 14) results.push(`${prefix}: item reload/paste, text/link routes, list search/kind/scroll, back/forward, missing/malformed recovery`);
       results.push(`${prefix}: source identity, short title, legacy fallback, destination/new tab, no overflow/errors, 200% text`);
+      console.log(`${prefix}: passed`);
       await context.close();
     }
   }
@@ -93,7 +97,7 @@ try {
 }
 async function screenshot(page: Page, name: string) {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${name}: horizontal overflow`);
-  await page.screenshot({ path: join(out, `${name}.png`), fullPage: true });
+  await page.screenshot({ path: join(out, `${name}.png`), fullPage: !name.includes("-zoom-200"), scale: "device" });
 }
 
 async function routeChecks(page: Page, base: string, prefix: string) {
@@ -155,5 +159,157 @@ async function routeChecks(page: Page, base: string, prefix: string) {
     assert.equal(await page.getByRole("searchbox").inputValue(), "lesson");
     assert.equal(await page.getByRole("radio", { name: "Link", exact: true }).getAttribute("aria-checked"), "true");
     await page.waitForFunction(expected => Math.abs(scrollY - expected) < 3, top);
+  }
+}
+
+async function findChecks(page: Page, base: string, prefix: string) {
+  let ready = true;
+  let web = true;
+  let mode: "add" | "empty" | "error" | "partial" | "unknown" | "queue" = "add";
+  let calls = 0;
+  let release: (() => void) | undefined;
+  let gate: Promise<void> = Promise.resolve();
+  await page.route("**/api/providers", route => route.fulfill({ json: {
+    claude: { ok: ready, detail: "stand-in" }, codex: { ok: false, detail: "stand-in" }, last: "claude",
+    list: [{ id: "claude", label: "Stand-in Coach", ok: ready, web, detail: ready ? "ready" : "no provider configured", notes: [], via: "Claude Code", setup: "host", model: null }],
+  } }));
+  const event = (name: string, data: unknown) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
+  await page.route("**/api/chat", async route => {
+    calls++;
+    const message = route.request().postDataJSON().message as string;
+    await gate;
+    if (mode === "error") return void await route.fulfill({ status: 503, json: { error: "stand-in provider unavailable" } });
+    if (message === "Earlier turn" || mode === "add" || mode === "partial") {
+      const title = message === "Earlier turn" ? `Earlier addition ${prefix}` : `Found ${mode === "partial" ? "partial rag" : "rag"} ${prefix}`;
+      const response = await page.request.post(`${base}/api/materials/link`, { headers: { "x-struna": "1" }, data: { url: `https://standin.example/${encodeURIComponent(title)}`, title } });
+      assert.ok(response.ok(), "stand-in persisted a material through the scratch API");
+    }
+    let body = event("delta", { text: "I added three lessons (this claim alone is deliberately untrusted)." });
+    body += event("changed", { materials: true });
+    if (mode === "partial") body += event("error", { message: "stand-in stopped after adding one" });
+    if (mode !== "unknown") body += event("done", { aborted: false });
+    await route.fulfill({ contentType: "text/event-stream", body });
+  });
+  await page.goto(`${base}/#materials`);
+  await page.getByRole("button", { name: "Find online", exact: true }).click();
+  const form = page.getByRole("form", { name: "Find materials online" });
+  const input = form.getByRole("textbox");
+  const submit = form.getByRole("button", { name: "Find and add materials", exact: true });
+  assert.ok(await submit.isDisabled());
+  assert.match(await form.textContent() ?? "", /may add results directly to Materials/);
+  await input.fill("A rag for this week");
+  gate = new Promise(r => release = r);
+  await submit.click();
+  await form.getByRole("status").filter({ hasText: "Searching" }).waitFor();
+  assert.ok(await submit.isDisabled());
+  // A programmatic second form submit must also be refused while this request runs.
+  await form.evaluate(f => f.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  await screenshot(page, `${prefix}-find-searching`);
+  release!();
+  gate = Promise.resolve();
+  await form.getByRole("status").filter({ hasText: /^Added 1 material:/ }).waitFor();
+  assert.equal(calls, 1);
+  await page.locator(".matitem").filter({ hasText: `Found rag ${prefix}` }).getByText("Added during this search").waitFor();
+  await screenshot(page, `${prefix}-find-added`);
+
+  mode = "empty";
+  await input.fill("No matching lesson");
+  await submit.click();
+  await form.getByRole("status").filter({ hasText: "Search completed with no materials added" }).waitFor();
+  await screenshot(page, `${prefix}-find-empty`);
+
+  mode = "error";
+  await input.fill("Keep this query");
+  await submit.click();
+  await form.getByRole("status").filter({ hasText: "Search failed" }).waitFor();
+  assert.equal(await input.inputValue(), "Keep this query");
+  const beforeRetry = calls;
+  await form.getByRole("button", { name: "Retry", exact: true }).click();
+  await form.getByRole("status").filter({ hasText: "Search failed" }).waitFor();
+  assert.equal(calls, beforeRetry + 1);
+  await screenshot(page, `${prefix}-find-error`);
+
+  ready = false;
+  const beforeUnavailable = calls;
+  await submit.click();
+  await form.getByRole("status").filter({ hasText: "Search unavailable" }).waitFor();
+  assert.equal(calls, beforeUnavailable);
+  assert.equal(await input.inputValue(), "Keep this query");
+  await screenshot(page, `${prefix}-find-no-provider`);
+  ready = true;
+  web = false;
+  await submit.click();
+  await form.getByRole("status").filter({ hasText: "this coach has no web access" }).waitFor();
+  assert.equal(calls, beforeUnavailable);
+  web = true;
+
+  // An earlier queued turn adds a material. The find request must not count it as its own result.
+  mode = "queue";
+  gate = new Promise(r => release = r);
+  await page.locator(".top").getByRole("button", { name: /^Coach/ }).click();
+  await page.getByRole("textbox", { name: "Message", exact: true }).fill("Earlier turn");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await page.waitForFunction(() => !!document.querySelector(".thinking"));
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await input.fill("Queued search");
+  await submit.click();
+  await form.getByRole("status").filter({ hasText: "Searching" }).waitFor();
+  const duringEarlier = calls;
+  release!();
+  gate = Promise.resolve();
+  await form.getByRole("status").filter({ hasText: "Search completed with no materials added" }).waitFor();
+  assert.equal(calls, duringEarlier + 1);
+
+  mode = "partial";
+  await input.fill("Partial result");
+  await submit.click();
+  await form.getByRole("status").filter({ hasText: "added before it stopped" }).waitFor();
+  assert.equal(await input.inputValue(), "Partial result");
+  mode = "unknown";
+  await input.fill("Interrupted search");
+  await submit.click();
+  await form.getByRole("status").filter({ hasText: "completion could not be confirmed" }).waitFor();
+  assert.ok(await submit.isDisabled());
+  const beforeUnknown = calls;
+  await form.evaluate(f => f.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  assert.equal(calls, beforeUnknown);
+  await screenshot(page, `${prefix}-find-unknown`);
+
+  await page.evaluate(() => document.documentElement.style.fontSize = "200%");
+  await screenshot(page, `${prefix}-find-text-200`);
+  await page.evaluate(() => document.documentElement.style.fontSize = "");
+
+  if (prefix.startsWith("1003x814")) await zoomCheck(page, `${prefix}-find-zoom-200`);
+
+  // Simulate the instance's web-disabled app-info response; no host config is changed.
+  await page.route(`${base}/`, async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: (await response.text()).replace(/"web":true/g, '"web":false') });
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Find online", exact: true }).click();
+  await form.getByText(/Online search is turned off/).waitFor();
+  assert.ok(await submit.isDisabled());
+  await form.getByRole("button", { name: "Add a link yourself" }).click();
+  await page.getByRole("region", { name: "Add material" }).waitFor();
+  await screenshot(page, `${prefix}-find-web-disabled-recovery`);
+  results.push(`${prefix}: find consent, blank disabled, searching/duplicate guard, persisted additions, no additions despite streamed claim, terminal failure/retry, no provider, provider web disabled, queue correlation, partial failure, interrupted stream/no retry, instance web disabled/manual recovery`);
+}
+
+/** Browser zoom equivalent: halve the CSS viewport and double raster scale. */
+async function zoomCheck(page: Page, name: string) {
+  const viewport = page.viewportSize()!;
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send("Emulation.setDeviceMetricsOverride", { width: Math.floor(viewport.width / 2), height: Math.floor(viewport.height / 2), deviceScaleFactor: 2, mobile: false });
+    assert.equal(await page.evaluate(() => innerWidth), Math.floor(viewport.width / 2));
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${name}: zoom reflow overflow`);
+    // Playwright restores its configured viewport before screenshots; capture through this CDP
+    // session so the emulated zoom metrics remain in effect in the retained artifact.
+    const shot = await session.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+    writeFileSync(join(out, `${name}.png`), Buffer.from(shot.data, "base64"));
+  } finally {
+    await session.send("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: false });
+    await session.detach();
   }
 }

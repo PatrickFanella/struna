@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../api.ts";
 import { coachAction } from "../chat/actions.tsx";
-import { askCoach } from "../chat/Chat.tsx";
+import { findMaterialsWithCoach, openCoach, openCoachSettings } from "../chat/Chat.tsx";
 import type { Changed, MaterialItem, MaterialKind, Prompt } from "../generic.ts";
 import { megabytes } from "../library/item.ts";
 import { useApp } from "../mode.ts";
@@ -11,6 +11,7 @@ import { screenContext } from "../screen.ts";
 import { FileBody } from "../workspace/Workspace.tsx";
 import { AddPanel, type AddWay } from "./Add.tsx";
 import { externalLabel, materialName, materialProvider, fillInput, FILTER_KINDS, hostOf, KIND_LABEL, materialPaneItem, nameList, uploadProblem, webUrl } from "./item.ts";
+import { findOutcome, type FindOutcome } from "./find.ts";
 import { materialHash, materialListState, materialRoute } from "./route.ts";
 import { readItem, uploadFile } from "./upload.ts";
 
@@ -78,6 +79,9 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
   const [add, setAdd] = useState<AddWay | null>(null);
   const [finding, setFinding] = useState(false);
   const [want, setWant] = useState("");
+  const [findStatus, setFindStatus] = useState<FindOutcome | null>(null);
+  const [searching, setSearching] = useState(false);
+  const findingNow = useRef(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -251,10 +255,21 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
   const find = async (e: React.FormEvent) => {
     e.preventDefault();
     const input = want.trim();
-    if (!input) return;
-    void askCoach(await findPrompt(input), { open: true });
-    setWant("");
-    setFinding(false);
+    if (!input || findingNow.current || !app.web || findStatus?.state === "unknown") return;
+    findingNow.current = true;
+    setSearching(true);
+    setFindStatus(null);
+    try {
+      const result = findOutcome(await findMaterialsWithCoach(await findPrompt(input)));
+      setFindStatus(result);
+      if (result.additions.length) { setQ(""); setKind(null); }
+      await load();
+    } catch (e) {
+      setFindStatus({ state: "error", message: `Search could not start: ${(e as Error).message}. Your query is kept.`, additions: [] });
+    } finally {
+      findingNow.current = false;
+      setSearching(false);
+    }
   };
 
   const canDelete = (i: MaterialItem) => i.source !== "folder";
@@ -361,7 +376,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
       <div className="mathd">
         <h1>Materials</h1>
         <div className="mathdacts">
-          {app.web && <button className="btn quiet" aria-expanded={finding} onClick={() => (setFinding(!finding), setAdd(null))}>Find online</button>}
+          <button className="btn quiet" aria-expanded={finding} onClick={() => (setFinding(!finding), setAdd(null))}>Find online</button>
           <button className="btn outline" aria-expanded={add !== null} onClick={() => (setAdd(add ? null : "upload"), setFinding(false))}>Add</button>
         </div>
       </div>
@@ -371,12 +386,21 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
         <form className="addpanel findform" onSubmit={find} aria-label="Find materials online">
           <label className="field">
             <span className="grp">What do you want to learn or play?</span>
-            <input className="input" type="text" autoFocus placeholder="A song, a style, a technique" value={want} onChange={(e) => setWant(e.target.value)} maxLength={300} />
+            <input className="input" type="text" autoFocus placeholder="A song, a style, a technique" value={want} onChange={(e) => { setWant(e.target.value); if (findStatus?.state !== "unknown") setFindStatus(null); }} disabled={searching} maxLength={300} />
           </label>
-          <p className="srcnote">The coach searches the web, checks what it finds, and adds the best few here with a note on who each suits.</p>
+          <p className="srcnote">The Coach will search online and may add results directly to Materials. Your existing materials stay in the list.</p>
+          {!app.web && <p className="notice">Online search is turned off for this instance. Add a link or file yourself, or ask the operator to enable web access.</p>}
+          {searching && <p className="srcnote" role="status">Searching for “{want.trim()}”. This request waits for any current Coach turn, then checks Materials for additions.</p>}
+          {findStatus && <p className="notice" role="status">{findStatus.message}</p>}
+          {(findStatus || !app.web) && <div className="row2">
+            <button className="linkbtn" type="button" onClick={openCoach}>Open Coach conversation</button>
+            <button className="linkbtn" type="button" onClick={openCoachSettings}>Coach settings</button>
+            <button className="linkbtn" type="button" onClick={() => (setFinding(false), setAdd("link"))}>Add a link yourself</button>
+          </div>}
           <div className="row2">
-            <button className="btn quiet" type="button" onClick={() => setFinding(false)}>Cancel</button>
-            <button className="btn outline" type="submit" disabled={!want.trim()}>Ask the coach</button>
+            <button className="btn quiet" type="button" onClick={() => setFinding(false)}>Close</button>
+            <button className="btn outline" type="submit" disabled={!want.trim() || searching || !app.web || findStatus?.state === "unknown"}>Find and add materials</button>
+            {findStatus?.state === "error" && <button className="linkbtn" type="submit" disabled={searching || !want.trim()}>Retry</button>}
           </div>
         </form>
       )}
@@ -472,6 +496,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
                 {materialName(i) !== i.title && <span className="itemnote">{i.title}</span>}
                 <span className="itemfacts">
                   <span>{facts(i)}</span>
+                  {findStatus?.additions.some(added => added.id === i.id) && <span className="inplan">Added during this search</span>}
                   {i.inPlan && <span className="inplan">In your plan</span>}
                   {i.size ? <span className="num">{megabytes(i.size)}</span> : null}
                 </span>

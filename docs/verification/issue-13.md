@@ -6,7 +6,7 @@ Rows, details and practice panes use optional `shortTitle`, while `title` retain
 
 Checks: `pnpm typecheck`, `pnpm test` (299 passing), `pnpm build` passed. Build reports the existing large-chunk advisory.
 
-Browser: `node scripts/smoke-materials.ts captures/issue-13 13` passed all 12 cases: 320×700, 390×844, 1003×814, each in Light, Dark, Device/light and Device/dark. Assertions cover list and detail names, original title/provider/level/plan metadata, legacy fallback, source URL and `_blank`, horizontal overflow and browser errors. Each case also checks 200% root text size (a text enlargement test, not browser chrome zoom).
+Browser: `node scripts/smoke-materials.ts captures/issue-13 13` passed all 12 cases: 320×700, 390×844, 1003×814, each in Light, Dark, Device/light and Device/dark. Assertions cover list and detail names, original title/provider/level/plan metadata, legacy fallback, source URL and `_blank`, horizontal overflow and browser errors. Each case also sets the root font size to 200%. The fixed-pixel type tokens are unaffected, so this does not establish visual text enlargement. The later issue #22 smoke adds effective 200% desktop zoom/reflow checks for the stacked implementation.
 
 Artifacts are retained locally under `captures/issue-13/`: `<width>x<height>-<theme>-list.png`, `-details.png`, `-text-200.png`, and `results.json`. Scratch home/state/cache: `/tmp/struna-materials-69GmGZ`, retained. Screenshots and scratch state are ignored/untracked artifacts, not committed library data.
 
