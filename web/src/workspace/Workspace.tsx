@@ -151,7 +151,7 @@ export async function withCompanion(c: PaneContent): Promise<PaneContent[]> {
   return sheet ? [c, libraryContent(sheet)] : [c];
 }
 
-type Menu = { at: number | "add" } | null;
+type Menu = { at: number | "add"; view: "choices" | "details" } | null;
 
 /**
  * Side-by-side panes: the lesson, its sheet music or a tab, and the coach. Up to three show at
@@ -212,9 +212,10 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
   }, [focusRequest?.itemKey, focusRequest?.stageKey]);
   const [menu, setMenu] = useState<Menu>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
+  const guardedPointer = useRef<{ x: number; y: number } | null>(null);
   const menuBox = useRef<HTMLDivElement>(null);
   const focusAfterPick = useRef(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 12, left: 12, maxHeight: 300 });
+  const [menuPosition, setMenuPosition] = useState({ top: 12, left: 12, height: 300 });
   const restoreMenuFocus = () => {
     const controls = [opener.current, ...box.current?.querySelectorAll<HTMLButtonElement>("[aria-haspopup='menu']") ?? []];
     controls.find((el) => el?.isConnected && el.checkVisibility() && !el.disabled)?.focus();
@@ -223,18 +224,35 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
     setMenu(null);
     restoreMenuFocus();
   };
+  // Dismissal runs during pointerdown. Keep this capture listener mounted after that state update,
+  // so the matching click cannot reach whatever sat behind a portal or sheet.
+  useEffect(() => {
+    const click = (e: MouseEvent) => {
+      const guarded = guardedPointer.current;
+      guardedPointer.current = null;
+      if (!guarded || Math.abs(e.clientX - guarded.x) > 1 || Math.abs(e.clientY - guarded.y) > 1) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    };
+    addEventListener("click", click, true);
+    return () => removeEventListener("click", click, true);
+  }, []);
   const toggleMenu = (button: HTMLButtonElement, at: number | "add") => {
     opener.current = button;
-    setMenu(menu?.at === at ? null : { at });
+    setMenu(menu?.at === at ? null : { at, view: "choices" });
   };
   useLayoutEffect(() => {
     if (!menu) return;
     const position = () => {
       const anchor = opener.current?.getBoundingClientRect();
       const width = Math.min(360, innerWidth - 24);
-      const height = Math.min(menuBox.current?.scrollHeight ?? 300, innerHeight - 24);
-      const top = Math.max(12, Math.min(anchor?.bottom ?? 12, innerHeight - height - 12));
-      setMenuPosition({ top, left: Math.max(12, Math.min((anchor?.right ?? width + 12) - width, innerWidth - width - 12)), maxHeight: innerHeight - top - 12 });
+      const contentHeight = menuBox.current?.scrollHeight ?? 300;
+      const below = Math.max(0, innerHeight - (anchor?.bottom ?? 12) - 12);
+      const above = Math.max(0, (anchor?.top ?? 12) - 12);
+      const placeBelow = below >= above;
+      const height = Math.min(contentHeight, Math.max(120, placeBelow ? below : above));
+      const top = placeBelow ? (anchor?.bottom ?? 12) : Math.max(12, (anchor?.top ?? height + 12) - height);
+      setMenuPosition({ top, left: Math.max(12, Math.min((anchor?.right ?? width + 12) - width, innerWidth - width - 12)), height });
     };
     position();
     menuBox.current?.querySelector<HTMLButtonElement>("button")?.focus();
@@ -309,24 +327,31 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
   // Menus close on Escape or a press outside them.
   useEffect(() => {
     if (!menu) return;
+    const inOpener = (e: MouseEvent | PointerEvent) => {
+      const anchor = opener.current?.getBoundingClientRect();
+      return Boolean(anchor && e.clientX >= anchor.left && e.clientX <= anchor.right && e.clientY >= anchor.top && e.clientY <= anchor.bottom);
+    };
     const down = (e: PointerEvent) => {
       const t = e.target as HTMLElement;
-      const anchor = opener.current?.getBoundingClientRect();
       // A narrow-screen sheet can visually cover its original trigger. Treat a second
       // tap at that trigger's coordinates as dismissal before its sheet row can act.
-      if (anchor && e.clientX >= anchor.left && e.clientX <= anchor.right && e.clientY >= anchor.top && e.clientY <= anchor.bottom) {
+      if (inOpener(e)) {
+        guardedPointer.current = { x: e.clientX, y: e.clientY };
         e.preventDefault();
+        e.stopImmediatePropagation();
         dismissMenu();
         return;
       }
       if (!t.closest(".panemenu") && !t.closest("[aria-haspopup='menu']")) {
+        guardedPointer.current = { x: e.clientX, y: e.clientY };
         e.preventDefault();
+        e.stopImmediatePropagation();
         dismissMenu();
       }
     };
-    addEventListener("pointerdown", down);
+    addEventListener("pointerdown", down, true);
     return () => {
-      removeEventListener("pointerdown", down);
+      removeEventListener("pointerdown", down, true);
     };
   }, [menu]);
 
@@ -354,17 +379,28 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
       e.preventDefault();
       buttons[next]?.focus();
     }}>
+      {menu?.view === "details" ? <>
+        <p className="pane-picker-title">Source details</p>
+        <button role="menuitem" onClick={() => setMenu({ at, view: "choices" })}>Back to choices</button>
+        <div className="pane-source-details">
+          <p className="grp">Full source details</p>
+          {materials.map((m) => <div key={m.key}><b>{m.label}</b>{m.note && <small>{m.note}</small>}</div>)}
+        </div>
+        <button className="pane-picker-close" role="menuitem" onClick={dismissMenu}>Close picker</button>
+      </> : <>
       <p className="pane-picker-title">Choose content</p>
       <button role="menuitem" onClick={() => open({ type: "coach" }, at)}>Coach</button>
       {materials.length > 0 && <p className="grp">{generic ? "From your plan" : "Block material"}</p>}
       {materials.map((m) => {
         const title = m.label.split(/[\\/]/).pop()!.replace(/\.(pdf|md|txt|mp4|mp3|wav|epub|gp[345x]?)$/i, "");
         const source = [m.label !== title ? m.label : m.key.replace(/^(plan|mat|lib):/, ""), m.note].filter((x) => x && x !== title).join("; ");
-        return <button key={m.key} role="menuitem" onClick={() => open({ type: "file", item: m }, at)}>
+        const context = m.note || m.key.replace(/^(plan|mat|lib):/, "");
+        return <button key={m.key} role="menuitem" title={source || undefined} aria-label={source ? `${title}. ${source}` : title} onClick={() => open({ type: "file", item: m }, at)}>
           <span>{title}{m.missing ? " (missing)" : ""}</span>
-          {source && <small>{source}</small>}
+          {context && <small>{context}</small>}
         </button>;
       })}
+      {materials.length > 0 && <button className="pane-picker-details" role="menuitem" onClick={() => setMenu({ at, view: "details" })}>Source details</button>}
       <p className="grp">Find</p>
       {generic ? (
         <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "materials", at }))}>From your materials…</button>
@@ -373,6 +409,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
       )}
       {(!generic || app.sections.includes("tabs")) && <button role="menuitem" onClick={() => (setMenu(null), setFinder({ mode: "tabs", at }))}>A Guitar Pro tab…</button>}
       <button className="pane-picker-close" role="menuitem" onClick={dismissMenu}>Close picker</button>
+      </>}
     </div>, document.body,
   );
 
