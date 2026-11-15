@@ -25,7 +25,7 @@ test("hosted Materials isolate upload, search, detail, direct/range reads and de
       assert.equal(native.status, 206); assert.equal(native.headers.get("cache-control"), "no-store");
       assert.equal((await native.text()).length, 3);
       assert.equal((await fetch(h.base + own.src, { headers: { cookie: p.cookie } })).status, 409);
-      for (const id of [fileId("../profile.json"), fileId("/etc/passwd"), "d0.Zm9yZWlnbi50eHQ"]) assert.equal((await h.call("/api/materials/file?id=" + id, p)).status, 404);
+      for (const id of [fileId("../profile.json"), fileId("/outside/private.txt"), "d0.Zm9yZWlnbi50eHQ"]) assert.equal((await h.call("/api/materials/file?id=" + id, p)).status, 404);
     }
     assert.equal((await h.call(alice.src)).status, 401);
     const switched = await h.signIn("B", a);
