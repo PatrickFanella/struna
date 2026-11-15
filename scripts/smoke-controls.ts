@@ -87,29 +87,40 @@ async function panePicker(page: Page) {
     check(await menu.getByRole("menuitem").first().evaluate((e) => e === document.activeElement), "Picker initially focuses first choice");
     check(await menu.evaluate((e) => e.scrollHeight > e.clientHeight && e.clientHeight <= innerHeight - 24), "Long picker scrolls within viewport");
     check(await menu.getByRole("menuitem").evaluateAll((els) => els.every((e) => e.scrollWidth <= e.clientWidth)), "Complete choice labels wrap without clipping");
-    const pickerBounds = await menu.evaluate((e) => { const r = e.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: innerWidth, height: innerHeight }; });
+    const pickerBounds = await menu.evaluate((e) => { const r = e.getBoundingClientRect(); const add = document.querySelector<HTMLElement>("[aria-haspopup='menu'][aria-expanded='true']")?.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: innerWidth, height: innerHeight, overlapsOpener: Boolean(add && r.left < add.right && r.right > add.left && r.top < add.bottom && r.bottom > add.top) }; });
     check(pickerBounds.left >= -1 && pickerBounds.right <= pickerBounds.width + 1 && pickerBounds.top >= -1 && pickerBounds.bottom <= pickerBounds.height + 1, `Picker edges stay in viewport (${JSON.stringify(pickerBounds)})`);
+    check((await page.evaluate(() => innerWidth)) < 720 || !pickerBounds.overlapsOpener, `Desktop picker does not cover its opener (${JSON.stringify(pickerBounds)})`);
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("ArrowDown");
     const long = menu.getByRole("menuitem").nth(2);
     check(await long.locator("span").textContent() === plan.materials[1]!.label.split("/").pop()!.replace(/\.md$/, ""), "Musical title comes before source");
-    check((await long.getAttribute("role")) === "menuitem" && (await long.innerText()).includes(plan.materials[1]!.label), "Full resource label remains in accessible choice text");
+    check((await long.getAttribute("role")) === "menuitem" && (await long.getAttribute("aria-label"))?.includes(plan.materials[1]!.label), "Full resource label remains in accessible choice text");
+    await menu.getByRole("menuitem", { name: "Source details", exact: true }).click();
+    check((await menu.locator(".pane-source-details").innerText()).includes(plan.materials[1]!.label), "Source details exposes the complete resource identity");
+    await menu.getByRole("menuitem", { name: "Back to choices", exact: true }).click();
     await page.screenshot({ path: join(dir, `${(await page.evaluate(() => innerWidth))}-${mode}-picker.png`), fullPage: true });
+    const scrollBeforeDismissal = await page.evaluate(() => scrollY);
     await page.keyboard.press("Escape");
     check(await add.evaluate((e) => e === document.activeElement), "Escape restores exact Add opener");
+    check(await page.evaluate(() => scrollY) === scrollBeforeDismissal, "Escape keeps the reading page scroll position");
     await add.click();
+    await page.evaluate(() => { (window as Window & { outsideClicks?: number }).outsideClicks = 0; addEventListener("click", () => { (window as unknown as Window & { outsideClicks: number }).outsideClicks++; }); });
     await page.mouse.click(2, 2);
     check(await add.evaluate((e) => e === document.activeElement), "Outside close restores Add opener");
+    check(await page.evaluate(() => (window as Window & { outsideClicks?: number }).outsideClicks) === 0, "Outside dismissal does not click through to page content");
     await add.click();
     const panesBeforeSecondTap = await page.locator(".pane .panetitle").allTextContents();
     const addBox = await add.boundingBox();
     assert(addBox, "Add pane has a clickable box");
+    await add.evaluate((e) => { (e as HTMLElement).dataset.secondTapClicks = "0"; e.addEventListener("click", () => { e.dataset.secondTapClicks = String(Number(e.dataset.secondTapClicks) + 1); }, { once: true }); });
     await page.mouse.click(addBox.x + addBox.width / 2, addBox.y + addBox.height / 2);
     check(JSON.stringify(await page.locator(".pane .panetitle").allTextContents()) === JSON.stringify(panesBeforeSecondTap), "A second activation at Add never chooses a resource");
+    if ((await page.evaluate(() => innerWidth)) < 720) check(await add.getAttribute("data-second-tap-clicks") === "0", "A guarded sheet tap does not click through to Add");
     if (await menu.count()) await page.keyboard.press("Escape");
     await add.click();
-    if ((await page.evaluate(() => innerWidth)) < 720) {
-      await menu.getByRole("menuitem", { name: "Close picker", exact: true }).click();
+    const closePicker = menu.getByRole("menuitem", { name: "Close picker", exact: true });
+    if (await closePicker.isVisible()) {
+      await closePicker.click();
       check(await add.evaluate((e) => e === document.activeElement), "Visible Close restores the exact Add opener");
     } else {
       await page.keyboard.press("Escape");
@@ -343,7 +354,7 @@ try {
   const token = readFileSync(join(dir, "state/access-token"), "utf8").trim();
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
   try {
-    for (const [width, height] of [[320, 700], [390, 844], [1003, 814], [502, 407]]) {
+    for (const [width, height] of [[320, 700], [390, 844], [844, 390], [1153, 814], [1003, 814], [502, 407]]) {
       for (const mode of issue === "19" || issue === "20" ? ["light", "dark", "Device"] : ["light"]) {
       const context = width === 502
         ? await chromium.launchPersistentContext(join(dir, `zoom-profile-${mode}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"], viewport: { width: 1003, height: 814 } })
