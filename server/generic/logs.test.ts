@@ -91,3 +91,16 @@ test("a take's line keeps the purpose and calls a weekly take a progress take", 
   const bare = renderGenericLog(parseGenericReview({ ...body, recording: { path: "Recordings/p/a.webm", label: "baseline" } }), "2026-11-14", "2026-11-14T10:00:00.000Z");
   assert.match(bare, /- \*\*Recording:\*\* Recordings\/p\/a\.webm — baseline — no purpose given\n/);
 });
+
+
+test("optional checklist preserves attempted and unmeasured work in the saved log", async () => {
+  const review = parseGenericReview({ ...body, activities: [{ key: "technique", title: "Technique", attempted: true }, { key: "extra", title: "Added tune", attempted: false }] });
+  const { file } = await writeGenericLog(home, review, new Date("2026-11-19T10:00:00Z"), "UTC");
+  const saved = await readFile(join(home, "logs", file), "utf8");
+  assert.match(saved, /## Session checklist\n\n- Technique: attempted\n- Added tune: unmeasured/);
+  assert.equal(parseGenericLog("2026-11-19.md", saved).next, body.next);
+  assert.equal(parseGenericReview(body).activities, undefined);
+  for (const activities of [null, {}, [{ key: "x", title: "", attempted: true }], [{ key: "x", title: "Work", attempted: "yes" }]]) {
+    assert.throws(() => parseGenericReview({ ...body, activities }));
+  }
+});
