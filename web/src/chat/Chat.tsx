@@ -176,7 +176,9 @@ async function pump() {
 
 /** Open the coach, unless a workspace pane already shows it. */
 export function openCoach(): void {
-  if (!panes) dispatchEvent(new Event("struna:coach-open"));
+  // A retained pane may be in another section, behind the tuner, or off the pane switcher.
+  const shown = panes && [...document.querySelectorAll<HTMLElement>(".pane-coach .chatbody")].some((el) => el.checkVisibility());
+  if (!shown) dispatchEvent(new Event("struna:coach-open"));
 }
 
 /**
@@ -566,7 +568,7 @@ export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) 
     el.showModal();
     return () => {
       el.close();
-      const target = opener?.isConnected && opener.checkVisibility() && !opener.closest("[inert]")
+      const target = opener?.isConnected && opener.tabIndex >= 0 && !opener.matches(":disabled") && opener.checkVisibility() && !opener.closest("[inert]")
         ? opener : document.querySelector<HTMLButtonElement>(".top .acts button:last-of-type");
       target?.focus();
     };

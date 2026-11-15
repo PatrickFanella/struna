@@ -40,7 +40,7 @@ const port = await new Promise<number>((resolve) => {
 });
 const base = `http://localhost:${port}`;
 const server = spawn(process.execPath, ["server/index.ts"], {
-  env: { ...process.env, NODE_ENV: "production", PORT: String(port), STRUNA_MODE: "studio",
+  env: { ...process.env, NODE_ENV: "production", PORT: String(port), STRUNA_MODE: "studio", STRUNA_COACH_WEB: issue === "19" ? "1" : "0",
     STRUNA_HOME: home, STRUNA_STATE_DIR: join(dir, "state"), STRUNA_CACHE_DIR: join(dir, "cache"),
     STRUNA_LIBRARY_DIRS: "", STRUNA_TABS_DIR: "", CLAUDE_BIN: fake, CODEX_BIN: fake },
   stdio: ["ignore", "ignore", "pipe"],
@@ -203,6 +203,15 @@ async function coachModal(page: Page) {
   check(await embedded.isVisible() && await dialog.count() === 0, "Embedded Coach is nonmodal and ignores Escape");
   await header.focus();
   check(await header.evaluate((e) => e === document.activeElement), "Embedded Coach permits normal page focus");
+  await page.goto(`${base}/#materials`);
+  await page.getByRole("button", { name: "Find online", exact: true }).press("Enter");
+  await page.getByRole("textbox", { name: "What do you want to learn or play?", exact: true }).fill("Slow chord changes (stand-in only)");
+  const hiddenContext = page.getByRole("button", { name: "Ask the coach", exact: true });
+  await hiddenContext.press("Enter");
+  await dialog.waitFor();
+  await inside();
+  await page.keyboard.press("Escape");
+  check(await header.evaluate((e) => e === document.activeElement), "Hidden workspace Coach permits another section's modal and removed-launcher fallback");
 }
 try {
   for (let i = 0; ; i++) {
