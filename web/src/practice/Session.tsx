@@ -1,3 +1,4 @@
+import { sessionChecklist, type Activity } from "./sessionScope.ts";
 import { useEffect, useRef, useState } from "react";
 
 import { api, store } from "../api.ts";
@@ -10,14 +11,21 @@ import { useMetronome } from "../audio/useMetronome.ts";
 import { useApp } from "../mode.ts";
 import { blockName, sessionKind, type Stage, type Today, todayLine } from "../types.ts";
 import type { PaneItem } from "./Material.tsx";
-import { type PaneState, Workspace } from "../workspace/Workspace.tsx";
+import { type PaneState, pane, Workspace } from "../workspace/Workspace.tsx";
 import { StageBar, stageShort } from "./StageBar.tsx";
+import { resolveStageTempo, validBpm, type StageTempo, type TempoRecord } from "./stageTempo.ts";
+import { refPaneItem } from "../materials/item.ts";
 import { TempoRow } from "./TempoRow.tsx";
 
 export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
 export type SessionState = {
   /** The session kind's id: `full` or `floor` in personal mode, the plan's own ids in studio mode. */
   kind: string;
+  stages?: Stage[];
+  addedActivities?: Activity[];
+  attemptedActivities?: string[];
+  stageTempos?: Record<string, StageTempo>;
+  tempoRecords?: TempoRecord[];
   cross: string | null;
   /** Epoch ms when the session began, for the minutes in the generic review. */
   startedAt?: number;
@@ -129,10 +137,37 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   const m = useMetronome();
   const generic = useApp().mode === "studio";
   const kind = sessionKind(today, state.kind);
-  const stages = kind.stages;
+  const stages = state.stages ?? kind.stages;
   // The coach may shorten the plan while a session runs; stay on its last stage then.
   const at = Math.min(state.stage, stages.length - 1);
   const stage = stages[at]!;
+  const tempoKey = `${kind.id}:${stage.key}:${stage.material?.key ?? "unassigned"}`;
+  const stageTempo = state.stageTempos?.[tempoKey];
+  useEffect(() => {
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+    const enter = (records: TempoRecord[]) => {
+      if (!active) return;
+      const suggestion = stageTempo && validBpm(stageTempo.bpm) ? stageTempo : resolveStageTempo(stage, records, [...(today.materials ?? []), ...(today.sessions ?? []).flatMap((k) => k.stages.flatMap((st) => st.material ? [st.material] : []))]);
+      const bpm = suggestion.override !== undefined && validBpm(suggestion.override) ? suggestion.override : suggestion.bpm;
+      metronome.set({ bpm });
+      setState((s) => ({ ...s, tempoRecords: records, stageTempos: { ...s.stageTempos, [tempoKey]: suggestion } }));
+      if (stage.material) {
+        const item = refPaneItem(stage.material);
+        setState((s) => ({ ...s, panes: s.panes.some((p) => p.content.type === "file" && p.content.item.key === item.key) ? s.panes : [pane({ type: "file", item }), ...s.panes.filter((p) => p.content.type !== "file")].slice(0, 4) }));
+      }
+      let previous = bpm;
+      unsubscribe = metronome.subscribe(() => {
+        const value = metronome.get().bpm;
+        if (value === previous) return;
+        previous = value;
+        setState((s) => ({ ...s, stageTempos: { ...s.stageTempos, [tempoKey]: { ...suggestion, override: value } } }));
+      });
+    };
+    if (state.tempoRecords) enter(state.tempoRecords);
+    else void api.get<TempoRecord[]>("/api/tempos").catch(() => []).then(enter);
+    return () => { active = false; unsubscribe?.(); };
+  }, [tempoKey]); // Per-stage entry; changes to the click are captured as a player override.
   const total = stage.minutes * 60_000;
   const [now, setNow] = useState(Date.now());
   const elapsed = state.elapsedBefore + (state.resumedAt ? now - state.resumedAt : 0);
@@ -279,6 +314,21 @@ export function Session({ today, state, setState, items, material, onFinish, clo
           <div className="stagetext">
             <h1><span className="stagecount num">{at + 1}/{stages.length}</span> {stage.title}</h1>
             <Instruction key={state.stage} text={stageText} />
+            {at === stages.length - 1 && generic && <fieldset className="session-checklist">
+              <legend>Session checklist (optional)</legend>
+              <p className="srcnote">Check what you attempted. Unchecked work stays unmeasured.</p>
+              {sessionChecklist(stages, state.addedActivities).map((activity) => <label key={activity.key}>
+                <input type="checkbox" checked={state.attemptedActivities?.includes(activity.key) ?? false} onChange={(e) => {
+                  const checked = e.target.checked;
+                  setState((s) => ({ ...s, attemptedActivities: checked ? [...(s.attemptedActivities ?? []), activity.key] : (s.attemptedActivities ?? []).filter((k) => k !== activity.key) }));
+                }} /> {activity.title}
+              </label>)}
+            </fieldset>}
+            {stage.material && <p className="srcnote">Material: {stage.material.label}{stage.material.missing ? " — missing; choose another resource or check the plan reference." : ""}</p>}
+            {stageTempo && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={() => {
+              metronome.set({ bpm: stageTempo.bpm });
+              setState((s) => ({ ...s, stageTempos: { ...s.stageTempos, [tempoKey]: { bpm: stageTempo.bpm, source: stageTempo.source } } }));
+            }}>Use suggestion</button></p>}
             {!generic && (
             <p className="coachline" aria-live="polite">
               <span className="coachtag">Coach</span>
