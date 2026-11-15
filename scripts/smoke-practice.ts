@@ -22,7 +22,7 @@ cpSync(join(root, "server/fixtures/vault"), join(dir, "vault"), { recursive: tru
 const port = Number(process.env.SMOKE_PORT ?? 5188);
 const srv = spawn("node", ["server/index.ts"], {
   cwd: root,
-  env: { ...process.env, NODE_ENV: "production", PORT: String(port), STRUNA_VAULT_ROOT: join(dir, "vault"), STRUNA_MEDIA_ROOT: join(dir, "media"), STRUNA_STATE_DIR: join(dir, "state"), STRUNA_NO_SCAN: "1" },
+  env: { ...process.env, STRUNA_MODE: "personal", HOST: "127.0.0.1", SOCKET_PATH: "", EDGE_SECRET_FILE: "", REQUIRE_USER: "", STRUNA_THREAD: "001 Projects/Threads/Guitar", CLAUDE_BIN: "/bin/false", CODEX_BIN: "/bin/false", STRUNA_CACHE_DIR: join(dir, "cache"), NODE_ENV: "production", PORT: String(port), STRUNA_VAULT_ROOT: join(dir, "vault"), STRUNA_MEDIA_ROOT: join(dir, "media"), STRUNA_STATE_DIR: join(dir, "state"), STRUNA_NO_SCAN: "1" },
   stdio: ["ignore", "ignore", "inherit"],
 });
 for (let i = 0; i < 50 && !(await fetch(`http://localhost:${port}/api/health`).then((r) => r.ok, () => false)); i++) await new Promise((r) => setTimeout(r, 200));
@@ -40,6 +40,7 @@ try {
   if (!lead) throw new Error("The personal fixture needs a PDF material");
   const saved = await fetch(`http://localhost:${port}/api/tempos`, { method: "PUT", headers: { "x-struna": "1", "content-type": "application/json" }, body: JSON.stringify({ fragment: lead.label, bpm: 84 }) });
   if (!saved.ok) throw new Error("Could not seed the scratch clean-tempo record");
+  await page.addInitScript(() => localStorage.setItem("struna.guide", "off"));
   await page.goto(`http://localhost:${port}/#practice`);
   await page.getByRole("button", { name: /^Short session/ }).click();
   await page.getByRole("button", { name: /^Log clean pass/ }).click();

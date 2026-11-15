@@ -337,7 +337,9 @@ export async function listMaterials(s: Pick<Studio, "home" | "libraryDirs">, opt
 }
 
 async function itemById(s: Pick<Studio, "home" | "libraryDirs">, id: string): Promise<Listed | undefined> {
-  return (await listMaterials(s)).items.find((i) => i.id === id);
+  const items = (await listMaterials(s)).items;
+  // A durable link URL follows its saved copy rather than becoming a dead item address.
+  return items.find((i) => i.id === id) ?? (/^l\.[a-f0-9]{16}$/.test(id) ? items.find((i) => i.url && linkId(i.url) === id) : undefined);
 }
 
 /** The path inside a root that an id names; dot-files and dot-folders are never reachable. */
@@ -648,6 +650,11 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
     const item = await found(params.id!);
     if (!item.url) throw new HttpError(400, "only a link can be saved as a copy");
     if (item.source !== "link") return send(res, 200, item); // Already saved.
+    if (item.planOnly) await editLinks(s, (raw) => {
+      if (raw.some((e) => isEntry(e) && sameUrl(e.url, item.url!))) return { write: false, value: null };
+      raw.push({ url: item.url, title: item.title, shortTitle: item.shortTitle || item.title, note: item.note, added: new Date().toISOString() });
+      return { write: true, value: null };
+    });
     send(res, 200, await saveLink(item.url));
   });
 
@@ -655,6 +662,7 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
     const id = params.id!;
     if (/^d\d+\./.test(id)) throw new HttpError(400, "files in a library folder cannot be deleted from here");
     const item = await found(id);
+    if (item.source === "link" && item.inPlan) throw new HttpError(409, "This link belongs to the plan. Ask Coach to propose removing it from the plan first.");
     if (item.source === "studio") {
       const at = await locate(s, id);
       const trash = join(dir, ".trash");
