@@ -1,3 +1,4 @@
+import { accountCandidateRoutes } from "./planCandidates.ts";
 import { exportRoutes } from "./export.ts";
 import { guestImportRoutes } from "./guest.ts";
 import { accountCredentials } from "./credentials.ts";
@@ -11,7 +12,7 @@ import { openDb } from "../db.ts";
 import { createRouter, HttpError, readJson, send } from "../http.ts";
 import { genericAppInfo, genericRoutes } from "../generic/routes.ts";
 import { ensureStudio, type Studio } from "../generic/studio.ts";
-import { planCandidates } from "../generic/planCandidates.ts";
+import { planCandidates, planLock } from "../generic/planCandidates.ts";
 import type { AppInfo } from "../generic/types.ts";
 
 export type PracticeIdentity = { account: string; session: string; csrf: string; assertActive?: () => void };
@@ -48,11 +49,11 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     chmodSync(path, 0o700);
   }
   // Reject linked files as well as directory escapes before opening SQLite or a profile/plan.
-  function regularTree(path: string) {
+  function regularTree(path: string, recoveryLinks = new Set<string>()) {
     for (const name of readdirSync(path)) {
       const file = join(path, name), stat = lstatSync(file);
-      if (stat.isSymbolicLink() || (!stat.isDirectory() && (!stat.isFile() || stat.nlink !== 1))) throw new HttpError(503, "Private workspace unavailable");
-      if (stat.isDirectory()) regularTree(file);
+      if (stat.isSymbolicLink() || (!stat.isDirectory() && (!stat.isFile() || (stat.nlink !== 1 && !recoveryLinks.has(file))))) throw new HttpError(503, "Private workspace unavailable");
+      if (stat.isDirectory()) regularTree(file, recoveryLinks);
     }
   }
   async function withStudio<T>(identity: PracticeIdentity, fn: (s: Studio) => Promise<T>, stop?: () => void): Promise<T> {
@@ -66,13 +67,34 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     try {
     const account = join(root, "accounts", identity.account);
     for (const path of [join(root, "accounts"), account, join(account, "workspace"), join(account, "state"), join(account, "private"), join(account, "cache")]) directory(path);
-    regularTree(account);
+    // Apply recovery uses a retained archive hard-link source. Only exact internal pairs
+    // may reach the database recovery check; every other linked file stays fail-closed.
+    const recoveryLinks = new Set<string>();
+    const planDir = join(account, "workspace", "plan"), archiveDir = join(planDir, "archive");
+    try {
+      if (realpathSync(planDir) !== planDir || realpathSync(archiveDir) !== archiveDir) throw new HttpError(503, "Private workspace unavailable");
+      for (const name of readdirSync(planDir)) {
+        if (!/^\.archive-[a-f0-9-]{36}\.json$/.test(name)) continue;
+        const source = join(planDir, name), a = lstatSync(source);
+        if (!a.isFile() || a.nlink !== 2) continue;
+        for (const destName of readdirSync(archiveDir)) {
+          const dest = join(archiveDir, destName), b = lstatSync(dest);
+          if (b.isFile() && b.nlink === 2 && a.ino === b.ino && a.dev === b.dev) { recoveryLinks.add(source); recoveryLinks.add(dest); }
+        }
+      }
+    } catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e; }
+    regularTree(account, recoveryLinks);
     const home = join(account, "workspace");
     await ensureStudio(home);
     identity.assertActive?.();
     const db = openDb(join(account, "state"));
     chmodSync(join(account, "state", "struna.sqlite"), 0o600);
-    try { return await fn({ home, db, timeZone, libraryDirs: [], web: false, appName: "Struna" }); }
+    try {
+      const studio = { home, db, timeZone, libraryDirs: [], web: false, appName: "Struna" };
+      if (recoveryLinks.size) { await planLock(home, () => planCandidates(studio).recover(false)); regularTree(account); }
+      identity.assertActive?.();
+      return await fn(studio);
+    }
     finally { db.close(); }
     } finally { jobs.delete(work); if (!jobs.size) running.delete(identity.account); complete(); }
   }
@@ -82,6 +104,7 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     exportRoutes(s, identity, privateRouter.route);
     const connection = credentials.register(s, identity, privateRouter.route);
     coach.register(s, identity, privateRouter.route, connection.connection);
+    accountCandidateRoutes(s, identity, privateRouter.route, () => coach.isBusy(identity.account));
     hostedRecordingRoutes({ mediaRoot: s.home, db: s.db, assertActive: identity.assertActive }, privateRouter.route);
     materialsRoutes(s, { cacheDir: join(root, "accounts", identity.account, "cache"), assertActive: identity.assertActive }, privateRouter.route);
     return privateRouter;
@@ -107,7 +130,7 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     revoke: (session: string) => { coach.revoke(session); credentials.revoke(session); },
     async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
       // Registrations close over this request’s verified workspace, never a global owner.
-      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:account|conversations|prompts|chat|providers|guest-import)(?:\/|$)/.test(url.pathname)) {
+      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:account|conversations|prompts|chat|providers|guest-import|plan-candidates)(?:\/|$)/.test(url.pathname)) {
         return await withStudio(identity, async (s) => {
           const privateRouter = privateRoutes(s, identity);
           const found = privateRouter.match(req.method === "HEAD" ? "GET" : req.method ?? "GET", url.pathname);

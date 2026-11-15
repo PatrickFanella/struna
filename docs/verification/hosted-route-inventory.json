@@ -84,6 +84,24 @@
     "hosted": "account"
   },
   {
+    "source": "auth/planCandidates.ts",
+    "method": "GET",
+    "path": "/api/plan-candidates",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/planCandidates.ts",
+    "method": "POST",
+    "path": "/api/plan-candidates/:id/apply",
+    "hosted": "account"
+  },
+  {
+    "source": "auth/planCandidates.ts",
+    "method": "DELETE",
+    "path": "/api/plan-candidates/:id",
+    "hosted": "account"
+  },
+  {
     "source": "auth/practice.ts",
     "method": "PUT",
     "path": "/api/practice-state",
@@ -195,7 +213,7 @@
     "source": "generic/planCandidates.ts",
     "method": "GET",
     "path": "/api/plan-candidates",
-    "hosted": "denied"
+    "hosted": "account"
   },
   {
     "source": "generic/planCandidates.ts",
@@ -207,13 +225,13 @@
     "source": "generic/planCandidates.ts",
     "method": "POST",
     "path": "/api/plan-candidates/:id/apply",
-    "hosted": "denied"
+    "hosted": "account"
   },
   {
     "source": "generic/planCandidates.ts",
     "method": "DELETE",
     "path": "/api/plan-candidates/:id",
-    "hosted": "denied"
+    "hosted": "account"
   },
   {
     "source": "generic/prompts.ts",

@@ -18,7 +18,7 @@ type Provider = ProviderId;
 type Conv = { id: string; provider: Provider; title: string; updated: string };
 type Status = ProviderStatus;
 /** Each queued request resolves its own outcome, including requests dropped before sending. */
-type Queued = { text: string; context?: CoachSelection | undefined; auto?: ActionId; find?: boolean; done: (result: FindTurn) => void };
+type Queued = { text: string; context?: CoachSelection | undefined; auto?: ActionId; find?: boolean; proposePlan?: boolean; done: (result: FindTurn) => void };
 const NAMES: Record<string, string> = { claude: "Claude", codex: "ChatGPT" };
 /** The studio mode's names for the host logins, also when they are turned off and not in the list (as in server/generic/providers.ts CATALOG). */
 const HOST_LABELS: Record<string, string> = { claude: "Claude plan (this computer)", codex: "ChatGPT plan (this computer)" };
@@ -108,7 +108,7 @@ function dropQueue() {
 }
 
 /** Collect terminal status and, for a find request, the actual Materials additions. */
-async function send(text: string, auto?: ActionId, find = false, context?: CoachSelection): Promise<FindTurn> {
+async function send(text: string, auto?: ActionId, find = false, context?: CoachSelection, proposePlan = false): Promise<FindTurn> {
   const abort = new AbortController();
   state.busy = abort;
   let ok = true;
@@ -139,7 +139,7 @@ async function send(text: string, auto?: ActionId, find = false, context?: Coach
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { ...accountHeaders(), "x-struna": "1", "content-type": "application/json" },
-      body: JSON.stringify({ provider: state.provider, message: text, ...(state.conversation ? { conversation: state.conversation } : {}), ...(auto ? { auto } : {}), screen: screenContext.get(), ...(context ? { context } : {}) }),
+      body: JSON.stringify({ provider: state.provider, message: text, ...(proposePlan ? { proposePlan: true } : {}), ...(state.conversation ? { conversation: state.conversation } : {}), ...(auto ? { auto } : {}), screen: screenContext.get(), ...(context ? { context } : {}) }),
       signal: abort.signal,
     });
     if (!res.ok || !res.body) {
@@ -217,7 +217,7 @@ async function pump() {
         draftText = next.text; state.settings = true; openCoach(); emit();
         next.done({ ok: false, complete: true, additions: null, problem: "Connect your AI or keep practicing" }); dropQueue(); break;
       }
-      const result = await send(next.text, next.auto, next.find, next.context);
+      const result = await send(next.text, next.auto, next.find, next.context, next.proposePlan);
       next.done(result);
       if (!result.ok && state.queue.length) {
         dropQueue();
@@ -246,13 +246,13 @@ export function openCoach(): void {
  * Send a message to the coach from anywhere in the app. It joins the current conversation and
  * waits its turn behind a running reply. `auto` marks a message the app sent because something happened.
  */
-function enqueue(text: string, opts: { auto?: ActionId; open?: boolean; find?: boolean } = {}): Promise<FindTurn> {
+function enqueue(text: string, opts: { auto?: ActionId; open?: boolean; find?: boolean; proposePlan?: boolean } = {}): Promise<FindTurn> {
   const t = text.trim();
   if (accountChanged) return Promise.resolve({ ok: false, complete: true, additions: null, problem: "Your account changed. Reload before continuing." });
   if (!t) return Promise.resolve({ ok: false, complete: true, additions: null, problem: "The request is blank" });
   if (accountHeaders()["x-struna-session"] && opts.auto) return Promise.resolve({ ok: false, complete: true, additions: null, problem: "Choose Send in Coach to use your API account" });
   state.more = false;
-  const result = new Promise<FindTurn>((done) => state.queue.push({ text: t, ...(accountHeaders()["x-struna-session"] && screenContext.get().coach ? { context: structuredClone(screenContext.get().coach!) } : {}), ...(opts.auto ? { auto: opts.auto } : {}), ...(opts.find ? { find: true } : {}), done }));
+  const result = new Promise<FindTurn>((done) => state.queue.push({ text: t, ...(accountHeaders()["x-struna-session"] && screenContext.get().coach ? { context: structuredClone(screenContext.get().coach!) } : {}), ...(opts.auto ? { auto: opts.auto } : {}), ...(opts.find ? { find: true } : {}), ...(opts.proposePlan ? { proposePlan: true } : {}), done }));
   emit();
   if (opts.open) openCoach();
   void pump();
@@ -376,6 +376,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
   const generic = useApp().mode === "studio" || hosted;
   const { prompts } = usePrompts();
   const ctx = useSyncExternalStore(screenContext.subscribe, screenContext.get);
+  const [proposalMode, setProposalMode] = useState(false);
   const [contextRetry, setContextRetry] = useState(0);
   const [preview, setPreview] = useState<{ selection: CoachSelection; context?: CoachContext; error?: string } | null>(null);
   useEffect(() => {
@@ -454,7 +455,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
     if (hosted && !readiness(status, state.provider).ok) { state.settings = true; emit(); return; }
     draftText = "";
     emit();
-    void askCoach(t);
+    void enqueue(t, { proposePlan: hosted && proposalMode });
   };
   const st = status?.[state.provider as "claude" | "codex"];
   const screen = screenId(ctx.view);
@@ -593,10 +594,10 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
           <PromptSheet prompts={contextReady ? prompts : []} screen={screen} sheetRef={sheet} />
         ) : (
           <div className="chatlog" ref={log} aria-live="polite">
-            {generic && !hosted && <PlanCandidates />}
+            {generic && <PlanCandidates />}
             {state.messages.length === 0 && (
               <div className="chatempty">
-                <p>{hosted ? "AI coaching is optional. Send shares your question, the displayed context and recent conversation with your OpenAI API account. Coach cannot read material contents, hear recordings or change your plan. Your practice tools work without it." : generic
+                <p>{hosted ? "AI coaching is optional. Send shares your question, the displayed context and recent conversation with your OpenAI API account. Coach cannot read material contents or hear recordings. Choose Draft plan proposal to share your current plan and request a preview; only Apply changes Today. Your practice tools work without it." : generic
                   ? "Ask about today's session, a song, a chord, or what to practise next. The coach sees your plan, the stage you are on and the tempo, and can propose plan changes. Review the before/after preview and choose Apply to change Today."
                   : "Ask about today's session, a passage, or a block review. The coach sees the current block, stage and tempo."}</p>
                 {!coaches && st && !st.ok && <p className="notice">{NAMES[state.provider]} is not signed in on {status?.host ?? "Kvant"}: {st.detail}</p>}
@@ -646,6 +647,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
           </div>
         )}
         {!list && !showMore && !showSettings && !retired && (!noCoach || hosted) && (
+          <><label className="proposal-option" hidden={!hosted}><input type="checkbox" checked={proposalMode} disabled={Boolean(state.busy)} onChange={e => setProposalMode(e.target.checked)} />Request plan preview (shares current plan)</label>
           <form className="composer" onSubmit={submit}>
             <textarea
               ref={input}
@@ -665,9 +667,9 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
             {state.busy ? (
               <button type="button" className="btn outline" onClick={stop}>Stop</button>
             ) : (
-              <button className="btn outline" disabled={!contextReady || !text.trim()}>Send</button>
+              <button className="btn outline" disabled={!contextReady || !text.trim()}>{hosted && proposalMode ? "Draft plan proposal" : "Send"}</button>
             )}
-          </form>
+          </form></>
         )}
     </div>
   );

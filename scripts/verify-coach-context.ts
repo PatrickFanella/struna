@@ -12,6 +12,7 @@ const executablePath=process.env.CHROMIUM??(existsSync("/usr/bin/chromium")?"/us
 const browser=await chromium.launch({executablePath});const receipts:unknown[]=[];
 try {
  for(const [width,height] of [[320,700],[390,844],[844,390],[820,1180],[1153,814],[1440,900],[576,407]] as const) for(const theme of ["light","dark","device-light","device-dark"]) {
+  if(process.argv.includes("--zoom")&&width!==576)continue;
   if(process.argv.includes("--quick")&&!((width===390&&theme==="light")||(width===1440&&theme==="dark")||(width===844&&theme==="dark")))continue;
   const zoom=width===576,options={viewport:{width:zoom?1153:width,height:zoom?814:height},colorScheme:theme.endsWith("dark")?"dark" as const:"light" as const,reducedMotion:"reduce" as const};
   const context=zoom?await chromium.launchPersistentContext(resolve(h.root,`zoom-${theme}`),{...options,executablePath}):await browser.newContext(options);
@@ -53,12 +54,22 @@ try {
  const open=async()=>{await page.getByRole("button",{name:"Coach",exact:true}).click();await chat().locator(".coach-context").filter({hasText:"Private context plan"}).waitFor();};
  const send=async(text:string)=>{await chat().getByRole("textbox",{name:"Message",exact:true}).fill(text);await chat().getByRole("button",{name:"Send",exact:true}).click();await chat().getByRole("button",{name:"Stop",exact:true}).waitFor();};
  const before=stub.requests.length;
- let failContext=true;
- await page.route("**/api/chat/context",async route=>{if(failContext){failContext=false;await route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({error:"Context preview unavailable. Retry."})});}else await route.fallback();});
+ let failContext=true, blockedContextRequests=0;
+ await page.route("**/api/chat/context",async route=>{if(failContext){blockedContextRequests++;await route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({error:"Context preview unavailable. Retry."})});}else await route.fallback();});
  await page.getByRole("button",{name:"Coach",exact:true}).click();
  await chat().getByText("Context preview unavailable. Retry.",{exact:true}).waitFor();
  await chat().getByRole("textbox",{name:"Message",exact:true}).fill("Keep while context retries");
  assert.equal(await chat().getByRole("button",{name:"Send",exact:true}).isDisabled(),true);
+ // A Today refresh replaces its equivalent selection while Coach remains open.
+ const repeatedFailure=page.waitForResponse(r=>new URL(r.url()).pathname==="/api/chat/context"&&r.status()===503);
+ await page.evaluate(()=>dispatchEvent(new CustomEvent("struna:changed",{detail:{plan:true}})));
+ await repeatedFailure;
+ await chat().getByText("Context preview unavailable. Retry.",{exact:true}).waitFor();
+ assert.ok(blockedContextRequests>=2,"the outage must survive another context request");
+ assert.equal(await chat().getByRole("textbox",{name:"Message",exact:true}).inputValue(),"Keep while context retries");
+ assert.equal(await chat().getByRole("button",{name:"Send",exact:true}).isDisabled(),true);
+ // Keep the outage active through equivalent selection rerenders; only deliberate Retry restores it.
+ failContext=false;
  await chat().getByRole("button",{name:"Retry practice context",exact:true}).click();
  await chat().locator(".coach-context").filter({hasText:"Private context plan"}).waitFor();
  assert.equal(await chat().getByRole("textbox",{name:"Message",exact:true}).inputValue(),"Keep while context retries");
@@ -122,7 +133,9 @@ try {
  await send("Cancel on account switch");
  const b=await h.signIn(`Other-${width}-${theme}`,a);
  await context.addCookies([{name:"__Host-struna-session",value:b.cookie.split("=")[1]!,domain:"practice.example",path:"/",secure:true,httpOnly:true,sameSite:"Lax"}]);
- await page.evaluate(()=>dispatchEvent(new Event("focus")));
+ // Session invalidation may already be navigating when the explicit focus event runs.
+ // Accept only that navigation race; the new-account bootstrap and empty-state checks below stay mandatory.
+ await page.evaluate(()=>dispatchEvent(new Event("focus"))).catch(e=>{if(!String(e.message).includes("Execution context was destroyed"))throw e;});
  await page.waitForFunction(account=>JSON.parse(document.getElementById("app-info")?.textContent??"{}").account===account,b.account);
  assert.equal(await page.locator(".msg").count(),0);
  assert.equal(await page.getByText("Review question",{exact:true}).count(),0);
