@@ -48,11 +48,13 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
   const week = b.weeks[today.position.week - 1];
   const subLog = (v: number) => SUBDIVISIONS.find((s) => s.value === v)!.log;
   const [f, setF] = useState(() => {
+    const selected = session.panes.find((p) => p.content.type === "file")?.content;
+    const materialKey = selected?.type === "file" ? selected.item.key : null;
     const fresh = {
     material,
     target: "",
     startTempo: String(session.startBpm),
-    cleanTempo: session.checkpoints?.filter((c) => c.materialLabel === material).at(-1)?.bpm?.toString() ?? "",
+    cleanTempo: session.checkpoints?.filter((c) => c.materialKey === materialKey).at(-1)?.bpm?.toString() ?? "",
     subdivision: session.subdivision as number,
     threePass: (session.metThree ? "met" : "not met") as "met" | "not met",
     recall: "page-dependent" as Recall,
