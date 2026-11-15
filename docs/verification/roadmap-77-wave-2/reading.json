@@ -1,0 +1,1538 @@
+[
+  {
+    "width": 390,
+    "height": 844,
+    "theme": "light",
+    "geometry": {
+      "tab": {
+        "top": 401.1875,
+        "bottom": 534.53125,
+        "left": 25,
+        "right": 365,
+        "width": 340,
+        "height": 133.34375
+      },
+      "reader": {
+        "top": 393.1875,
+        "bottom": 624,
+        "left": 17,
+        "right": 373,
+        "width": 356,
+        "height": 230.8125
+      },
+      "click": {
+        "top": 634,
+        "bottom": 682,
+        "left": 16,
+        "right": 95.28125,
+        "width": 79.28125,
+        "height": 48
+      },
+      "clean": {
+        "top": 634,
+        "bottom": 682,
+        "left": 124,
+        "right": 313.453125,
+        "width": 189.453125,
+        "height": 48
+      },
+      "miss": {
+        "top": 634,
+        "bottom": 682,
+        "left": 319.453125,
+        "right": 374,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 201.1875,
+        "bottom": 249.1875,
+        "left": 278.4375,
+        "right": 374,
+        "width": 95.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 759,
+        "bottom": 844,
+        "left": 0,
+        "right": 390,
+        "width": 390,
+        "height": 85
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "theme": "dark",
+    "geometry": {
+      "tab": {
+        "top": 401.1875,
+        "bottom": 534.53125,
+        "left": 25,
+        "right": 365,
+        "width": 340,
+        "height": 133.34375
+      },
+      "reader": {
+        "top": 393.1875,
+        "bottom": 624,
+        "left": 17,
+        "right": 373,
+        "width": 356,
+        "height": 230.8125
+      },
+      "click": {
+        "top": 634,
+        "bottom": 682,
+        "left": 16,
+        "right": 95.28125,
+        "width": 79.28125,
+        "height": 48
+      },
+      "clean": {
+        "top": 634,
+        "bottom": 682,
+        "left": 124,
+        "right": 313.453125,
+        "width": 189.453125,
+        "height": 48
+      },
+      "miss": {
+        "top": 634,
+        "bottom": 682,
+        "left": 319.453125,
+        "right": 374,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 201.1875,
+        "bottom": 249.1875,
+        "left": 278.4375,
+        "right": 374,
+        "width": 95.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 759,
+        "bottom": 844,
+        "left": 0,
+        "right": 390,
+        "width": 390,
+        "height": 85
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "theme": "device",
+    "geometry": {
+      "tab": {
+        "top": 401.1875,
+        "bottom": 534.53125,
+        "left": 25,
+        "right": 365,
+        "width": 340,
+        "height": 133.34375
+      },
+      "reader": {
+        "top": 393.1875,
+        "bottom": 624,
+        "left": 17,
+        "right": 373,
+        "width": 356,
+        "height": 230.8125
+      },
+      "click": {
+        "top": 634,
+        "bottom": 682,
+        "left": 16,
+        "right": 95.28125,
+        "width": 79.28125,
+        "height": 48
+      },
+      "clean": {
+        "top": 634,
+        "bottom": 682,
+        "left": 124,
+        "right": 313.453125,
+        "width": 189.453125,
+        "height": 48
+      },
+      "miss": {
+        "top": 634,
+        "bottom": 682,
+        "left": 319.453125,
+        "right": 374,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 201.1875,
+        "bottom": 249.1875,
+        "left": 278.4375,
+        "right": 374,
+        "width": 95.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 759,
+        "bottom": 844,
+        "left": 0,
+        "right": 390,
+        "width": 390,
+        "height": 85
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 320,
+    "height": 700,
+    "theme": "light",
+    "geometry": {
+      "tab": {
+        "top": 400.1875,
+        "bottom": 533.53125,
+        "left": 25,
+        "right": 295,
+        "width": 270,
+        "height": 133.34375
+      },
+      "reader": {
+        "top": 392.1875,
+        "bottom": 521.1875,
+        "left": 17,
+        "right": 303,
+        "width": 286,
+        "height": 129
+      },
+      "click": {
+        "top": 531.1875,
+        "bottom": 579.1875,
+        "left": 16,
+        "right": 95.28125,
+        "width": 79.28125,
+        "height": 48
+      },
+      "clean": {
+        "top": 531.1875,
+        "bottom": 579.1875,
+        "left": 101.28125,
+        "right": 243.453125,
+        "width": 142.171875,
+        "height": 48
+      },
+      "miss": {
+        "top": 531.1875,
+        "bottom": 579.1875,
+        "left": 249.453125,
+        "right": 304,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 200.1875,
+        "bottom": 248.1875,
+        "left": 208.4375,
+        "right": 304,
+        "width": 95.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 615,
+        "bottom": 700,
+        "left": 0,
+        "right": 320,
+        "width": 320,
+        "height": 85
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 320,
+    "height": 700,
+    "theme": "dark",
+    "geometry": {
+      "tab": {
+        "top": 400.1875,
+        "bottom": 533.53125,
+        "left": 25,
+        "right": 295,
+        "width": 270,
+        "height": 133.34375
+      },
+      "reader": {
+        "top": 392.1875,
+        "bottom": 521.1875,
+        "left": 17,
+        "right": 303,
+        "width": 286,
+        "height": 129
+      },
+      "click": {
+        "top": 531.1875,
+        "bottom": 579.1875,
+        "left": 16,
+        "right": 95.28125,
+        "width": 79.28125,
+        "height": 48
+      },
+      "clean": {
+        "top": 531.1875,
+        "bottom": 579.1875,
+        "left": 101.28125,
+        "right": 243.453125,
+        "width": 142.171875,
+        "height": 48
+      },
+      "miss": {
+        "top": 531.1875,
+        "bottom": 579.1875,
+        "left": 249.453125,
+        "right": 304,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 200.1875,
+        "bottom": 248.1875,
+        "left": 208.4375,
+        "right": 304,
+        "width": 95.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 615,
+        "bottom": 700,
+        "left": 0,
+        "right": 320,
+        "width": 320,
+        "height": 85
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 320,
+    "height": 700,
+    "theme": "device",
+    "geometry": {
+      "tab": {
+        "top": 400.1875,
+        "bottom": 533.53125,
+        "left": 25,
+        "right": 295,
+        "width": 270,
+        "height": 133.34375
+      },
+      "reader": {
+        "top": 392.1875,
+        "bottom": 521.1875,
+        "left": 17,
+        "right": 303,
+        "width": 286,
+        "height": 129
+      },
+      "click": {
+        "top": 531.1875,
+        "bottom": 579.1875,
+        "left": 16,
+        "right": 95.28125,
+        "width": 79.28125,
+        "height": 48
+      },
+      "clean": {
+        "top": 531.1875,
+        "bottom": 579.1875,
+        "left": 101.28125,
+        "right": 243.453125,
+        "width": 142.171875,
+        "height": 48
+      },
+      "miss": {
+        "top": 531.1875,
+        "bottom": 579.1875,
+        "left": 249.453125,
+        "right": 304,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 200.1875,
+        "bottom": 248.1875,
+        "left": 208.4375,
+        "right": 304,
+        "width": 95.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 615,
+        "bottom": 700,
+        "left": 0,
+        "right": 320,
+        "width": 320,
+        "height": 85
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 844,
+    "height": 390,
+    "theme": "light",
+    "geometry": {
+      "tab": {
+        "top": 302.96875,
+        "bottom": 444.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 292.96875,
+        "bottom": 489.96875,
+        "left": 25,
+        "right": 818.984375,
+        "width": 793.984375,
+        "height": 197
+      },
+      "click": {
+        "top": 503.96875,
+        "bottom": 551.96875,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 503.96875,
+        "bottom": 551.96875,
+        "left": 375.046875,
+        "right": 575.546875,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 503.96875,
+        "bottom": 551.96875,
+        "left": 581.546875,
+        "right": 636.09375,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 25,
+        "bottom": 73,
+        "left": 720.4375,
+        "right": 820,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 844,
+    "height": 390,
+    "theme": "dark",
+    "geometry": {
+      "tab": {
+        "top": 302.96875,
+        "bottom": 444.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 292.96875,
+        "bottom": 489.96875,
+        "left": 25,
+        "right": 818.984375,
+        "width": 793.984375,
+        "height": 197
+      },
+      "click": {
+        "top": 503.96875,
+        "bottom": 551.96875,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 503.96875,
+        "bottom": 551.96875,
+        "left": 375.046875,
+        "right": 575.546875,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 503.96875,
+        "bottom": 551.96875,
+        "left": 581.546875,
+        "right": 636.09375,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 25,
+        "bottom": 73,
+        "left": 720.4375,
+        "right": 820,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 844,
+    "height": 390,
+    "theme": "device",
+    "geometry": {
+      "tab": {
+        "top": 302.96875,
+        "bottom": 444.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 292.96875,
+        "bottom": 489.96875,
+        "left": 25,
+        "right": 818.984375,
+        "width": 793.984375,
+        "height": 197
+      },
+      "click": {
+        "top": 503.96875,
+        "bottom": 551.96875,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 503.96875,
+        "bottom": 551.96875,
+        "left": 375.046875,
+        "right": 575.546875,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 503.96875,
+        "bottom": 551.96875,
+        "left": 581.546875,
+        "right": 636.09375,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 25,
+        "bottom": 73,
+        "left": 720.4375,
+        "right": 820,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 820,
+    "height": 1180,
+    "theme": "light",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 1031,
+        "left": 25,
+        "right": 795,
+        "width": 770,
+        "height": 694.03125
+      },
+      "click": {
+        "top": 1045,
+        "bottom": 1093,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 1045,
+        "bottom": 1093,
+        "left": 363.046875,
+        "right": 563.546875,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 1045,
+        "bottom": 1093,
+        "left": 569.546875,
+        "right": 624.09375,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 696.4375,
+        "right": 796,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 820,
+    "height": 1180,
+    "theme": "dark",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 1031,
+        "left": 25,
+        "right": 795,
+        "width": 770,
+        "height": 694.03125
+      },
+      "click": {
+        "top": 1045,
+        "bottom": 1093,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 1045,
+        "bottom": 1093,
+        "left": 363.046875,
+        "right": 563.546875,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 1045,
+        "bottom": 1093,
+        "left": 569.546875,
+        "right": 624.09375,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 696.4375,
+        "right": 796,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 820,
+    "height": 1180,
+    "theme": "device",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 1031,
+        "left": 25,
+        "right": 795,
+        "width": 770,
+        "height": 694.03125
+      },
+      "click": {
+        "top": 1045,
+        "bottom": 1093,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 1045,
+        "bottom": 1093,
+        "left": 363.046875,
+        "right": 563.546875,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 1045,
+        "bottom": 1093,
+        "left": 569.546875,
+        "right": 624.09375,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 696.4375,
+        "right": 796,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 1003,
+    "height": 814,
+    "theme": "light",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 721,
+        "left": 25,
+        "right": 978,
+        "width": 953,
+        "height": 384.03125
+      },
+      "click": {
+        "top": 735,
+        "bottom": 783,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 735,
+        "bottom": 783,
+        "left": 385.34375,
+        "right": 585.84375,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 735,
+        "bottom": 783,
+        "left": 591.84375,
+        "right": 646.390625,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 879.4375,
+        "right": 979,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 1003,
+    "height": 814,
+    "theme": "dark",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 721,
+        "left": 25,
+        "right": 978,
+        "width": 953,
+        "height": 384.03125
+      },
+      "click": {
+        "top": 735,
+        "bottom": 783,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 735,
+        "bottom": 783,
+        "left": 385.34375,
+        "right": 585.84375,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 735,
+        "bottom": 783,
+        "left": 591.84375,
+        "right": 646.390625,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 879.4375,
+        "right": 979,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 1003,
+    "height": 814,
+    "theme": "device",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 721,
+        "left": 25,
+        "right": 978,
+        "width": 953,
+        "height": 384.03125
+      },
+      "click": {
+        "top": 735,
+        "bottom": 783,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 735,
+        "bottom": 783,
+        "left": 385.34375,
+        "right": 585.84375,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 735,
+        "bottom": 783,
+        "left": 591.84375,
+        "right": 646.390625,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 879.4375,
+        "right": 979,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 1153,
+    "height": 814,
+    "theme": "light",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 721,
+        "left": 25,
+        "right": 1128,
+        "width": 1103,
+        "height": 384.03125
+      },
+      "click": {
+        "top": 735,
+        "bottom": 783,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 735,
+        "bottom": 783,
+        "left": 460.34375,
+        "right": 660.84375,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 735,
+        "bottom": 783,
+        "left": 666.84375,
+        "right": 721.390625,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 1029.4375,
+        "right": 1129,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 1153,
+    "height": 814,
+    "theme": "dark",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 721,
+        "left": 25,
+        "right": 1128,
+        "width": 1103,
+        "height": 384.03125
+      },
+      "click": {
+        "top": 735,
+        "bottom": 783,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 735,
+        "bottom": 783,
+        "left": 460.34375,
+        "right": 660.84375,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 735,
+        "bottom": 783,
+        "left": 666.84375,
+        "right": 721.390625,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 1029.4375,
+        "right": 1129,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 1153,
+    "height": 814,
+    "theme": "device",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 721,
+        "left": 25,
+        "right": 1128,
+        "width": 1103,
+        "height": 384.03125
+      },
+      "click": {
+        "top": 735,
+        "bottom": 783,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 735,
+        "bottom": 783,
+        "left": 460.34375,
+        "right": 660.84375,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 735,
+        "bottom": 783,
+        "left": 666.84375,
+        "right": 721.390625,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 1029.4375,
+        "right": 1129,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "theme": "light",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 807,
+        "left": 25,
+        "right": 1415,
+        "width": 1390,
+        "height": 470.03125
+      },
+      "click": {
+        "top": 821,
+        "bottom": 869,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 821,
+        "bottom": 869,
+        "left": 603.84375,
+        "right": 804.34375,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 821,
+        "bottom": 869,
+        "left": 810.34375,
+        "right": 864.890625,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 1316.4375,
+        "right": 1416,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "theme": "dark",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 807,
+        "left": 25,
+        "right": 1415,
+        "width": 1390,
+        "height": 470.03125
+      },
+      "click": {
+        "top": 821,
+        "bottom": 869,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 821,
+        "bottom": 869,
+        "left": 603.84375,
+        "right": 804.34375,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 821,
+        "bottom": 869,
+        "left": 810.34375,
+        "right": 864.890625,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 1316.4375,
+        "right": 1416,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "theme": "device",
+    "geometry": {
+      "tab": {
+        "top": 346.96875,
+        "bottom": 488.46875,
+        "left": 35,
+        "right": 771,
+        "width": 736,
+        "height": 141.5
+      },
+      "reader": {
+        "top": 336.96875,
+        "bottom": 807,
+        "left": 25,
+        "right": 1415,
+        "width": 1390,
+        "height": 470.03125
+      },
+      "click": {
+        "top": 821,
+        "bottom": 869,
+        "left": 99.203125,
+        "right": 294.765625,
+        "width": 195.5625,
+        "height": 48
+      },
+      "clean": {
+        "top": 821,
+        "bottom": 869,
+        "left": 603.84375,
+        "right": 804.34375,
+        "width": 200.5,
+        "height": 48
+      },
+      "miss": {
+        "top": 821,
+        "bottom": 869,
+        "left": 810.34375,
+        "right": 864.890625,
+        "width": 54.546875,
+        "height": 48
+      },
+      "next": {
+        "top": 69,
+        "bottom": 117,
+        "left": 1316.4375,
+        "right": 1416,
+        "width": 99.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 0,
+        "bottom": 0,
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "height": 0
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 576,
+    "height": 407,
+    "theme": "light",
+    "geometry": {
+      "tab": {
+        "top": 128.6953125,
+        "bottom": 262.0859375,
+        "left": 25,
+        "right": 551.5,
+        "width": 526.5,
+        "height": 133.390625
+      },
+      "reader": {
+        "top": 120.6953125,
+        "bottom": 309.6953125,
+        "left": 17,
+        "right": 559.5,
+        "width": 542.5,
+        "height": 189
+      },
+      "click": {
+        "top": 319.6953125,
+        "bottom": 367.6953125,
+        "left": 16,
+        "right": 95.2734375,
+        "width": 79.2734375,
+        "height": 48
+      },
+      "clean": {
+        "top": 319.6953125,
+        "bottom": 367.6953125,
+        "left": 310.5,
+        "right": 499.9609375,
+        "width": 189.4609375,
+        "height": 48
+      },
+      "miss": {
+        "top": 319.6953125,
+        "bottom": 367.6953125,
+        "left": 505.9609375,
+        "right": 560.5,
+        "width": 54.5390625,
+        "height": 48
+      },
+      "next": {
+        "top": -71.3046875,
+        "bottom": -23.3046875,
+        "left": 464.9375,
+        "right": 560.5,
+        "width": 95.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 444.1953125,
+        "bottom": 528.6953125,
+        "left": 0,
+        "right": 576.5,
+        "width": 576.5,
+        "height": 84.5
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 576,
+    "height": 407,
+    "theme": "dark",
+    "geometry": {
+      "tab": {
+        "top": 128.6953125,
+        "bottom": 262.0859375,
+        "left": 25,
+        "right": 551.5,
+        "width": 526.5,
+        "height": 133.390625
+      },
+      "reader": {
+        "top": 120.6953125,
+        "bottom": 309.6953125,
+        "left": 17,
+        "right": 559.5,
+        "width": 542.5,
+        "height": 189
+      },
+      "click": {
+        "top": 319.6953125,
+        "bottom": 367.6953125,
+        "left": 16,
+        "right": 95.2734375,
+        "width": 79.2734375,
+        "height": 48
+      },
+      "clean": {
+        "top": 319.6953125,
+        "bottom": 367.6953125,
+        "left": 310.5,
+        "right": 499.9609375,
+        "width": 189.4609375,
+        "height": 48
+      },
+      "miss": {
+        "top": 319.6953125,
+        "bottom": 367.6953125,
+        "left": 505.9609375,
+        "right": 560.5,
+        "width": 54.5390625,
+        "height": 48
+      },
+      "next": {
+        "top": -71.3046875,
+        "bottom": -23.3046875,
+        "left": 464.9375,
+        "right": 560.5,
+        "width": 95.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 444.1953125,
+        "bottom": 528.6953125,
+        "left": 0,
+        "right": 576.5,
+        "width": 576.5,
+        "height": 84.5
+      },
+      "overflow": false
+    }
+  },
+  {
+    "width": 576,
+    "height": 407,
+    "theme": "device",
+    "geometry": {
+      "tab": {
+        "top": 128.6953125,
+        "bottom": 262.0859375,
+        "left": 25,
+        "right": 551.5,
+        "width": 526.5,
+        "height": 133.390625
+      },
+      "reader": {
+        "top": 120.6953125,
+        "bottom": 309.6953125,
+        "left": 17,
+        "right": 559.5,
+        "width": 542.5,
+        "height": 189
+      },
+      "click": {
+        "top": 319.6953125,
+        "bottom": 367.6953125,
+        "left": 16,
+        "right": 95.2734375,
+        "width": 79.2734375,
+        "height": 48
+      },
+      "clean": {
+        "top": 319.6953125,
+        "bottom": 367.6953125,
+        "left": 310.5,
+        "right": 499.9609375,
+        "width": 189.4609375,
+        "height": 48
+      },
+      "miss": {
+        "top": 319.6953125,
+        "bottom": 367.6953125,
+        "left": 505.9609375,
+        "right": 560.5,
+        "width": 54.5390625,
+        "height": 48
+      },
+      "next": {
+        "top": -71.3046875,
+        "bottom": -23.3046875,
+        "left": 464.9375,
+        "right": 560.5,
+        "width": 95.5625,
+        "height": 48
+      },
+      "nav": {
+        "top": 444.1953125,
+        "bottom": 528.6953125,
+        "left": 0,
+        "right": 576.5,
+        "width": 576.5,
+        "height": 84.5
+      },
+      "overflow": false
+    }
+  }
+]

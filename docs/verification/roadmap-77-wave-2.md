@@ -11,7 +11,7 @@ This is the November 15, 2026 private-practice roadmap. Older `wave-2.md` files 
 | #99 | Aligned tablet/desktop frame with deliberate Coach pinning. PR #123 |
 | #100 | Warm private collection, source details and recovery actions. PR #124 |
 | #101 | Coherent tools, keyboard return and coordinated/pending microphone capture. PR #125 |
-| #103 | Public `/try`, original exercises, optional choices and browser-local guest reflection. See the guest delivery PR |
+| #103 | Public `/try`, original exercises, optional choices and browser-local guest reflection. PR #126 |
 
 Local combined checks: `pnpm typecheck`, all 348 tests and `pnpm build` pass. Existing build output still warns about large reader/app chunks; this wave does not change the reading engines or claim bundle optimization.
 
@@ -27,3 +27,5 @@ Scratch browser evidence:
 Each issue's verification note describes its boundaries. Hosted CI runs typecheck, tests, build, visual foundation, reading and guest checks on the exact PR head and retains screenshot/JSON artifacts. The scratch tests use separate home/state/cache roots, original fixtures and offline stand-ins. They do not write the owner vault or charge a provider.
 
 Public OIDC registration, focused security review before exposure, hosted private-route isolation, production deployment, real Safari/devices, screen-reader speech and guitar/audio hardware remain separate. Wave 2 does not enable hosted practice, connect a live AI account, add support/payment gates or complete the whole roadmap.
+
+Durable scratch readback: `roadmap-77-wave-2/reading.json` records element geometry and `roadmap-77-wave-2/guest.json` records anonymous request paths. These are fixture observations, not production or hardware receipts.
