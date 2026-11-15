@@ -185,7 +185,7 @@ export function parseActionModes(input: unknown): Partial<Record<ActionId, Actio
 }
 
 /** The selectable prompts and automatic actions. The personal mode has none. */
-export function promptRoutes(db: DatabaseSync, mode: "personal" | "generic"): void {
+export function promptRoutes(db: DatabaseSync, mode: "personal" | "studio"): void {
   if (mode === "personal") {
     route("GET", "/api/prompts", (_req, res) => send(res, 200, { prompts: [], actions: [] }));
     return;

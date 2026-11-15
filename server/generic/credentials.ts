@@ -9,7 +9,7 @@ import { HttpError } from "../http.ts";
 import { isPublicAddress } from "./fetch.ts";
 
 /**
- * The coaches' saved credentials (generic mode): `<state>/coach-providers.json`, mode 600 in a folder
+ * The coaches' saved credentials (studio mode): `<state>/coach-providers.json`, mode 600 in a folder
  * with mode 700, written whole to a temp file and renamed. It is not encrypted: the key would have to sit
  * next to it. A secret leaves this file only in a coach CLI's environment, never in a response.
  */
@@ -145,7 +145,7 @@ function modelOf(raw: unknown, current: string | null | undefined): string | nul
 /**
  * A provider's base URL, checked: http or https, no user name, password, query or `#` part, the trailing
  * slash dropped. An address on loopback, a private network, CGNAT, link-local or unique-local space, and
- * plain http, need `allowPrivate` (a locally hosted instance, or GUITAR_COACH_PRIVATE_ENDPOINTS=1). A key
+ * plain http, need `allowPrivate` (a locally hosted instance, or STRUNA_COACH_PRIVATE_ENDPOINTS=1). A key
  * is never sent over plain http to a public address. Checked on save and again before every turn.
  */
 export async function checkBaseUrl(raw: unknown, o: { allowPrivate: boolean; key: boolean; lookup?: Lookup | undefined }): Promise<string> {
@@ -169,7 +169,7 @@ export async function checkBaseUrl(raw: unknown, o: { allowPrivate: boolean; key
   }
   if (!addresses.length) throw bad("The base URL's host name was not found.");
   const pub = addresses.every(isPublicAddress);
-  if (!pub && !o.allowPrivate) throw bad("This instance only reaches providers on the public internet. An address on this computer or a private network needs GUITAR_COACH_PRIVATE_ENDPOINTS=1.");
+  if (!pub && !o.allowPrivate) throw bad("This instance only reaches providers on the public internet. An address on this computer or a private network needs STRUNA_COACH_PRIVATE_ENDPOINTS=1.");
   if (u.protocol === "http:" && !o.allowPrivate) throw bad("Use an https:// address.");
   if (u.protocol === "http:" && pub && o.key) throw bad("A key is never sent over plain http to a public address: use https://.");
   return `${u.origin}${u.pathname.replace(/\/+$/, "")}`;
@@ -232,7 +232,7 @@ const real = (p: string) => {
 };
 
 /**
- * Why the generic mode must not start with these folders, or null. The coach reads the studio and the
+ * Why the studio mode must not start with these folders, or null. The coach reads the studio and the
  * library folders (Claude's working directory and `--add-dir`; Codex's profile, which keeps /tmp open when
  * a library folder is under it), so the state folder, with the saved keys and the coaches' own logins,
  * must lie outside all of them. And none of those folders may hold the home folder or a login folder.
@@ -241,11 +241,11 @@ export function placementProblem(o: { stateDir: string; studio: string; libraryD
   const state = real(o.stateDir);
   const readable = [{ name: "the studio folder", dir: real(o.studio) }, ...o.libraryDirs.map((d) => ({ name: "a library folder", dir: real(d) }))];
   for (const r of readable) {
-    if (isUnder(state, r.dir)) return `GUITAR_STATE_DIR (${o.stateDir}) is inside ${r.name} (${r.dir}), which the coach can read. Move it out, so the coach cannot read the saved keys and logins.`;
+    if (isUnder(state, r.dir)) return `STRUNA_STATE_DIR (${o.stateDir}) is inside ${r.name} (${r.dir}), which the coach can read. Move it out, so the coach cannot read the saved keys and logins.`;
   }
   const tmps = [...new Set(["/tmp", tmpdir()].map(real))];
   if (tmps.some((t) => isUnder(state, t)) && readable.some((r) => r.name !== "the studio folder" && tmps.some((t) => isUnder(r.dir, t)))) {
-    return `GUITAR_STATE_DIR (${o.stateDir}) is under the temp folder, and a library folder there keeps it readable to the coach. Move the state folder out of the temp folder.`;
+    return `STRUNA_STATE_DIR (${o.stateDir}) is under the temp folder, and a library folder there keeps it readable to the coach. Move the state folder out of the temp folder.`;
   }
   const home = real(o.home);
   const logins = [".claude", ".codex", ".ssh"].map((d) => real(join(home, d)));

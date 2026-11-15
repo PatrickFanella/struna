@@ -30,7 +30,7 @@ export function TempoRow({ passes, suggestion, onClean, onMiss, onApply }: { pas
         </span>
       </div>
       {suggestion && (
-        <p className="suggest" role="status">
+        <p className={`suggest ${suggestion.kind === "raise" ? "clean" : "error"}`} role="status">
           {suggestion.kind === "raise" && <>Three clean passes. Try <b className="num">{m.bpm + suggestion.delta}</b> BPM. </>}
           {suggestion.kind === "repeat" && <>One miss. Repeat at <b className="num">{m.bpm}</b> BPM.</>}
           {suggestion.kind === "lower" && <>Second miss. Lower to <b className="num">{m.bpm + suggestion.delta}</b> BPM, or shorten the loop. </>}

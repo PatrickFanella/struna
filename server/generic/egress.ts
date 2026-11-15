@@ -40,7 +40,7 @@ export async function endpointProxy(baseUrl: string, o: { allowPrivate: boolean;
     if (!o.allowPrivate && !addresses.every(isPublicAddress)) return null;
     return addresses;
   };
-  const refuse = (what: string) => `Guitar Room refused ${what}: this coach may only reach ${target.origin}.`;
+  const refuse = (what: string) => `Struna refused ${what}: this coach may only reach ${target.origin}.`;
 
   const server = createServer(async (req: IncomingMessage, res) => {
     let u: URL | null = null;
@@ -66,7 +66,7 @@ export async function endpointProxy(baseUrl: string, o: { allowPrivate: boolean;
       sock = await connectFirst(ips, port);
     } catch {
       res.writeHead(502, { "content-type": "text/plain" });
-      res.end(`Guitar Room could not connect to ${target.origin}.`);
+      res.end(`Struna could not connect to ${target.origin}.`);
       return;
     }
     sockets.add(sock);

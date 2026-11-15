@@ -7,19 +7,19 @@ import { after, before, test } from "node:test";
 
 const tmp = await mkdtemp(join(tmpdir(), "guitar-generic-routes-"));
 const home = join(tmp, "studio");
-process.env.GUITAR_MODE = "generic";
-process.env.GUITAR_HOME = home;
-process.env.GUITAR_STATE_DIR = join(tmp, "state");
-process.env.GUITAR_CACHE_DIR = join(tmp, "cache");
-process.env.GUITAR_TIMEZONE = "America/Chicago";
-process.env.GUITAR_APP_NAME = "Six Strings";
-process.env.GUITAR_NO_SCAN = "1";
-delete process.env.GUITAR_TABS_DIR;
-delete process.env.GUITAR_LIBRARY_DIRS;
-delete process.env.GUITAR_COACH_WEB;
+process.env.STRUNA_MODE = "studio";
+process.env.STRUNA_HOME = home;
+process.env.STRUNA_STATE_DIR = join(tmp, "state");
+process.env.STRUNA_CACHE_DIR = join(tmp, "cache");
+process.env.STRUNA_TIMEZONE = "America/Chicago";
+process.env.STRUNA_APP_NAME = "Six Strings";
+process.env.STRUNA_NO_SCAN = "1";
+delete process.env.STRUNA_TABS_DIR;
+delete process.env.STRUNA_LIBRARY_DIRS;
+delete process.env.STRUNA_COACH_WEB;
 // The vault must never be touched in this mode: point it somewhere that does not exist.
-process.env.GUITAR_VAULT_ROOT = join(tmp, "no-vault");
-process.env.GUITAR_MEDIA_ROOT = join(tmp, "no-media");
+process.env.STRUNA_VAULT_ROOT = join(tmp, "no-vault");
+process.env.STRUNA_MEDIA_ROOT = join(tmp, "no-media");
 
 const { access, handle } = await import("../index.ts");
 const { config } = await import("../config.ts");
@@ -37,14 +37,14 @@ after(async () => {
 });
 
 // Loopback TCP with no edge secret: every request carries the access token.
-const T = { "x-guitar-room-token": access!.token };
-const H = { ...T, "x-guitar-room": "1", "content-type": "application/json" };
+const T = { "x-struna-token": access!.token };
+const H = { ...T, "x-struna": "1", "content-type": "application/json" };
 const get = async (path: string) => (await fetch(`${base}${path}`, { headers: T })).json() as Promise<any>;
 const put = (path: string, body: unknown) => fetch(`${base}${path}`, { method: "PUT", headers: H, body: JSON.stringify(body) });
 const post = (path: string, body: unknown) => fetch(`${base}${path}`, { method: "POST", headers: H, body: JSON.stringify(body) });
 
 test("the generic config keeps its own state and creates the studio folder", async () => {
-  assert.equal(config.mode, "generic");
+  assert.equal(config.mode, "studio");
   assert.equal(config.home, home);
   assert.equal(config.timeZone, "America/Chicago");
   assert.deepEqual((await readdir(home)).sort(), ["Recordings", "logs", "materials", "plan"]);
@@ -52,7 +52,7 @@ test("the generic config keeps its own state and creates the studio folder", asy
 });
 
 test("GET /api/app describes the mode before and after setup", async () => {
-  assert.deepEqual(await get("/api/app"), { mode: "generic", name: "Six Strings", sections: ["practice", "materials"], web: true, profile: false });
+  assert.deepEqual(await get("/api/app"), { mode: "studio", name: "Six Strings", sections: ["practice", "materials"], web: true, profile: false });
   assert.deepEqual(await get("/api/health"), { ok: true });
 });
 
@@ -77,7 +77,7 @@ test("PUT /api/profile validates, stamps and writes a starter plan once", async 
   assert.equal((await put("/api/profile", [1])).status, 400);
   assert.equal((await fetch(`${base}/api/profile`, { method: "PUT", headers: T, body: "{}" })).status, 403);
   // Without the token, even a request with the app header is refused, and so is a page.
-  assert.equal((await fetch(`${base}/api/profile`, { method: "PUT", headers: { "x-guitar-room": "1" }, body: "{}" })).status, 403);
+  assert.equal((await fetch(`${base}/api/profile`, { method: "PUT", headers: { "x-struna": "1" }, body: "{}" })).status, 403);
   assert.equal((await fetch(`${base}/api/today`)).status, 403);
 
   const r = await put("/api/profile", { name: " Ana ", level: "new", minutesPerSession: 20, daysPerWeek: 9, styles: ["folk"], created: "1999-01-01T00:00:00.000Z" });
@@ -183,7 +183,7 @@ test("the prompt, chat-history and recording routes are registered", async () =>
   assert.ok(p.prompts.length > 0);
   assert.ok(p.actions.some((a: any) => a.id === "onboarding"));
   assert.deepEqual(await get("/api/conversations"), []);
-  const r = await fetch(`${base}/api/recordings?blockId=starter-fluent-playing&label=baseline&ext=webm`, { method: "POST", headers: { ...T, "x-guitar-room": "1" }, body: "take" });
+  const r = await fetch(`${base}/api/recordings?blockId=starter-fluent-playing&label=baseline&ext=webm`, { method: "POST", headers: { ...T, "x-struna": "1" }, body: "take" });
   assert.equal(r.status, 200);
   const { path } = (await r.json()) as any;
   assert.match(path, /^Recordings\/starter-fluent-playing\/\d{4}-\d{2}-\d{2}-baseline\.webm$/);

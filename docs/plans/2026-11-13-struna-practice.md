@@ -1,8 +1,8 @@
-# Guitar Room: Practice, Tools and Chat Implementation Plan (Plan A)
+# Struna: Practice, Tools and Chat Implementation Plan (Plan A)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A private web app on Kvant, published at `guitar.subcult.tv` behind Authelia. Practice is the default screen and runs today's session from the Ars Malefica practice plan. It has a tuner, a metronome and a Claude/ChatGPT chat that uses the owner's subscriptions.
+**Goal:** A private web app on Kvant, published at `struna.subcult.tv` behind Authelia. Practice is the default screen and runs today's session from the Ars Malefica practice plan. It has a tuner, a metronome and a Claude/ChatGPT chat that uses the owner's subscriptions.
 
 **Architecture:**
 - Same shape as `~/Work/Lab/practice-coach`: a Node 24 `node:http` server written in TypeScript and run directly by Node, plus a Vite/React single-page app.
@@ -15,18 +15,18 @@
 - Web Audio with an AudioWorklet, MediaRecorder.
 - systemd user unit, Caddy and Authelia on Almaz.
 
-**Spec:** `/home/shared/Work/Lab/guitar-room-design/design.md`. The visual reference is `design-system.html` in the same folder; its views are `?view=practice|tuner|metronome&theme=light|dark`. Plan B, `2026-11-13-guitar-room-library-tabs.md`, adds the Library and Tabs screens on top of this plan.
+**Spec:** [`docs/design.md`](../design.md). The visual reference is `design-system.html` in the same folder; its views are `?view=practice|tuner|metronome&theme=light|dark`. Plan B, `2026-11-13-struna-library-tabs.md`, adds the Library and Tabs screens on top of this plan.
 
 ## Global Constraints
 
-- **Repository:** Gitea `PatrickFanella/guitar-room`, private, Gitea workflow. Checkout at `~/Work/PatrickFanella/guitar-room`. Commit as `SUBCULT Agent <info@subcult.tv>` with `-c commit.gpgsign=false`.
-- **Server:** listens on `HOST=127.0.0.1`, `PORT=5182`. Reject any `Host` not in `localhost`, `127.0.0.1`, `[::1]` or `ALLOWED_HOSTS` (production: `guitar.subcult.tv`) with 403. When `REQUIRE_USER` is set (production: `onnwee`), reject requests whose `Remote-User` header differs, with 403. Every response carries `X-Robots-Tag: noindex, nofollow`.
+- **Repository:** GitHub `PatrickFanella/struna`, private, GitHub workflow; secondary Gitea copy. Checkout at `~/Work/PatrickFanella/struna`. Commit as `SUBCULT Agent <info@subcult.tv>` with `-c commit.gpgsign=false`.
+- **Server:** listens on `HOST=127.0.0.1`, `PORT=5182`. Reject any `Host` not in `localhost`, `127.0.0.1`, `[::1]` or `ALLOWED_HOSTS` (production: `struna.subcult.tv`) with 403. When `REQUIRE_USER` is set (production: `onnwee`), reject requests whose `Remote-User` header differs, with 403. Every response carries `X-Robots-Tag: noindex, nofollow`.
 - **Paths:**
-  - Vault root: `~/Work/Vaults/Ars Malefica` (env `GUITAR_VAULT_ROOT`).
+  - Vault root: `~/Work/Vaults/Ars Malefica` (env `STRUNA_VAULT_ROOT`).
   - Thread: `001 Projects/Threads/Guitar`.
   - Practice folder: `<thread>/Practice`.
-  - Media root: `~/Documents/Reference Library/Ars Malefica/Guitar` (env `GUITAR_MEDIA_ROOT`).
-  - State: `~/.local/state/guitar-room/`. Cache: `~/.cache/guitar-room/`.
+  - Media root: `~/Documents/Reference Library/Ars Malefica/Guitar` (env `STRUNA_MEDIA_ROOT`).
+  - State: `~/.local/state/struna/`. Cache: `~/.cache/struna/`.
 - **Vault writes:** the app creates new files only, under `<Practice>/Logs/`, and never edits or commits existing notes. Recordings go to `<media>/Recordings/<block-id>/<YYYY-MM-DD>-<label>.<ext>`, not the vault.
 - **Dates:** session dates use time zone `America/Chicago`.
 - **Full session stages:** Set the target 2, Prepare the motion 5, Build vocabulary 8, Train the mechanism 10, Apply it to music 15, Record and review 5 (minutes).
@@ -76,7 +76,7 @@
   - `route(method, path, handler)` registers a route on the router in `server/index.ts`.
   - In production the server serves the built app from `dist/`, falling back to `index.html` for paths without `/api/`.
 
-- [ ] **Step 1:** Create the Gitea repository: `tea repo create --login subcult-agent --owner PatrickFanella --name guitar-room --private`. Clone it to `~/Work/PatrickFanella/guitar-room`. Copy `package.json` scripts, engines and dev dependencies from practice-coach, renaming the package to `guitar-room` and dropping CodeMirror. Add `pdfjs-dist`. Run `pnpm install`.
+- [ ] **Step 1:** Use the private GitHub repository `PatrickFanella/struna`. Clone it to `~/Work/PatrickFanella/struna`. Copy `package.json` scripts, engines and dev dependencies from practice-coach, renaming the package to `struna` and dropping CodeMirror. Add `pdfjs-dist`. Run `pnpm install`.
 - [ ] **Step 2: Write failing tests** in `server/http.test.ts`:
   - `guard` accepts host `localhost:5182`;
   - it rejects `evil.example` with status 403;
@@ -313,7 +313,7 @@
     - the screen wake lock while a session runs.
   - **Review:** the fields of `SessionReview`, with taps for enumerations and text fields for the rest. Prefill from the session (material, tempos, recording). Submitting posts `/api/sessions` and shows the file name written.
   - **Stop: pain or tension:** skips straight to the review with `pain: true`.
-- [ ] **Step 4:** Run the tests. Expected: PASS. In the dev server, run a 15-minute short session against a scratch copy of the vault (`GUITAR_VAULT_ROOT=/tmp/...`), record a take and submit. Expected: a new log file whose text matches the template, and a recording file. Run `node scripts/capture.ts` and compare with the mockup's practice views.
+- [ ] **Step 4:** Run the tests. Expected: PASS. In the dev server, run a 15-minute short session against a scratch copy of the vault (`STRUNA_VAULT_ROOT=/tmp/...`), record a take and submit. Expected: a new log file whose text matches the template, and a recording file. Run `node scripts/capture.ts` and compare with the mockup's practice views.
 - [ ] **Step 5:** Commit `feat: practice session screen`.
 
 ### Task 10: Coach chat
@@ -355,20 +355,20 @@
 ### Task 11: Deploy behind Authelia and document
 
 **Files:**
-- Create: `deploy/guitar-room.service`, `deploy/guitar-room-edge-tunnel.service`, `deploy/guitar.Caddyfile`
+- Create: `deploy/struna.service`, `deploy/struna-edge-tunnel.service`, `deploy/struna.Caddyfile`
 - Modify: `README.md`
 - Modify (vault, outside the repository): Machinum `10-inventory/Host Briefings/kvant.md` and `almaz.md`
 
 **Interfaces:**
 - Consumes: the built app (`pnpm build`) and the server.
 - Produces:
-  - Kvant user unit `guitar-room.service`, a copy of practice-coach's unit with `PORT=5182`, `ALLOWED_HOSTS=guitar.subcult.tv`, `REQUIRE_USER=onnwee` and `WorkingDirectory=%h/Work/PatrickFanella/guitar-room`.
-  - Almaz user unit `guitar-room-edge-tunnel.service`, a copy of `practice-coach-edge-tunnel.service` with the forward `172.20.0.1:34948 → 127.0.0.1:5182`. Before choosing 34948, confirm it's free with `ss -ltn | grep 34948`.
-  - Almaz `sites/guitar.Caddyfile`, a copy of `practice-coach.Caddyfile` with host `guitar.subcult.tv`, the upstream `172.20.0.1:34948` and `flush_interval -1`.
+  - Kvant user unit `struna.service`, a copy of practice-coach's unit with `PORT=5182`, `ALLOWED_HOSTS=struna.subcult.tv`, `REQUIRE_USER=onnwee` and `WorkingDirectory=%h/Work/PatrickFanella/struna`.
+  - Almaz user unit `struna-edge-tunnel.service`, a copy of `practice-coach-edge-tunnel.service` with the forward `172.20.0.1:34948 → 127.0.0.1:5182`. Before choosing 34948, confirm it's free with `ss -ltn | grep 34948`.
+  - Almaz `sites/struna.Caddyfile`, a copy of `practice-coach.Caddyfile` with host `struna.subcult.tv`, the upstream `172.20.0.1:34948` and `flush_interval -1`.
 
-- [ ] **Step 1:** Run `pnpm build`. Install and start `guitar-room.service`. Expected: `curl -s -H 'Host: localhost' http://127.0.0.1:5182/api/health` returns `{"ok":true}`, and `curl -s -o /dev/null -w '%{http_code}' -H 'Host: guitar.subcult.tv' http://127.0.0.1:5182/api/health` returns `403` (no Remote-User).
+- [ ] **Step 1:** Run `pnpm build`. Install and start `struna.service`. Expected: `curl -s -H 'Host: localhost' http://127.0.0.1:5182/api/health` returns `{"ok":true}`, and `curl -s -o /dev/null -w '%{http_code}' -H 'Host: struna.subcult.tv' http://127.0.0.1:5182/api/health` returns `403` (no Remote-User).
 - [ ] **Step 2:** On Almaz, install the tunnel unit and the site file. Back up the main Caddyfile first. Validate the Caddy config in the same way practice-coach's site was validated, then reload.
-- [ ] **Step 3:** Check from outside. `curl -s -o /dev/null -w '%{http_code} %{redirect_url}' https://guitar.subcult.tv/` should give a 302 to `auth.subcult.tv`. Expected: no page content without login. Record that a signed-in browser session and startup after a reboot are not checked.
-- [ ] **Step 4:** Write the README: purpose; configuration variables; how chat avoids the APIs (adapted from practice-coach); what the app writes; deployment and rollback (`systemctl --user disable --now guitar-room.service`, remove the Almaz site file and tunnel unit, reload Caddy).
+- [ ] **Step 3:** Check from outside. `curl -s -o /dev/null -w '%{http_code} %{redirect_url}' https://struna.subcult.tv/` should give a 302 to `auth.subcult.tv`. Expected: no page content without login. Record that a signed-in browser session and startup after a reboot are not checked.
+- [ ] **Step 4:** Write the README: purpose; configuration variables; how chat avoids the APIs (adapted from practice-coach); what the app writes; deployment and rollback (`systemctl --user disable --now struna.service`, remove the Almaz site file and tunnel unit, reload Caddy).
 - [ ] **Step 5:** Add a dated section to the Kvant and Almaz host briefings in Machinum, in the style of the Practice Coach entry. Run the documentation audit (`rtk proxy python "/home/onnwee/Work/Vaults/Ars Malefica/scripts/documentation.py" audit`). Commit and push Machinum.
-- [ ] **Step 6:** Commit `chore: deployment units and README` and push to Gitea.
+- [ ] **Step 6:** Commit `chore: deployment units and README` and push to GitHub.

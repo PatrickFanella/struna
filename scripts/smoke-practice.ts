@@ -22,7 +22,7 @@ cpSync(join(root, "server/fixtures/vault"), join(dir, "vault"), { recursive: tru
 const port = Number(process.env.SMOKE_PORT ?? 5188);
 const srv = spawn("node", ["server/index.ts"], {
   cwd: root,
-  env: { ...process.env, NODE_ENV: "production", PORT: String(port), GUITAR_VAULT_ROOT: join(dir, "vault"), GUITAR_MEDIA_ROOT: join(dir, "media"), GUITAR_STATE_DIR: join(dir, "state"), GUITAR_NO_SCAN: "1" },
+  env: { ...process.env, NODE_ENV: "production", PORT: String(port), STRUNA_VAULT_ROOT: join(dir, "vault"), STRUNA_MEDIA_ROOT: join(dir, "media"), STRUNA_STATE_DIR: join(dir, "state"), STRUNA_NO_SCAN: "1" },
   stdio: ["ignore", "ignore", "inherit"],
 });
 for (let i = 0; i < 50 && !(await fetch(`http://localhost:${port}/api/health`).then((r) => r.ok, () => false)); i++) await new Promise((r) => setTimeout(r, 200));

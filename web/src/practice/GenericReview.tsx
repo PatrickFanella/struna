@@ -9,7 +9,7 @@ import { type Difficulty, elapsedMinutes, nextDraft, REVIEW_DRAFT_KEY, restoreRe
 import { Choice, Text } from "./Review.tsx";
 import type { SessionState } from "./Session.tsx";
 
-/** The generic mode's review: a short form, nothing required, that writes the session log. */
+/** The studio mode's review: a short form, nothing required, that writes the session log. */
 export function GenericReview({ today, session, bpm, material, onWritten, onBack, onDiscard }: {
   today: Today;
   session: SessionState;

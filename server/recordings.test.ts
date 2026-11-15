@@ -7,9 +7,9 @@ import { after, before, test } from "node:test";
 
 const tmp = await mkdtemp(join(tmpdir(), "guitar-rec-"));
 await cp(join(import.meta.dirname, "fixtures/vault"), join(tmp, "vault"), { recursive: true });
-process.env.GUITAR_VAULT_ROOT = join(tmp, "vault");
-process.env.GUITAR_STATE_DIR = join(tmp, "state");
-process.env.GUITAR_MEDIA_ROOT = join(tmp, "media");
+process.env.STRUNA_VAULT_ROOT = join(tmp, "vault");
+process.env.STRUNA_STATE_DIR = join(tmp, "state");
+process.env.STRUNA_MEDIA_ROOT = join(tmp, "media");
 
 process.umask(0o002);
 const { handle } = await import("./index.ts");
@@ -28,7 +28,7 @@ after(async () => {
 });
 
 const post = (q: string, body = "take") =>
-  fetch(`${base}/api/recordings?${q}`, { method: "POST", headers: { "x-guitar-room": "1", "content-type": "application/octet-stream" }, body });
+  fetch(`${base}/api/recordings?${q}`, { method: "POST", headers: { "x-struna": "1", "content-type": "application/octet-stream" }, body });
 
 test("stores a take under Recordings/<block>/<date>-<label>.<ext>, never overwriting", async () => {
   const date = localDate(new Date(), "America/Chicago");

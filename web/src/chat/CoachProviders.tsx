@@ -7,7 +7,7 @@ import { codeParts, countdown, type Preset, type ProviderRow, type ProviderStatu
  * Said to the rest of the app after a coach was set up, changed or removed, so the coach panel and any
  * other copy of these settings ask again. `detail` is the copy that said it, which has already updated.
  */
-export const PROVIDERS_CHANGED = "guitar-room:providers-changed";
+export const PROVIDERS_CHANGED = "struna:providers-changed";
 
 type Login = { state: "idle" | "waiting" | "done" | "failed"; url?: string; code?: string; expiresAt?: string; detail?: string };
 
@@ -30,7 +30,7 @@ const sameOrigin = (a: string, b: string) => {
 };
 
 /**
- * The coaches this instance offers (generic mode), one row each: whether it is ready, and how to set it up.
+ * The coaches this instance offers (studio mode), one row each: whether it is ready, and how to set it up.
  * Host logins show the terminal command; ChatGPT signs in with a code; keys and endpoints are typed here
  * and only ever come back as their last four characters.
  */

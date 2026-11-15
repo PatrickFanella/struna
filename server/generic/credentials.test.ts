@@ -150,9 +150,9 @@ test("placement: the state folder outside everything the coach reads, and no fol
   const home = join(root, "home");
   mkdirSync(join(home, ".claude"), { recursive: true });
   mkdirSync(join(home, ".codex"), { recursive: true });
-  const studio = join(home, "Guitar Room");
+  const studio = join(home, "Struna");
   mkdirSync(studio, { recursive: true });
-  const state = join(home, ".local/state/guitar-room-generic");
+  const state = join(home, ".local/state/struna-generic");
   assert.equal(placementProblem({ stateDir: state, studio, libraryDirs: [], home }), null);
   assert.match(placementProblem({ stateDir: join(studio, "state"), studio, libraryDirs: [], home })!, /inside the studio folder/);
   assert.match(placementProblem({ stateDir: join(home, "lib/state"), studio, libraryDirs: [join(home, "lib")], home })!, /inside a library folder/);

@@ -1,5 +1,5 @@
 /**
- * The generic mode's shared contract: what the studio folder holds and what the
+ * The studio mode's shared contract: what the studio folder holds and what the
  * API returns. The web app keeps matching copies in `web/src/generic.ts`.
  */
 
@@ -157,12 +157,12 @@ export type GenericStats = { total: number; thisWeek: number; streakDays: number
 
 /** What `/api/app` returns in either mode. */
 export type AppInfo = {
-  mode: "personal" | "generic";
+  mode: "personal" | "studio";
   name: string;
   /** Sections the app shows. */
   sections: ("practice" | "library" | "materials" | "tabs")[];
-  /** Whether the coach may search the web (generic mode). */
+  /** Whether the coach may search the web (studio mode). */
   web: boolean;
-  /** Generic mode: whether `profile.json` exists yet. */
+  /** Studio mode: whether `profile.json` exists yet. */
   profile: boolean;
 };

@@ -17,9 +17,9 @@ type Status = ProviderStatus;
 /** `done` hears whether the turn ran to its end; a message dropped from the queue hears false. */
 type Queued = { text: string; auto?: ActionId; done?: (ok: boolean) => void };
 const NAMES: Record<string, string> = { claude: "Claude", codex: "ChatGPT" };
-/** The generic mode's names for the host logins, also when they are turned off and not in the list (as in server/generic/providers.ts CATALOG). */
+/** The studio mode's names for the host logins, also when they are turned off and not in the list (as in server/generic/providers.ts CATALOG). */
 const HOST_LABELS: Record<string, string> = { claude: "Claude plan (this computer)", codex: "ChatGPT plan (this computer)" };
-/** A coach's name: the personal mode's short names, or its label in the generic mode's list. */
+/** A coach's name: the personal mode's short names, or its label in the studio mode's list. */
 const nameOf = (id: string, status: Status | null) => (status?.list ? (status.list.find((r) => r.id === id)?.label ?? HOST_LABELS[id] ?? id) : (NAMES[id] ?? id));
 
 /**
@@ -37,7 +37,7 @@ const state = {
   draft: null as string | null,
   /** The prompt list is showing instead of the conversation. */
   more: false,
-  /** Generic mode: the coach settings are showing instead of the conversation. */
+  /** Studio mode: the coach settings are showing instead of the conversation. */
   settings: false,
   version: 0,
 };
@@ -69,7 +69,7 @@ function loadProviders(fresh = false): Promise<Status | null> {
         state.provider = pickProvider(p);
         emit();
       } else if (p.list && fresh && !p.list.find((r) => r.id === state.provider)?.ok) {
-        // Generic mode: a coach was set up (or the one in use removed) before anything was said.
+        // Studio mode: a coach was set up (or the one in use removed) before anything was said.
         state.provider = pickProvider(p);
         emit();
       }
@@ -104,7 +104,7 @@ async function send(text: string, auto?: ActionId): Promise<boolean> {
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
-      headers: { "x-guitar-room": "1", "content-type": "application/json" },
+      headers: { "x-struna": "1", "content-type": "application/json" },
       body: JSON.stringify({ provider: state.provider, message: text, ...(state.conversation ? { conversation: state.conversation } : {}), ...(auto ? { auto } : {}), screen: screenContext.get() }),
       signal: abort.signal,
     });
@@ -132,7 +132,7 @@ async function send(text: string, auto?: ActionId): Promise<boolean> {
           update((m) => applyEvent(m, ev, d));
         }
         // The coach changed the plan, the materials or the profile: the screens showing them reload.
-        else if (ev === "changed") dispatchEvent(new CustomEvent("guitar-room:changed", { detail: d }));
+        else if (ev === "changed") dispatchEvent(new CustomEvent("struna:changed", { detail: d }));
       }
     }
   } catch (e) {
@@ -168,7 +168,7 @@ async function pump() {
       }
     }
     // A reply that finished with no panel on screen: the header's Coach button shows a dot.
-    if (!visible) dispatchEvent(new CustomEvent("guitar-room:coach-unread", { detail: { unread: true } }));
+    if (!visible) dispatchEvent(new CustomEvent("struna:coach-unread", { detail: { unread: true } }));
   } finally {
     pumping = false;
   }
@@ -176,7 +176,7 @@ async function pump() {
 
 /** Open the coach, unless a workspace pane already shows it. */
 export function openCoach(): void {
-  if (!panes) dispatchEvent(new Event("guitar-room:coach-open"));
+  if (!panes) dispatchEvent(new Event("struna:coach-open"));
 }
 
 /**
@@ -288,7 +288,7 @@ function PromptSheet({ prompts, screen, sheetRef }: { prompts: Prompt[]; screen:
 /** The coach conversation: in the slide-over, or in a workspace pane (no Done button there). */
 export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => void) | undefined }) {
   useChat();
-  const generic = useApp().mode === "generic";
+  const generic = useApp().mode === "studio";
   const { prompts } = usePrompts();
   const [text, setText] = useState("");
   const [list, setList] = useState<Conv[] | null>(null);
@@ -374,7 +374,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     state.more = false;
     emit();
   };
-  // Generic mode: the coaches this instance offers, the one in use, and whether it can still answer here.
+  // Studio mode: the coaches this instance offers, the one in use, and whether it can still answer here.
   const coaches = generic ? (status?.list ?? null) : null;
   const current = coaches?.find((r) => r.id === state.provider);
   const ready = coaches?.filter((r) => r.ok) ?? [];
@@ -382,9 +382,9 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
   const retired = Boolean(coaches && state.conversation && !current);
   /** The coach a new conversation starts with when the current one cannot answer. */
   const fallback = ready[0]?.id ?? coaches?.[0]?.id ?? state.provider;
-  /** Generic mode: no coach can answer at all, so there is nothing to send to. */
+  /** Studio mode: no coach can answer at all, so there is nothing to send to. */
   const noCoach = Boolean(coaches && ready.length === 0);
-  /** Generic mode: this conversation's coach cannot answer, but another one can. */
+  /** Studio mode: this conversation's coach cannot answer, but another one can. */
   const notReady = current && !current.ok && ready.length > 0 ? current : null;
   const name = generic ? "the coach" : NAMES[state.provider];
   const settingsLink = <button className="linkbtn" onClick={() => setSettings(true)}>Coach settings</button>;

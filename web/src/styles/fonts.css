@@ -1,0 +1,17 @@
+/* Selected OFL fonts from the Struna pack, served locally for self-hosted use. */
+@font-face{
+  font-family:"Jost";font-style:normal;font-weight:400;font-display:swap;
+  src:url("/brand/fonts/Jost-Regular.ttf") format("truetype");
+}
+@font-face{
+  font-family:"Atkinson Hyperlegible Next";font-style:normal;font-weight:400;font-display:swap;
+  src:url("/brand/fonts/AtkinsonHyperlegibleNext-Regular.otf") format("opentype");
+}
+@font-face{
+  font-family:"Atkinson Hyperlegible Next";font-style:normal;font-weight:700;font-display:swap;
+  src:url("/brand/fonts/AtkinsonHyperlegibleNext-Bold.otf") format("opentype");
+}
+@font-face{
+  font-family:"Spline Sans Mono";font-style:normal;font-weight:400;font-display:swap;
+  src:url("/brand/fonts/SplineSansMono-Regular.ttf") format("truetype");
+}

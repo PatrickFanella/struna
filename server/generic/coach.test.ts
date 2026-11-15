@@ -18,7 +18,7 @@ async function studio(over: Partial<Studio> = {}): Promise<Studio & { cleanup: (
   const home = join(dir, "home");
   await ensureStudio(home);
   const db = openDb(join(dir, "state"));
-  return { home, db, timeZone: "UTC", libraryDirs: [], web: true, appName: "Guitar Room", ...over, cleanup: async () => (db.close(), rm(dir, { recursive: true, force: true })) };
+  return { home, db, timeZone: "UTC", libraryDirs: [], web: true, appName: "Struna", ...over, cleanup: async () => (db.close(), rm(dir, { recursive: true, force: true })) };
 }
 
 const profile = normalizeProfile({ level: "new", minutesPerSession: 20 }, "2026-11-14T00:00:00.000Z");
@@ -85,7 +85,7 @@ test("codex works in the studio folder, outside git, with live search and the sa
 test("the instructions carry the plan schema and the rules a coach of any level needs", () => {
   const sys = genericSystem({ appName: "Six Strings", web: true, libraryDirs: ["/lib/tabs"] });
   assert.ok(sys.includes(PLAN_SCHEMA), "the schema text comes from studio.ts, next to validatePlan");
-  for (const s of ["Six Strings", "profile.json", "coach-notes.md", "plan/archive/", "materials/links.json", "logs/", "Recordings/", "/lib/tabs", '"save": true', "Never add a URL you have not opened", "Never copy out a whole song's tab, notation or lyrics", "official or licensed chart", "YouTube", "free mode", "Today:", "numbness", "Do not diagnose", "too hard", "too easy", "at most one question", "[Guitar Room]", "left-handed", "no term without a one-line explanation"]) {
+  for (const s of ["Six Strings", "profile.json", "coach-notes.md", "plan/archive/", "materials/links.json", "logs/", "Recordings/", "/lib/tabs", '"save": true', "Never add a URL you have not opened", "Never copy out a whole song's tab, notation or lyrics", "official or licensed chart", "YouTube", "free mode", "Today:", "numbness", "Do not diagnose", "too hard", "too easy", "at most one question", "[Struna]", "left-handed", "no term without a one-line explanation"]) {
     assert.ok(sys.includes(s), s);
   }
   assert.ok(!/Kvant|Obsidian|vault|Ars Malefica/i.test(sys));
@@ -105,10 +105,10 @@ test("the context block names the level, plan, place, stage, material, tempo, ne
   );
   assert.equal(
     ctx,
-    ["[Guitar Room]", "Screen: practice session", "Today: 2026-11-14 (Europe/Berlin)", "Level: new", "Plan: First chords (first-chords)", "Phase 2 of 4: Clean chord changes, session 3 of 6", "Stage: One new thing", "Material: Em to G change", "Metronome: 60 BPM, quarter notes", "Next instruction: four slow changes, eyes closed", "Days since the last session: 9", "[/Guitar Room]"].join("\n"),
+    ["[Struna]", "Screen: practice session", "Today: 2026-11-14 (Europe/Berlin)", "Level: new", "Plan: First chords (first-chords)", "Phase 2 of 4: Clean chord changes, session 3 of 6", "Stage: One new thing", "Material: Em to G change", "Metronome: 60 BPM, quarter notes", "Next instruction: four slow changes, eyes closed", "Days since the last session: 9", "[/Struna]"].join("\n"),
   );
   const empty = genericContext({ view: "start" }, { block: null, line: "", next: { text: "" }, profile: null, daysSinceLast: null, error: "No plan yet" });
-  assert.equal(empty, "[Guitar Room]\nScreen: start\nProfile: not set up yet\nPlan: No plan yet\n[/Guitar Room]");
+  assert.equal(empty, "[Struna]\nScreen: start\nProfile: not set up yet\nPlan: No plan yet\n[/Struna]");
 });
 
 test("the context comes from the real studio and survives a broken one", async () => {
@@ -117,9 +117,9 @@ test("the context comes from the real studio and survives a broken one", async (
     await writeProfile(s, profile);
     await writeFile(join(s.home, "plan/plan.json"), goodPlan());
     const ctx = await genericCoach(s).context({ view: "start" });
-    assert.match(ctx, /^\[Guitar Room\]\nScreen: start\nToday: \d{4}-\d{2}-\d{2} \(UTC\)\nLevel: new\nPlan: .+\nPhase 1 of \d: .+, session 1 of \d+\nNext instruction: .+\n\[\/Guitar Room\]$/);
+    assert.match(ctx, /^\[Struna\]\nScreen: start\nToday: \d{4}-\d{2}-\d{2} \(UTC\)\nLevel: new\nPlan: .+\nPhase 1 of \d: .+, session 1 of \d+\nNext instruction: .+\n\[\/Struna\]$/);
     const broken = genericCoach(s, { genericToday: async () => Promise.reject(new Error("disk")) });
-    assert.equal(await broken.context({ view: "start" }), "[Guitar Room]\nScreen: start\n[/Guitar Room]");
+    assert.equal(await broken.context({ view: "start" }), "[Struna]\nScreen: start\n[/Struna]");
   } finally {
     await s.cleanup();
   }

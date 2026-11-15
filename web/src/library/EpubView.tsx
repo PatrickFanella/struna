@@ -10,7 +10,7 @@ export function EpubView({ src, storageKey }: { src: string; storageKey: string 
   const rendition = useRef<Rendition | null>(null);
   const [error, setError] = useState("");
   const [where, setWhere] = useState("");
-  const key = `guitar-room.epub:${storageKey}`;
+  const key = `struna.epub:${storageKey}`;
 
   useEffect(() => {
     if (!box.current) return;
@@ -19,7 +19,7 @@ export function EpubView({ src, storageKey }: { src: string; storageKey: string 
     setError("");
     (async () => {
       try {
-        const res = await fetch(src, { headers: { "x-guitar-room": "1" } });
+        const res = await fetch(src, { headers: { "x-struna": "1" } });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const data = await res.arrayBuffer();
         if (cancelled || !box.current) return;
@@ -27,8 +27,17 @@ export function EpubView({ src, storageKey }: { src: string; storageKey: string 
         const r = book.renderTo(box.current, { width: "100%", height: "100%", spread: "none", flow: "paginated" });
         rendition.current = r;
         const dark = effectiveTheme() === "dark";
+        const styles = getComputedStyle(document.documentElement);
+        // EPUB pages are separate documents; they need their own local font faces.
+        r.hooks.content.register((content: { document: Document }) => {
+          const style = content.document.createElement("style");
+          style.textContent = [
+            ["Regular", "400"], ["Bold", "700"],
+          ].map(([face, weight]) => `@font-face{font-family:"Atkinson Hyperlegible Next";font-weight:${weight};src:url("${location.origin}/brand/fonts/AtkinsonHyperlegibleNext-${face}.otf") format("opentype");font-display:swap}`).join("\n");
+          content.document.head.append(style);
+        });
         r.themes.default({
-          body: { color: dark ? "#ECEBE6 !important" : "#1A1A1A !important", background: "transparent !important", "font-family": '"Atkinson Hyperlegible Next", system-ui, sans-serif !important', "line-height": "1.5 !important" },
+          body: { color: `${styles.getPropertyValue("--ink").trim()} !important`, background: "transparent !important", "font-family": '"Atkinson Hyperlegible Next", system-ui, sans-serif !important', "line-height": "1.5 !important" },
           a: { color: "inherit !important" },
           img: { "max-width": "100% !important", ...(dark ? { filter: "invert(.88) hue-rotate(180deg)" } : {}) },
         });

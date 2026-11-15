@@ -5,12 +5,12 @@ export type Material = { label: string; path: string; kind: "pdf" | "tg" | "othe
 export type Block = { id: string; title: string; path: string; started: string; targetSessions: number; goal: string; weeks: Week[]; materials: Material[]; crossTraining: string[] };
 export type SessionType = "decode" | "connect" | "vary" | "prove";
 export type StageKey = "target" | "prepare" | "vocabulary" | "mechanism" | "music" | "review";
-/** `key` is a `StageKey` in personal mode and whatever the plan names it in generic mode. */
-export type Stage = { key: string; title: string; minutes: number; output: string; weekField?: "vocabulary" | "mechanism" | "music"; /** Generic mode: the whole instruction, ready to show. */ instruction?: string };
-/** What `/api/today` returns. The optional fields are the generic mode's extras. */
+/** `key` is a `StageKey` in personal mode and whatever the plan names it in studio mode. */
+export type Stage = { key: string; title: string; minutes: number; output: string; weekField?: "vocabulary" | "mechanism" | "music"; /** Studio mode: the whole instruction, ready to show. */ instruction?: string };
+/** What `/api/today` returns. The optional fields are the studio mode's extras. */
 export type Today = {
   block: Block | null;
-  /** `type` is a `SessionType` in personal mode and the phase title in generic mode. */
+  /** `type` is a `SessionType` in personal mode and the phase title in studio mode. */
   position: { week: number; sessionInWeek: number; type: string; number: number };
   weekOverride: number | null;
   counts: { full: number; floor: number };
@@ -29,7 +29,7 @@ export type Today = {
 };
 
 /**
- * The session kinds on offer today: the plan's own in generic mode, and the two fixed ones in
+ * The session kinds on offer today: the plan's own in studio mode, and the two fixed ones in
  * personal mode, whose ids stay `full` and `floor`.
  */
 export function sessionKinds(today: Today): SessionKind[] {

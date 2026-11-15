@@ -1,4 +1,4 @@
-/* Generic mode's coach: the prompt picker, automatic-message marks, toasts and coach settings.
+/* Studio mode's coach: the prompt picker, automatic-message marks, toasts and coach settings.
    Tokens and base components come from the personal app; nothing here applies when there are no prompts. */
 
 /* Prompt chips: a wrapped set on a screen and in the empty conversation, one scrolling row above the message box. */
@@ -18,15 +18,15 @@
 .promptsheet .srcnote{margin:0}
 
 /* A message the app sent because something happened. */
-.msg.user .automark{display:block;margin:0 0 2px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--graphite)}
+.msg.user .automark{display:block;margin:0 0 2px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .msg.user.auto{background:transparent;box-shadow:inset 0 0 0 1.5px var(--rule)}
 
 /* Toasts: above the tab bar, under the coach panel. */
 .coachtoasts{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:36;display:flex;flex-direction:column;gap:8px;width:min(92vw,480px);pointer-events:none}
-.coachtoast{pointer-events:auto;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 8px 10px 14px;background:var(--panel);border:1px solid var(--rule);border-left:4px solid var(--pencil);border-radius:var(--r);box-shadow:0 6px 20px rgba(0,0,0,.14)}
+.coachtoast{pointer-events:auto;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 8px 10px 14px;background:var(--panel);border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:var(--r);box-shadow:0 6px 20px rgba(0,0,0,.14)}
 .coachtoast p{flex:1 1 12rem;min-width:0;margin:0;font-size:var(--fs-label);line-height:1.3}
 .coachtoast .btn{flex:none;height:44px;padding:0 14px;font-size:var(--fs-label)}
-.toastx{flex:none;width:44px;height:44px;border:0;border-radius:var(--r);background:transparent;color:var(--graphite);font-size:22px;line-height:1}
+.toastx{flex:none;width:44px;height:44px;border:0;border-radius:var(--r);background:transparent;color:var(--muted);font-size:22px;line-height:1}
 .tools .coachtoasts{bottom:calc(16px + env(safe-area-inset-bottom))}
 /* In the dock above the tab bar: in the page's flow, so a full-height session shrinks to make room. */
 .dock{position:sticky;bottom:0;z-index:10;flex:none}
@@ -56,21 +56,21 @@
   .actionlist .seg{flex:none;width:300px}
 }
 
-/* Pictures in a generic-mode coach reply; a remote one says which site it came from. */
+/* Pictures in a studio-mode coach reply; a remote one says which site it came from. */
 .msg.assistant .md .replyimg{display:block;margin:8px 0}
 .msg.assistant .md .replyimg img{display:block;max-width:100%;max-height:360px;height:auto;border-radius:6px;border:1px solid var(--rule)}
-.msg.assistant .md .replyimg small{display:block;color:var(--graphite);font-size:var(--fs-meta);margin-top:2px}
-.msg.assistant .md .replyimg.failed{color:var(--graphite);font-size:var(--fs-meta)}
+.msg.assistant .md .replyimg small{display:block;color:var(--muted);font-size:var(--fs-meta);margin-top:2px}
+.msg.assistant .md .replyimg.failed{color:var(--muted);font-size:var(--fs-meta)}
 
-/* Coach settings: one row per coach this instance offers (generic mode). */
+/* Coach settings: one row per coach this instance offers (studio mode). */
 .coachprov{margin:0 0 var(--sp)}
 .coachprov>.grp{margin:0 0 8px;color:var(--ink);font-weight:700}
 .provlist{list-style:none;margin:0;padding:0}
 .provrow{padding:12px 0;border-bottom:1px solid var(--rule);font-size:var(--fs-label);min-width:0}
 .provhd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
 .provname{font-weight:700}
-.provtag{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--graphite);border:1px solid var(--edge);border-radius:4px;padding:1px 6px}
-.provstate{display:flex;align-items:baseline;gap:8px;margin:4px 0 8px;color:var(--graphite);font-size:var(--fs-meta);overflow-wrap:anywhere;min-width:0}
+.provtag{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border:1px solid var(--edge);border-radius:4px;padding:1px 6px}
+.provstate{display:flex;align-items:baseline;gap:8px;margin:4px 0 8px;color:var(--muted);font-size:var(--fs-meta);overflow-wrap:anywhere;min-width:0}
 .provdot{flex:none;width:10px;height:10px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--edge);transform:translateY(1px)}
 .provrow.ok .provdot{background:var(--ink);box-shadow:none}
 .provrow.ok .provstate{color:var(--ink)}
@@ -85,7 +85,7 @@
 .provform.inline{flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:8px;margin:0 0 8px}
 .provform.inline .field{flex:1 1 12rem;min-width:0}
 .provform select.input{appearance:auto}
-.devicebox{display:flex;flex-direction:column;gap:8px;margin:4px 0 0;padding:12px;background:var(--panel);border:1px solid var(--rule);border-left:4px solid var(--pencil);border-radius:var(--r)}
+.devicebox{display:flex;flex-direction:column;gap:8px;margin:4px 0 0;padding:12px;background:var(--panel);border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:var(--r)}
 .devicebox .srcnote{margin:0}
 .devstep{margin:0;overflow-wrap:anywhere}
 .devstep a{color:var(--ink);font-weight:700;text-underline-offset:3px}
@@ -99,7 +99,7 @@
 .chatsettings .coachprov>.grp{display:none}
 /* A long word in an error (an API's JSON, a URL) wraps instead of running past the bubble. */
 .msg.error p,.msg.notice p{overflow-wrap:anywhere}
-/* Generic mode: no coach to send to, or this conversation's coach is not ready. */
+/* Studio mode: no coach to send to, or this conversation's coach is not ready. */
 .composer.nocoach{display:block}
 .composer.nocoach .notice{margin:0}
 .notice.notready{margin:8px 0 0}

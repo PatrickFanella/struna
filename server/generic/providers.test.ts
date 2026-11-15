@@ -47,7 +47,7 @@ const lookup = async (host: string) => (({ "openrouter.ai": ["104.18.2.115"], "l
 // Codex's install folder is known (as with a real install), so the Codex coaches run under the profile.
 const policy = coachPolicy({ local: true, hostName: "testhost", lookup, codexSandboxed: true });
 const convs = conversations(db);
-const studio = { home, db, timeZone: "UTC", libraryDirs: [], web: true, appName: "Guitar Room" };
+const studio = { home, db, timeZone: "UTC", libraryDirs: [], web: true, appName: "Struna" };
 chatRoutes(genericCoach(studio, { linkWaitMs: 10 }, { codexInstall: join(dir, "codex-install"), store, policy }), db, convs);
 const coaches = providerRoutes({ store, policy, web: true }, convs, { showMs: 1500 });
 const server = createServer((req, res) => {
@@ -181,9 +181,9 @@ test("an endpoint: the custom provider, web search off, the no-web instructions,
   assert.deepEqual(names(r.events), ["conversation", "thread", "delta", "done"]);
   let c = turns()[before]!;
   assert.equal(c.CODEX_HOME, join(state, "cli", "endpoint"));
-  for (const x of ['model_provider="guitar_room"', 'model_providers.guitar_room.base_url="http://127.0.0.1:11434/v1"', 'model_providers.guitar_room.wire_api="responses"', 'web_search="disabled"', "apps", 'model="gpt-oss:20b"']) assert.ok(c.argv.includes(x), x);
+  for (const x of ['model_provider="struna"', 'model_providers.struna.base_url="http://127.0.0.1:11434/v1"', 'model_providers.struna.wire_api="responses"', 'web_search="disabled"', "apps", 'model="gpt-oss:20b"']) assert.ok(c.argv.includes(x), x);
   assert.ok(!c.argv.some((a) => /env_key|env_http_headers/.test(a)));
-  assert.ok(!c.envNames.includes("GUITAR_ROOM_ENDPOINT_KEY"));
+  assert.ok(!c.envNames.includes("STRUNA_ENDPOINT_KEY"));
   // Its only way out is the run's own proxy, which keeps it to the endpoint's origin.
   for (const n of ["HTTPS_PROXY", "HTTP_PROXY"]) assert.ok(c.envNames.includes(n), n);
   for (const n of ["NO_PROXY", "no_proxy", "ALL_PROXY"]) assert.ok(!c.envNames.includes(n), n);
@@ -196,8 +196,8 @@ test("an endpoint: the custom provider, web search off, the no-web instructions,
   before = turns().length;
   r = await chat({ provider: "endpoint", message: "hello" });
   c = turns()[before]!;
-  assert.ok(c.argv.includes('model_providers.guitar_room.env_key="GUITAR_ROOM_ENDPOINT_KEY"'));
-  assert.equal(c.sha256.GUITAR_ROOM_ENDPOINT_KEY, sha256(ENDPOINT));
+  assert.ok(c.argv.includes('model_providers.struna.env_key="STRUNA_ENDPOINT_KEY"'));
+  assert.equal(c.sha256.STRUNA_ENDPOINT_KEY, sha256(ENDPOINT));
 });
 
 test("endpoint addresses on a private network are refused when the instance is not locally hosted", async () => {
@@ -537,7 +537,7 @@ test("a reply that repeats a saved secret, even split across streamed pieces, re
 });
 
 test("no secret reached a response, the database or the fake's log", () => {
-  const all = [...transcripts, readFileSync(join(dir, "calls.jsonl"), "utf8"), readFileSync(join(state, "guitar-room.sqlite")).toString("latin1")].join("\n");
+  const all = [...transcripts, readFileSync(join(dir, "calls.jsonl"), "utf8"), readFileSync(join(state, "struna.sqlite")).toString("latin1")].join("\n");
   for (const k of [ANTHROPIC, OPENAI, ENDPOINT]) assert.ok(!all.includes(k), k.slice(0, 12));
   // The store is the one place that holds them.
   assert.ok(readFileSync(store.file, "utf8").includes(ANTHROPIC));

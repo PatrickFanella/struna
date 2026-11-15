@@ -4,7 +4,7 @@ import { api } from "./api.ts";
 import type { AppInfo } from "./generic.ts";
 
 /** What the app is until `/api/app` answers, and when it cannot be reached: the personal app as it always was. */
-export const PERSONAL: AppInfo = { mode: "personal", name: "Guitar Room", sections: ["practice", "library", "tabs"], web: false, profile: true };
+export const PERSONAL: AppInfo = { mode: "personal", name: "Struna", sections: ["practice", "library", "tabs"], web: false, profile: true };
 
 const SECTIONS = new Set(["practice", "library", "materials", "tabs"]);
 
@@ -15,7 +15,7 @@ export function readAppInfo(v: unknown): AppInfo {
   const sections = (Array.isArray(o.sections) ? o.sections : []).filter((s): s is AppInfo["sections"][number] => typeof s === "string" && SECTIONS.has(s));
   if (!sections.includes("practice")) sections.unshift("practice");
   return {
-    mode: o.mode === "generic" ? "generic" : "personal",
+    mode: o.mode === "studio" || o.mode === "generic" ? "studio" : "personal",
     name: typeof o.name === "string" && o.name.trim() ? o.name.trim() : PERSONAL.name,
     sections,
     web: o.web === true,

@@ -1,6 +1,8 @@
-# Guitar Room: design
+# Struna: design
 
 Date: 2026-11-13. Status: draft for owner approval.
+
+Visual update, November 14, 2026: [Struna’s app system](struna-design.md) replaces the Method book palette and typography. This document retains the original product design; `design-system.html` is a historical layout study.
 
 ## Intent
 
@@ -37,7 +39,7 @@ The vault plan already exists and is unused: the progress ledger still says "bas
 ## Constraints
 
 - **Host:** Kvant (Debian 13, Node 24.22, ffmpeg installed). The media, the vault and the signed-in `claude` and `codex` CLIs are all here.
-- **Access:** `guitar.subcult.tv` through Almaz Caddy with `import authelia`. Authelia has one user (`onnwee`). The `*.subcult.tv` default policy is one-factor; no Authelia change is needed. The app listens on Kvant loopback only. Almaz reaches it through an SSH tunnel unit bound to the Caddy bridge gateway, following `prichal-public-staging-edge-tunnel.service`. Pass `ControlMaster=no,ControlPath=none` (see the Tdarr tunnel note in the Kvant briefing). As defense in depth, the app rejects requests whose Authelia `Remote-User` header is not `onnwee`. Send `X-Robots-Tag: noindex` on every response.
+- **Access:** `struna.subcult.tv` through Almaz Caddy with `import authelia`. Authelia has one user (`onnwee`). The `*.subcult.tv` default policy is one-factor; no Authelia change is needed. The app listens on Kvant loopback only. Almaz reaches it through an SSH tunnel unit bound to the Caddy bridge gateway, following `prichal-public-staging-edge-tunnel.service`. Pass `ControlMaster=no,ControlPath=none` (see the Tdarr tunnel note in the Kvant briefing). As defense in depth, the app rejects requests whose Authelia `Remote-User` header is not `onnwee`. Send `X-Robots-Tag: noindex` on every response.
 - **Archive handling:** the Country Guitar Online archive README says owner-only and not to sync it to public services. Serving it to the authenticated owner is fine; caching or uploading it elsewhere is not.
 - **Vault writes:** the vault is a Git repository with Obsidian Sync. Other agents and devices edit it. The app writes only new files, plus appends inside its own files. It never rewrites notes it did not create, and it does not commit. The owner or the coach commits.
 - **Devices:** iPad or phone on a stand first, so iOS Safari must work. Sampled videos are all H.264. 140 of 645 are `.mkv`, which Safari cannot play.
@@ -123,7 +125,7 @@ The screens look like a printed method book: a white page, black engraving, and 
 - **Shape and motion:**
   - Corners are 10px on panels and buttons. There are no shadows; panels are separated by a single rule line.
   - Motion is limited to the stage progress bar and the metronome's beat indicator. Both honor `prefers-reduced-motion`.
-- **Reference mockup:** `guitar-room-method-book.html`, kept with this design.
+- **Reference mockup:** `design-system.html` (historical Method book study), kept with this design.
 
 ### Practice
 
@@ -141,7 +143,7 @@ The screens look like a printed method book: a white page, black engraving, and 
 
 ### Tuner and metronome
 
-One sheet with two segments, **Tuner** and **Metronome**. A button in the header opens it from any screen. The session start screen also has a **Tune** button, so tuning comes before the first stage. Reference mockup: `guitar-room-tools.html`.
+One sheet with two segments, **Tuner** and **Metronome**. A button in the header opens it from any screen. The session start screen also has a **Tune** button, so tuning comes before the first stage. Reference mockup: `design-system.html` (historical tools study).
 
 - **Tuner:** chromatic, from the device microphone.
   - Shows the nearest note with its octave, a cents reading in words ("12 cents flat", "In tune"), and a needle on a −50 to +50 scale with a ±5-cent in-tune zone.
@@ -193,13 +195,13 @@ One sheet with two segments, **Tuner** and **Metronome**. A button in the header
 
 ### Server and deployment
 
-- **Code:** one TypeScript repository: a Node server (static files, file streaming, index, chat process management) and a React single-page app built with Vite. SQLite for app state, the index and chat history. State lives under `~/.local/state/guitar-room/`, the remux cache under `~/.cache/guitar-room/`.
-- **Kvant:** user systemd unit `guitar-room.service` (lingering is already on), loopback port chosen by the builder. The index scan runs at startup and on demand from the Library screen.
+- **Code:** one TypeScript repository: a Node server (static files, file streaming, index, chat process management) and a React single-page app built with Vite. SQLite for app state, the index and chat history. State lives under `~/.local/state/struna/`, the remux cache under `~/.cache/struna/`.
+- **Kvant:** user systemd unit `struna.service` (lingering is already on), loopback port chosen by the builder. The index scan runs at startup and on demand from the Library screen.
 - **Almaz:**
-  - `sites/guitar.Caddyfile`: `http://guitar.subcult.tv { import authelia; reverse_proxy 172.20.0.1:<port> }`;
-  - user unit `guitar-room-edge-tunnel.service`;
+  - `sites/struna.Caddyfile`: `http://struna.subcult.tv { import authelia; reverse_proxy 172.20.0.1:<port> }`;
+  - user unit `struna-edge-tunnel.service`;
   - Caddy validation, then reload, per the existing site procedure.
-- **Repository:** Gitea `PatrickFanella/guitar-room`, private, Gitea workflow, checkout at `~/Work/PatrickFanella/guitar-room`.
+- **Repository:** GitHub `PatrickFanella/struna`, private, GitHub workflow; secondary Gitea copy, checkout at `~/Work/PatrickFanella/struna`.
 - **Documentation:** after deploy, add a dated section to the Kvant and Almaz host briefings in Machinum.
 
 ## Decided by the owner
@@ -213,7 +215,7 @@ One sheet with two segments, **Tuner** and **Metronome**. A button in the header
 
 ## Calls made by the designer (owner may override)
 
-- Name `guitar-room`, host `guitar.subcult.tv`, private Gitea repository under `PatrickFanella`.
+- Name `struna`, host `struna.subcult.tv`, private GitHub repository under `PatrickFanella`.
 - iPad or phone layout first.
 - Week and session type derived from logged sessions, never the calendar. A session counts only when its log has a clean working tempo, so the blank 2026-08-26 log does not count and today starts at Block 01, Week 1, Session 1 (baseline).
 - Session 7 is "prove", as in the practice system. Block 01's cross-training day is an extra optional session that does not advance the count.

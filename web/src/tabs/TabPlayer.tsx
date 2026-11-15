@@ -28,13 +28,13 @@ export function TabPlayer({ src, title }: { src: string; title: string }) {
     setError("");
     setPlaying(false);
     const ink = css("--ink");
-    const graphite = css("--graphite");
+    const muted = css("--muted");
     const edge = css("--edge");
     const a = new AlphaTabApi(box.current, {
       core: { file: src, fontDirectory: "/font/", useWorkers: true },
       display: {
         scale: window.innerWidth < 700 ? 0.8 : 1,
-        resources: { mainGlyphColor: ink, secondaryGlyphColor: graphite, scoreInfoColor: ink, staffLineColor: edge, barSeparatorColor: ink, barNumberColor: graphite },
+        resources: { mainGlyphColor: ink, secondaryGlyphColor: muted, scoreInfoColor: ink, staffLineColor: edge, barSeparatorColor: ink, barNumberColor: muted },
       },
       player: { enablePlayer: true, soundFont: "/soundfont/sonivox.sf2", scrollElement: scroller.current, enableUserInteraction: true },
     });

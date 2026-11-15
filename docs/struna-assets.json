@@ -1,0 +1,156 @@
+{
+  "brand": "struna",
+  "source_repository": "https://github.com/subculture-collective/subcult-tv",
+  "source_revision": "856128658b937d0b8e342e3ac0e7fbee180799ac",
+  "guide": {
+    "path": "studio/brands/struna/GUIDE.md",
+    "sha256": "c5d340b6c81ae6bbe97c93eb10507eda79220aa4576f69b3d589687c3b7641d0"
+  },
+  "scope": "App integration requested by the owner; no social publication or deployment. Studio remains the source owner.",
+  "assets": [
+    {
+      "source": "studio/brands/struna/tokens.css",
+      "target": "web/src/styles/struna.css",
+      "sha256": "41c3708415621bdea201a57fa8ecaa52388e83fa16e3f80cb03b03c688b5470e",
+      "bytes": 1162,
+      "transformation": "unchanged copy"
+    },
+    {
+      "source": "studio/brands/struna/fonts/Jost-Regular.ttf",
+      "target": "web/public/brand/fonts/Jost-Regular.ttf",
+      "sha256": "c3143e923ed1ca7bdf27f96c351fbafaebcbd3cf3f4c2d30d03e6c7f98e73d7a",
+      "bytes": 58796,
+      "transformation": "unchanged copy"
+    },
+    {
+      "source": "studio/brands/struna/fonts/AtkinsonHyperlegibleNext-Regular.otf",
+      "target": "web/public/brand/fonts/AtkinsonHyperlegibleNext-Regular.otf",
+      "sha256": "2a5e641eb7d42f5949d9fc84df1e7840c3c7bb1151dae178a8f20a3251e946d0",
+      "bytes": 42916,
+      "transformation": "unchanged copy"
+    },
+    {
+      "source": "studio/brands/struna/fonts/AtkinsonHyperlegibleNext-Bold.otf",
+      "target": "web/public/brand/fonts/AtkinsonHyperlegibleNext-Bold.otf",
+      "sha256": "91485fed9ea491b764a6e037f9b2f8a20d21070a9345a85ce3fc42262e3c8b10",
+      "bytes": 45384,
+      "transformation": "unchanged copy"
+    },
+    {
+      "source": "studio/brands/struna/fonts/SplineSansMono-Regular.ttf",
+      "target": "web/public/brand/fonts/SplineSansMono-Regular.ttf",
+      "sha256": "016d619cf57346451252774a4e05e7fe96d0b8b56d3ba7f7594a8513a1a2a0ec",
+      "bytes": 37780,
+      "transformation": "unchanged copy"
+    },
+    {
+      "source": "studio/brands/struna/fonts/jost-OFL.txt",
+      "target": "web/public/brand/fonts/jost-OFL.txt",
+      "sha256": "1af3438a4d5f0ed2bdbc5751a5a67ebf6d537334161184b7fbb68503ef0ea0c5",
+      "bytes": 4384,
+      "transformation": "unchanged copy"
+    },
+    {
+      "source": "studio/brands/struna/fonts/atkinsonhyperlegiblenext-OFL.txt",
+      "target": "web/public/brand/fonts/atkinsonhyperlegiblenext-OFL.txt",
+      "sha256": "aca6a428580965d2297d1b718042dd427c2a9443ece3b0d02d758e161e0c4030",
+      "bytes": 4431,
+      "transformation": "unchanged copy"
+    },
+    {
+      "source": "studio/brands/struna/fonts/splinesansmono-OFL.txt",
+      "target": "web/public/brand/fonts/splinesansmono-OFL.txt",
+      "sha256": "4abb88162e4c0c5f9fc6c2f15d7085f7b7e27fd89f541a13488e1bcb829bde3f",
+      "bytes": 4403,
+      "transformation": "unchanged copy"
+    },
+    {
+      "source": "studio/brands/struna/logos/mark-primary.svg",
+      "target": "web/public/brand/mark-primary.svg",
+      "sha256": "7a96cae7a64d725e1b7d717032f4049ea299d9d5859519f047db296860eb46d2",
+      "bytes": 659,
+      "transformation": "unchanged copy",
+      "dimensions": {
+        "width": 96.0,
+        "height": 96.0
+      }
+    },
+    {
+      "source": "studio/brands/struna/logos/mark-dark.svg",
+      "target": "web/public/brand/mark-dark.svg",
+      "sha256": "28d1124dba5f1239e60fb99ec4c20239a818f624a6db4cbb3bc9f65fdce0a64e",
+      "bytes": 650,
+      "transformation": "unchanged copy",
+      "dimensions": {
+        "width": 96.0,
+        "height": 96.0
+      }
+    },
+    {
+      "source": "studio/brands/struna/product/favicon-16.svg",
+      "target": "web/public/brand/favicon-16.svg",
+      "sha256": "a8015b47525f6a31fb0b6250b486976a00f44049ce7cd27ad58dfddbd7dd3f85",
+      "bytes": 332,
+      "transformation": "unchanged copy",
+      "dimensions": {
+        "width": 16.0,
+        "height": 16.0
+      }
+    },
+    {
+      "source": "studio/brands/struna/product/favicon.svg",
+      "target": "web/public/brand/favicon.svg",
+      "sha256": "2bb2002974b282c0565ca10196eb0dede0b0d49f44d4a6a3980255628ec8b338",
+      "bytes": 647,
+      "transformation": "unchanged copy",
+      "dimensions": {
+        "width": 48.0,
+        "height": 48.0
+      }
+    },
+    {
+      "source": "studio/brands/struna/product/favicon.png",
+      "target": "web/public/brand/favicon.png",
+      "sha256": "6598a7bb74ad95de3c5fa76848a212974b212511bbec5ef791d05d220e1025a2",
+      "bytes": 1150,
+      "transformation": "unchanged copy",
+      "dimensions": {
+        "width": 48,
+        "height": 48
+      }
+    },
+    {
+      "source": "studio/brands/struna/product/apple-touch-icon.png",
+      "target": "web/public/brand/apple-touch-icon.png",
+      "sha256": "0f1f7e7cbd0fb142a15b5db5d1f0b0744a562986a5e3dd888122ca6b315fbaf9",
+      "bytes": 2548,
+      "transformation": "unchanged copy",
+      "dimensions": {
+        "width": 180,
+        "height": 180
+      }
+    },
+    {
+      "source": "studio/brands/struna/product/icon-512.png",
+      "target": "web/public/brand/icon-512.png",
+      "sha256": "19fb3cc8030e85dd2a721eabe126726c315d6321748204d59433bfae47ef6e41",
+      "bytes": 7724,
+      "transformation": "unchanged copy",
+      "dimensions": {
+        "width": 512,
+        "height": 512
+      }
+    },
+    {
+      "source": "studio/brands/struna/product/icon-maskable-512.png",
+      "target": "web/public/brand/icon-maskable-512.png",
+      "sha256": "de4c2bc38347e852e1d12af25d53de7acb62bca2a1af419f92d450bef9be592c",
+      "bytes": 6556,
+      "transformation": "unchanged copy",
+      "dimensions": {
+        "width": 512,
+        "height": 512
+      }
+    }
+  ]
+}

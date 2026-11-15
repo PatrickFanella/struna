@@ -16,7 +16,7 @@ let n = 0;
 async function studio(): Promise<Studio> {
   const home = join(tmp, `home-${++n}`);
   await ensureStudio(home);
-  return { home, db: openDb(join(tmp, `state-${n}`)), timeZone: "America/Chicago", libraryDirs: [], web: true, appName: "Guitar Room" };
+  return { home, db: openDb(join(tmp, `state-${n}`)), timeZone: "America/Chicago", libraryDirs: [], web: true, appName: "Struna" };
 }
 
 const PLAN = {

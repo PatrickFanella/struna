@@ -46,7 +46,7 @@ export async function hookAnswer(input: unknown, resolve: Resolve = dns): Promis
   if (ev?.tool_name !== "WebFetch") return null;
   const why = await webFetchRefusal(ev.tool_input?.url, resolve);
   if (!why) return null;
-  return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: `Guitar Room: ${why}.` } };
+  return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: `Struna: ${why}.` } };
 }
 
 /** The `--settings` JSON that runs this file as the WebFetch hook. */
@@ -65,7 +65,7 @@ if (import.meta.main) {
     answer = await hookAnswer(JSON.parse(text));
   } catch {
     // A call the hook cannot read is refused rather than let through.
-    answer = { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "Guitar Room: the request could not be checked." } };
+    answer = { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "Struna: the request could not be checked." } };
   }
   if (answer) process.stdout.write(JSON.stringify(answer));
 }

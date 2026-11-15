@@ -18,7 +18,7 @@ export function uploadFile(file: File, onProgress: (fraction: number) => void, s
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `/api/materials/upload?name=${encodeURIComponent(file.name)}`);
-    xhr.setRequestHeader("x-guitar-room", "1");
+    xhr.setRequestHeader("x-struna", "1");
     xhr.setRequestHeader("content-type", "application/octet-stream");
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.total ? e.loaded / e.total : 0);
     xhr.onerror = () => reject(new Error("The upload did not get through. Check the connection and try again."));

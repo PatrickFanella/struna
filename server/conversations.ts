@@ -3,10 +3,10 @@ import type { DatabaseSync } from "node:sqlite";
 
 /** The coaches on this computer's own logins: the only ones the personal mode has. */
 export type HostProvider = "claude" | "codex";
-/** A coach id: a host provider, or (generic mode) one the app signs in itself, such as "anthropic". */
+/** A coach id: a host provider, or (studio mode) one the app signs in itself, such as "anthropic". */
 export type Provider = string;
 export type Conversation = { id: string; provider: Provider; title: string; thread_id: string | null; created: string; updated: string };
-/** `meta.auto` names the automatic action that sent a user message (generic mode). */
+/** `meta.auto` names the automatic action that sent a user message (studio mode). */
 export type MessageMeta = { auto?: string };
 export type Message = { role: "user" | "assistant" | "error"; text: string; created: string; meta?: MessageMeta };
 

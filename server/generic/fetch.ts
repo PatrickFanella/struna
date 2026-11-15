@@ -277,7 +277,7 @@ function get(u: URL, address: string, timeoutMs: number, t: Internals, signal: A
       agent: false,
       // Aborts the connect, the wait for headers and the body alike; the socket timeout below only catches idleness.
       signal,
-      headers: { host: u.host, accept: "*/*", "accept-encoding": "identity", "user-agent": "GuitarRoom/1 (saves a file the player asked for)" },
+      headers: { host: u.host, accept: "*/*", "accept-encoding": "identity", "user-agent": "Struna/1 (saves a file the player asked for)" },
       ...(secure && !isIP(host) ? { servername: host } : {}),
     });
     req.setTimeout(timeoutMs, () => req.destroy(new SaveError("the server took too long to answer")));

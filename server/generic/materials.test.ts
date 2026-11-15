@@ -14,7 +14,7 @@ const tmp = await mkdtemp(join(tmpdir(), "guitar-materials-"));
 const home = join(tmp, "home");
 const lib = join(tmp, "library");
 const mat = join(home, "materials");
-const studio = { home, libraryDirs: [lib], timeZone: "UTC", web: true, appName: "Guitar Room" } as unknown as Studio;
+const studio = { home, libraryDirs: [lib], timeZone: "UTC", web: true, appName: "Struna" } as unknown as Studio;
 
 // Stands in for the downloader: the real one is tested in fetch.test.ts.
 const saver: Saver = async (url, dir) => {

@@ -42,8 +42,8 @@ function Scale({ cents }: { cents: number | null }) {
 }
 
 export function TunerPanel() {
-  const [tuning, setTuning] = useState<TuningId>(() => (store.get("guitar-room.tuning") as TuningId) in TUNINGS ? (store.get("guitar-room.tuning") as TuningId) : "standard");
-  const [a4, setA4] = useState<number>(() => Number(store.get("guitar-room.a4")) || 440);
+  const [tuning, setTuning] = useState<TuningId>(() => (store.get("struna.tuning") as TuningId) in TUNINGS ? (store.get("struna.tuning") as TuningId) : "standard");
+  const [a4, setA4] = useState<number>(() => Number(store.get("struna.a4")) || 440);
   const [target, setTarget] = useState<string | null>(null);
   const [tuned, setTuned] = useState<Set<string>>(new Set());
   const [reading, setReading] = useState<Reading>(null);
@@ -144,11 +144,11 @@ export function TunerPanel() {
     setTuning(t);
     setTarget(null);
     setTuned(new Set());
-    store.set("guitar-room.tuning", t);
+    store.set("struna.tuning", t);
   };
   const choosePitch = (p: number) => {
     setA4(p);
-    store.set("guitar-room.a4", String(p));
+    store.set("struna.a4", String(p));
   };
 
   const shown = reading ?? (target ? { name: split(target)[0], octave: Number(split(target)[1]) } : null);

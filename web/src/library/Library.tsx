@@ -66,7 +66,7 @@ export function Library({ active }: { active: boolean }) {
     } catch {
       /* storage unavailable */
     }
-    dispatchEvent(new Event("guitar-room:material"));
+    dispatchEvent(new Event("struna:material"));
     location.hash = "#practice";
   };
 

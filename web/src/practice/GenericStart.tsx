@@ -10,8 +10,8 @@ import { sessionKinds, type Today } from "../types.ts";
 import { breakDue, breakKey, kindLabel, logFacts, shortDate, statsFacts } from "./genericLogic.ts";
 import { cap } from "./Session.tsx";
 
-const BREAK_KEY = "guitar-room.break-offered";
-const COMPLETE_KEY = "guitar-room.plan-complete-offered";
+const BREAK_KEY = "struna.break-offered";
+const COMPLETE_KEY = "struna.plan-complete-offered";
 /** What was offered in this page load, for browsers where localStorage is off. */
 const offered = new Set<string>();
 
@@ -25,7 +25,7 @@ function once(key: string, value: string): boolean {
 
 const NO_PLAN = "No plan yet";
 
-/** The generic mode's start screen: the plan, what to do next, one button per session kind, and the history. */
+/** The studio mode's start screen: the plan, what to do next, one button per session kind, and the history. */
 export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, onStarter }: {
   today: Today;
   onStart: (kind: string, extra?: string) => void;

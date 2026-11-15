@@ -18,8 +18,8 @@ import { chromium, type BrowserContext, type Page } from "playwright-core";
 const out = resolve(process.argv[2] ?? "live-test");
 const withChat = process.argv.includes("--chat");
 mkdirSync(out, { recursive: true });
-const sock = process.env.SOCKET_PATH ?? `${process.env.XDG_RUNTIME_DIR}/guitar-room/http.sock`;
-const secret = readFileSync(join(homedir(), ".config/guitar-room/edge-secret"), "utf8").trim();
+const sock = process.env.SOCKET_PATH ?? `${process.env.XDG_RUNTIME_DIR}/struna/http.sock`;
+const secret = readFileSync(join(homedir(), ".config/struna/edge-secret"), "utf8").trim();
 const ORIGIN = "https://struna.subcult.tv";
 const CHUNK = 4 * 1024 * 1024;
 const logsDir = join(homedir(), "Work/Vaults/Ars Malefica/001 Projects/Threads/Guitar/Practice/Logs");
@@ -178,7 +178,7 @@ try {
   await clock.click();
   await p.waitForTimeout(1300);
   check("tapping the timer starts it", (await clock.locator(".t").textContent()) !== t0);
-  await p.evaluate(() => localStorage.setItem("guitar-room.guide", "off")); // one real coach note is enough for the test
+  await p.evaluate(() => localStorage.setItem("struna.guide", "off")); // one real coach note is enough for the test
   await p.getByRole("button", { name: "Turn off" }).click();
   await p.getByRole("button", { name: /^Next stage/ }).click();
   const title2 = await p.locator(".stagetext h1").textContent();
@@ -268,7 +268,7 @@ try {
       await p.screenshot({ path: join(out, "7-coach-reply.png") });
       // Remove the test conversation from the owner's history.
       const list = JSON.parse((await viaSocket("GET", "/api/conversations", {})).body.toString()) as { id: string; title: string }[];
-      for (const c of list.filter((x) => x.title.startsWith("In one short sentence: what is my next"))) await viaSocket("DELETE", `/api/conversations/${c.id}`, { "x-guitar-room": "1" });
+      for (const c of list.filter((x) => x.title.startsWith("In one short sentence: what is my next"))) await viaSocket("DELETE", `/api/conversations/${c.id}`, { "x-struna": "1" });
     }
   }
 
@@ -312,7 +312,7 @@ try {
   for (const [name, vp] of [["ipad-landscape", { width: 1180, height: 820 }], ["phone", { width: 390, height: 844 }]] as const) {
     const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: 2, isMobile: true, hasTouch: true, colorScheme: "light" });
     await wire(ctx);
-    await ctx.addInitScript(() => localStorage.setItem("guitar-room.guide", "off"));
+    await ctx.addInitScript(() => localStorage.setItem("struna.guide", "off"));
     const q = await page(ctx);
     await q.goto(`${ORIGIN}/#library`);
     await q.getByRole("searchbox").fill("Red River Valley");

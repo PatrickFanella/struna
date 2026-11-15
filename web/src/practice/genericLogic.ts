@@ -1,4 +1,4 @@
-/** The generic mode's practice screens, minus the React: defaults, wording and small decisions, kept here so they can be tested. */
+/** The studio mode's practice screens, minus the React: defaults, wording and small decisions, kept here so they can be tested. */
 
 import type { GenericStats, Level, LogSummary, Profile, ProfileInput, SessionKind } from "../generic.ts";
 
@@ -159,7 +159,7 @@ export function profileAction(o: { before: ProfileInput | null; after: ProfileIn
   return sameProfile(o.before, o.after) ? null : "profile-changed";
 }
 
-export const REVIEW_DRAFT_KEY = "guitar-room.review-draft";
+export const REVIEW_DRAFT_KEY = "struna.review-draft";
 
 /**
  * The review form after a reload: the stored draft over the fresh one, but only when it belongs to

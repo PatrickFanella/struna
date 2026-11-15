@@ -1,5 +1,5 @@
 /**
- * End-to-end smoke test of the generic mode in a real browser, at phone and iPad size,
+ * End-to-end smoke test of the studio mode in a real browser, at phone and iPad size,
  * each against its own scratch studio folder. No real coach runs: a stand-in CLI answers
  * for both providers, sets the plan's next instruction and adds one link.
  *
@@ -183,13 +183,13 @@ async function startServer(env: string, o: { bin?: string; codexBin?: string; lo
     env: {
       ...process.env,
       NODE_ENV: "production",
-      GUITAR_MODE: "generic",
+      STRUNA_MODE: "studio",
       PORT: String(port),
-      GUITAR_HOME: join(env, "home"),
-      GUITAR_STATE_DIR: join(env, "state"),
-      GUITAR_CACHE_DIR: join(env, "cache"),
-      GUITAR_LIBRARY_DIRS: "",
-      GUITAR_TABS_DIR: "",
+      STRUNA_HOME: join(env, "home"),
+      STRUNA_STATE_DIR: join(env, "state"),
+      STRUNA_CACHE_DIR: join(env, "cache"),
+      STRUNA_LIBRARY_DIRS: "",
+      STRUNA_TABS_DIR: "",
       CLAUDE_BIN: o.bin ?? fake,
       CODEX_BIN: o.codexBin ?? o.bin ?? fake,
       ...o.env,
@@ -210,9 +210,9 @@ async function startServer(env: string, o: { bin?: string; codexBin?: string; lo
   throw new Error("the server did not start");
 }
 
-/** The generic mode on loopback TCP needs its access token; the server wrote it to the state folder. */
+/** The studio mode on loopback TCP needs its access token; the server wrote it to the state folder. */
 let token = "";
-const json = <T>(path: string) => fetch(`${base}${path}`, { headers: { "x-guitar-room-token": token } }).then((r) => r.json() as Promise<T>);
+const json = <T>(path: string) => fetch(`${base}${path}`, { headers: { "x-struna-token": token } }).then((r) => r.json() as Promise<T>);
 
 /** What sticks out past the right edge of the screen: nothing may. */
 const tooWide = (page: Page) =>
@@ -236,7 +236,7 @@ async function walk(page: Page, env: string) {
 
   // ---- Setup form, starter plan, the onboarding action.
   await page.goto(`${base}/#practice`);
-  await page.getByRole("heading", { name: "Welcome to Guitar Room" }).waitFor();
+  await page.getByRole("heading", { name: "Welcome to Struna" }).waitFor();
   check((await page.locator(".tabs a").allTextContents()).join(",") === "Practice,Materials", "sections are Practice and Materials");
   await page.getByRole("radio", { name: /^Beginner/ }).click();
   await page.getByRole("radiogroup", { name: "Minutes in a usual session" }).getByRole("radio", { name: "15", exact: true }).click();
@@ -442,7 +442,7 @@ async function apiPass() {
   try {
     token = readFileSync(join(env, "state", "access-token"), "utf8").trim();
     const api = async (method: string, path: string, body?: unknown) => {
-      const res = await fetch(`${base}${path}`, { method, headers: { "x-guitar-room-token": token, "x-guitar-room": "1", "content-type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+      const res = await fetch(`${base}${path}`, { method, headers: { "x-struna-token": token, "x-struna": "1", "content-type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
       const text = await res.text();
       transcripts.push(text);
       return { status: res.status, text, json: (() => { try { return JSON.parse(text); } catch { return null; } })() };
@@ -465,7 +465,7 @@ async function apiPass() {
     const e = await api("POST", "/api/chat", { provider: "endpoint", message: "Hello", screen: { view: "start" } });
     check(events(e.text).join(",").startsWith("conversation,thread,delta") && !events(e.text).includes("error"), "the endpoint coach answers");
     const codexCall = log().find((c) => c.argv[0] === "exec")!;
-    check(codexCall.CODEX_HOME === join(state, "cli", "endpoint") && codexCall.argv.includes('model_providers.guitar_room.base_url="http://127.0.0.1:11434/v1"') && codexCall.argv.includes('web_search="disabled"'), "it ran as a custom provider with web search off");
+    check(codexCall.CODEX_HOME === join(state, "cli", "endpoint") && codexCall.argv.includes('model_providers.struna.base_url="http://127.0.0.1:11434/v1"') && codexCall.argv.includes('web_search="disabled"'), "it ran as a custom provider with web search off");
 
     const login = await api("POST", "/api/coach/providers/chatgpt/login");
     check(login.status === 200 && login.json.state === "waiting" && login.json.url === "https://auth.openai.com/codex/device" && /^[A-Z0-9]{4}-[A-Z0-9]{4,6}$/.test(login.json.code), "the ChatGPT sign-in shows the link and the code");
@@ -489,7 +489,7 @@ async function apiPass() {
   }
   const places: [string, string][] = [
     ["the server's output", readFileSync(serverLog, "utf8")],
-    ["the database", readFileSync(join(env, "state", "guitar-room.sqlite")).toString("latin1")],
+    ["the database", readFileSync(join(env, "state", "struna.sqlite")).toString("latin1")],
     ["the responses", transcripts.join("\n")],
     ["the stand-in's log", readFileSync(join(fakeDir, "calls.jsonl"), "utf8")],
   ];
@@ -524,7 +524,7 @@ async function coachWalk(browser: Browser) {
   const contexts: Ctx[] = [];
   try {
     token = readFileSync(join(env, "state", "access-token"), "utf8").trim();
-    const headers = { "x-guitar-room-token": token, "x-guitar-room": "1", "content-type": "application/json" };
+    const headers = { "x-struna-token": token, "x-struna": "1", "content-type": "application/json" };
     await fetch(`${base}/api/profile`, { method: "PUT", headers, body: JSON.stringify({ level: "beginner" }) });
 
     const open = async (label: string, width: number, height: number, scheme: "light" | "dark"): Promise<Ctx> => {
@@ -714,7 +714,7 @@ async function coachWalk(browser: Browser) {
 
     // ---- Host logins turned off: no coach is set up, and the old host-login conversation can only be replaced.
     await stop();
-    srv = await startServer(env, { bin, codexBin, log: serverLog, env: { GUITAR_COACH_HOST_LOGINS: "0" } });
+    srv = await startServer(env, { bin, codexBin, log: serverLog, env: { STRUNA_COACH_HOST_LOGINS: "0" } });
     const refusedChat = await fetch(`${base}/api/chat`, { method: "POST", headers, body: JSON.stringify({ provider: "claude", message: "Hi" }) });
     size = "coach-off";
     check(refusedChat.status === 400, "with host logins off, a chat on the host login is refused");
@@ -751,7 +751,7 @@ async function coachWalk(browser: Browser) {
   size = "coach";
   const places: [string, string][] = [
     ["the server's output", readFileSync(serverLog, "utf8")],
-    ["the database", readFileSync(join(env, "state", "guitar-room.sqlite")).toString("latin1")],
+    ["the database", readFileSync(join(env, "state", "struna.sqlite")).toString("latin1")],
     ["the responses the pages got", bodies.join("\n")],
     ["the pages", doms.join("\n")],
     ["the stand-in's log", readFileSync(join(fakeDir, "calls.jsonl"), "utf8")],

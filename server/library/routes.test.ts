@@ -8,12 +8,12 @@ import { after, before, test } from "node:test";
 const fx = join(import.meta.dirname, "../fixtures");
 const tmp = await mkdtemp(join(tmpdir(), "guitar-libroutes-"));
 await cp(join(fx, "media"), join(tmp, "media"), { recursive: true });
-process.env.GUITAR_VAULT_ROOT = join(fx, "vault");
-process.env.GUITAR_MEDIA_ROOT = join(tmp, "media");
-process.env.GUITAR_STATE_DIR = join(tmp, "state");
-process.env.GUITAR_CACHE_DIR = join(tmp, "cache");
-process.env.GUITAR_CALIBRE_RECEIPT = join(fx, "calibre-receipt.json");
-process.env.GUITAR_NO_SCAN = "1";
+process.env.STRUNA_VAULT_ROOT = join(fx, "vault");
+process.env.STRUNA_MEDIA_ROOT = join(tmp, "media");
+process.env.STRUNA_STATE_DIR = join(tmp, "state");
+process.env.STRUNA_CACHE_DIR = join(tmp, "cache");
+process.env.STRUNA_CALIBRE_RECEIPT = join(fx, "calibre-receipt.json");
+process.env.STRUNA_NO_SCAN = "1";
 
 const { handle } = await import("../index.ts");
 
@@ -29,7 +29,7 @@ after(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
-const scan = () => fetch(`${base}/api/library/scan`, { method: "POST", headers: { "x-guitar-room": "1" } }).then((r) => r.json());
+const scan = () => fetch(`${base}/api/library/scan`, { method: "POST", headers: { "x-struna": "1" } }).then((r) => r.json());
 
 test("one scan at a time, then search by text and source", async () => {
   const first = await scan();

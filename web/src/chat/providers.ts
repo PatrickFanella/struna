@@ -2,12 +2,12 @@
 
 /** The coaches on this computer's own logins: the only ones the personal mode has. */
 export type HostId = "claude" | "codex";
-/** A coach id: a host login, or (generic mode) one the app signs in itself, such as "anthropic". */
+/** A coach id: a host login, or (studio mode) one the app signs in itself, such as "anthropic". */
 export type ProviderId = string;
 
 export type Preset = { id: string; label: string; baseUrl: string; header: "bearer" | "api-key"; key: "required" | "none" | "optional" };
 
-/** One coach as the generic mode's settings show it. Secrets only ever arrive as their hint. */
+/** One coach as the studio mode's settings show it. Secrets only ever arrive as their hint. */
 export type ProviderRow = {
   id: string;
   label: string;
@@ -35,15 +35,15 @@ export type ProviderRow = {
 export type ProviderStatus = Record<HostId, { ok: boolean; detail: string }> & {
   last: string;
   host?: string;
-  /** Generic mode: whether ChatGPT can be signed in from the app. */
+  /** Studio mode: whether ChatGPT can be signed in from the app. */
   deviceSignIn?: boolean;
-  /** Generic mode: every coach this instance offers, in the settings' order. */
+  /** Studio mode: every coach this instance offers, in the settings' order. */
   list?: ProviderRow[];
 };
 
 const NAMES: Record<HostId, string> = { claude: "Claude", codex: "ChatGPT" };
 
-/** The coaches to choose from: the generic mode's list, or the two host logins. */
+/** The coaches to choose from: the studio mode's list, or the two host logins. */
 export function rows(p: ProviderStatus): Pick<ProviderRow, "id" | "label" | "ok" | "detail">[] {
   if (p.list) return p.list;
   return (["claude", "codex"] as const).map((id) => ({ id, label: NAMES[id], ok: Boolean(p[id]?.ok), detail: p[id]?.detail ?? "" }));
@@ -53,7 +53,7 @@ export function rows(p: ProviderStatus): Pick<ProviderRow, "id" | "label" | "ok"
  * The provider for a fresh page: the one used last, unless it is not signed in and the other is
  * (a player with only Codex signed in must not have every automatic request sent to Claude).
  * With neither signed in it stays on the last one, so the "not signed in" notice names it.
- * With the generic mode's list: the last one if it is ready, else the first ready one, else the last one
+ * With the studio mode's list: the last one if it is ready, else the first ready one, else the last one
  * when it is still offered, else the first offered.
  */
 export function pickProvider(p: ProviderStatus): ProviderId {
@@ -69,7 +69,7 @@ export function pickProvider(p: ProviderStatus): ProviderId {
 
 /**
  * Whether the coach in use can answer, and why not. The personal mode asks whether either login works,
- * as it always did; the generic mode's list asks about the current coach, since a message goes to it.
+ * as it always did; the studio mode's list asks about the current coach, since a message goes to it.
  */
 export function readiness(p: ProviderStatus | null, current: ProviderId): { ok: boolean; detail: string } {
   if (!p) return { ok: false, detail: "the coach could not be reached" };

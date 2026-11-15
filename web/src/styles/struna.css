@@ -1,0 +1,41 @@
+:root {
+  --struna-bg: #ECE8E1;
+  --struna-panel: #F8F6F2;
+  --struna-ink: #1A1714;
+  --struna-muted: #5E5850;
+  --struna-edge: #857E74;
+  --struna-ring: #C38244;
+  --struna-ring-ink: #87511F;
+  --struna-err: #A3332A;
+  --struna-rule: #D6D0C6;
+  --struna-wash: #E2DDD4;
+  --struna-font-display: "Jost", "Futura", "Century Gothic", sans-serif;
+  --struna-font-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", Arial, sans-serif;
+  --struna-font-label: "Spline Sans Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --struna-bg: #171411;
+    --struna-panel: #221E1A;
+    --struna-ink: #EFE9E0;
+    --struna-muted: #ACA397;
+    --struna-edge: #7D746A;
+    --struna-ring: #D4955A;
+    --struna-ring-ink: #DDA169;
+    --struna-err: #F08A7E;
+    --struna-rule: #3A332C;
+    --struna-wash: #2C2621;
+  }
+}
+:root[data-theme="dark"] {
+  --struna-bg: #171411;
+  --struna-panel: #221E1A;
+  --struna-ink: #EFE9E0;
+  --struna-muted: #ACA397;
+  --struna-edge: #7D746A;
+  --struna-ring: #D4955A;
+  --struna-ring-ink: #DDA169;
+  --struna-err: #F08A7E;
+  --struna-rule: #3A332C;
+  --struna-wash: #2C2621;
+}

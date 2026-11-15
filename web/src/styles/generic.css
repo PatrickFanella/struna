@@ -1,4 +1,4 @@
-/* Generic mode: the header's extras, the setup form, and the generic start and review screens.
+/* Studio mode: the header's extras, the setup form, and the generic start and review screens.
    Everything here uses the tokens and components of the personal app. */
 
 /* Section tabs when there are not exactly three. */
@@ -6,15 +6,15 @@
 .tabs .wrap.n2{grid-template-columns:repeat(2,1fr)}
 .tabs .wrap.n4{grid-template-columns:repeat(4,1fr)}
 
-/* A coach reply finished while the panel was closed. Pencil: it needs attention now. */
-.ib .unread{flex:none;width:9px;height:9px;border-radius:50%;background:var(--pencil);margin-left:-2px}
+/* A coach reply finished while the panel was closed. */
+.ib .unread{flex:none;width:9px;height:9px;border-radius:50%;background:var(--ink);margin-left:-2px}
 
 /* Setup form. */
 .setup .hint{font-weight:400}
 .levels{display:grid;gap:8px}
 .levels button{display:flex;flex-direction:column;gap:2px;min-height:var(--btn-h);padding:10px 14px;border:0;border-radius:var(--r);background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--edge);color:var(--ink);text-align:left;font:inherit}
-.levels button b{font-size:var(--fs-btn);font-weight:600;line-height:1.2}
-.levels button span{font-size:var(--fs-meta);color:var(--graphite);line-height:1.3}
+.levels button b{font-size:var(--fs-btn);font-weight:700;line-height:1.2}
+.levels button span{font-size:var(--fs-meta);color:var(--muted);line-height:1.3}
 .levels button.on{background:var(--wash);box-shadow:inset 0 0 0 2px var(--ink)}
 .levels button.on b{font-weight:700}
 .levels button.on span{color:var(--ink)}
@@ -30,7 +30,7 @@
 .gstart .statline{color:var(--ink)}
 .recent .grp{margin:0 0 4px}
 .recent ul{list-style:none;margin:0;padding:0}
-.recent li{display:flex;gap:12px;padding:6px 0;border-top:1px solid var(--rule);font-size:var(--fs-meta);line-height:1.35;color:var(--graphite)}
+.recent li{display:flex;gap:12px;padding:6px 0;border-top:1px solid var(--rule);font-size:var(--fs-meta);line-height:1.35;color:var(--muted)}
 .recent li:first-child{border-top:0}
 .recent li .num{flex:none;width:5.6em;color:var(--ink)}
 .recent li span:last-child{min-width:0;overflow-wrap:anywhere}

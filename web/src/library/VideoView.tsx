@@ -17,11 +17,11 @@ function clock(s: number): string {
  */
 export function VideoView({ src, storageKey, audioOnly, className, poster, children }: { src: string; storageKey: string; audioOnly?: boolean; className?: string; poster?: string | undefined; children?: React.ReactNode }) {
   const el = useRef<HTMLVideoElement & HTMLAudioElement>(null);
-  const [speed, setSpeed] = useState(() => Number(store.get(`guitar-room.speed:${storageKey}`)) || 100);
+  const [speed, setSpeed] = useState(() => Number(store.get(`struna.speed:${storageKey}`)) || 100);
   const [a, setA] = useState<number | null>(null);
   const [b, setB] = useState<number | null>(null);
   const [error, setError] = useState(false);
-  const key = `guitar-room.position:${storageKey}`;
+  const key = `struna.position:${storageKey}`;
   const loop = useRef<{ a: number | null; b: number | null }>({ a: null, b: null });
   loop.current = { a, b };
 
@@ -56,7 +56,7 @@ export function VideoView({ src, storageKey, audioOnly, className, poster, child
     if (!v) return;
     v.playbackRate = speed / 100;
     v.preservesPitch = true;
-    store.set(`guitar-room.speed:${storageKey}`, String(speed));
+    store.set(`struna.speed:${storageKey}`, String(speed));
   }, [speed, src, storageKey]);
 
   const setRate = (n: number) => setSpeed(Math.min(MAX, Math.max(MIN, Math.round(n / 5) * 5)));

@@ -28,7 +28,7 @@ export type CodexOptions = {
   permissions?: string | undefined;
   timeoutMs?: number | undefined;
   /**
-   * A coach the app signs in itself (generic mode): the whole child environment (see `appEnv`). With it
+   * A coach the app signs in itself (studio mode): the whole child environment (see `appEnv`). With it
    * set, `CODEX_MODEL` no longer applies; `model` does, passed as `-c model=<JSON string>`.
    */
   env?: NodeJS.ProcessEnv | undefined;
@@ -44,17 +44,17 @@ export type CodexOptions = {
 
 export type CodexEndpoint = { baseUrl: string; header: "bearer" | "api-key"; key: boolean };
 /** The variable the endpoint's key travels in; it keeps KEY in its name, so `hideEnv` drops it. */
-export const ENDPOINT_KEY_ENV = "GUITAR_ROOM_ENDPOINT_KEY";
+export const ENDPOINT_KEY_ENV = "STRUNA_ENDPOINT_KEY";
 
 /** The `-c` arguments for a run the app manages: its endpoint, its model and the shell's environment. */
 function appArgs(o: Pick<CodexOptions, "model" | "hideEnv" | "endpoint">): string[] {
   const c = (kv: string) => ["-c", kv];
   const out: string[] = [];
   if (o.endpoint) {
-    const p = "model_providers.guitar_room";
+    const p = "model_providers.struna";
     out.push(
-      ...c('model_provider="guitar_room"'),
-      ...c(`${p}.name="Guitar Room endpoint"`),
+      ...c('model_provider="struna"'),
+      ...c(`${p}.name="Struna endpoint"`),
       ...c(`${p}.base_url=${JSON.stringify(o.endpoint.baseUrl)}`),
       ...c(`${p}.wire_api="responses"`),
       ...c(`${p}.supports_websockets=false`),

@@ -16,8 +16,8 @@ export function PdfView({ src, storageKey, defaultFit = "width" }: { src: string
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
-  const [page, setPage] = useState(() => Number(store.get(`guitar-room.page:${storageKey}`)) || 1);
-  const [fit, setFit] = useState<Fit>(() => (store.get(`guitar-room.fit:${storageKey}`) as Fit) || defaultFit);
+  const [page, setPage] = useState(() => Number(store.get(`struna.page:${storageKey}`)) || 1);
+  const [fit, setFit] = useState<Fit>(() => (store.get(`struna.fit:${storageKey}`) as Fit) || defaultFit);
   const [zoom, setZoom] = useState(1);
   const [error, setError] = useState("");
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -27,7 +27,7 @@ export function PdfView({ src, storageKey, defaultFit = "width" }: { src: string
     let cancelled = false;
     setDoc(null);
     setError("");
-    const task = getDocument({ url: src, httpHeaders: { "x-guitar-room": "1" } });
+    const task = getDocument({ url: src, httpHeaders: { "x-struna": "1" } });
     task.promise.then(
       (d) => {
         if (cancelled) return void d.destroy();
@@ -75,7 +75,7 @@ export function PdfView({ src, storageKey, defaultFit = "width" }: { src: string
       task = p.render({ canvas: c, viewport: vp });
       task.promise.catch(() => {});
     });
-    store.set(`guitar-room.page:${storageKey}`, String(page));
+    store.set(`struna.page:${storageKey}`, String(page));
     return () => {
       cancelled = true;
       task?.cancel();
@@ -87,7 +87,7 @@ export function PdfView({ src, storageKey, defaultFit = "width" }: { src: string
   const chooseFit = (f: Fit) => {
     setFit(f);
     setZoom(1);
-    store.set(`guitar-room.fit:${storageKey}`, f);
+    store.set(`struna.fit:${storageKey}`, f);
   };
   const keys = (e: React.KeyboardEvent) => {
     if ((e.target as HTMLElement).tagName === "INPUT") return;

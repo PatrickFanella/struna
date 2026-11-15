@@ -118,7 +118,7 @@ export function CoachSettings() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const custom = prompts.filter((p) => p.custom);
-  const generic = useApp().mode === "generic";
+  const generic = useApp().mode === "studio";
 
   // Another tab or a restart may have changed them.
   useEffect(() => {

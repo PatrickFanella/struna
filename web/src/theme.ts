@@ -1,7 +1,7 @@
 import { store } from "./api.ts";
 
 export type ThemeChoice = "light" | "dark" | null;
-const KEY = "guitar-room.theme";
+const KEY = "struna.theme";
 
 export function getTheme(): ThemeChoice {
   const t = store.get(KEY);

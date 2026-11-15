@@ -15,7 +15,7 @@ test("personal mode renders a reply as it always has, pictures included", () => 
   assert.match(html, /<table>/);
 });
 
-test("generic mode loads a remote picture through the server and names its site", () => {
+test("studio mode loads a remote picture through the server and names its site", () => {
   const html = renderToStaticMarkup(createElement(Markdown, GENERIC_REPLY_MARKDOWN, REPLY));
   assert.match(html, /<img src="\/api\/chat\/image\?url=https%3A%2F%2Fpics\.example%2Fc\.png%3Fw%3D400" alt="C shape" loading="lazy" referrerPolicy="no-referrer"\/>/i);
   assert.ok(!html.includes('src="https://pics.example'), html); // The browser never asks the site itself.

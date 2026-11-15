@@ -1,5 +1,5 @@
 [Unit]
-Description=Private SSH path to Kvant guitar-room
+Description=Private SSH path to Kvant struna
 [Service]
 Type=simple
 ExecStart=/usr/bin/ssh -N -T -o ControlMaster=no -o ControlPath=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 172.20.0.1:34948:/run/user/1000/guitar-room/http.sock kvant

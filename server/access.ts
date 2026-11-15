@@ -6,12 +6,12 @@ import { join } from "node:path";
 import { HttpError, NOINDEX } from "./http.ts";
 
 /**
- * An access token for a server on loopback TCP with no login in front of it (the generic mode run
+ * An access token for a server on loopback TCP with no login in front of it (the studio mode run
  * by hand or by its example unit). Any local account, and any container on the host network, can
  * reach such a port, so the Host check alone does not keep them out. The token is created once in
  * the state folder (mode 600); opening the printed `/?token=…` address stores it in an HttpOnly,
  * SameSite=Strict cookie, and every request after that must carry the cookie (or the
- * `x-guitar-room-token` header, for scripts).
+ * `x-struna-token` header, for scripts).
  */
 export type Access = { token: string; cookie: string };
 
@@ -33,7 +33,7 @@ export function loadAccess(stateDir: string, port: number): Access {
   }
   chmodSync(file, 0o600);
   // Cookies are kept per host, not per port: name it by the port so two servers do not overwrite each other's.
-  return { token, cookie: `guitar_room_${port}` };
+  return { token, cookie: `struna_${port}` };
 }
 
 const same = (a: string, b: string) => {
@@ -63,8 +63,9 @@ const page = (res: ServerResponse, status: number, headers: Record<string, strin
  */
 export function checkAccess(req: IncomingMessage, res: ServerResponse, url: URL, a: Access): boolean {
   if (url.pathname === "/api/health") return false;
-  const header = req.headers["x-guitar-room-token"];
-  if (same(cookieValue(req, a.cookie), a.token) || (typeof header === "string" && same(header, a.token))) return false;
+  const headers = [req.headers["x-struna-token"], req.headers["x-guitar-room-token"]];
+  const cookies = [a.cookie, a.cookie.replace(/^struna_/, "guitar_room_")];
+  if (cookies.some((name) => same(cookieValue(req, name), a.token)) || headers.some((header) => typeof header === "string" && same(header, a.token))) return false;
   const given = url.searchParams.get("token");
   const method = req.method ?? "GET";
   if (given !== null && (method === "GET" || method === "HEAD") && !url.pathname.startsWith("/api/")) {
@@ -77,7 +78,7 @@ export function checkAccess(req: IncomingMessage, res: ServerResponse, url: URL,
       res,
       200,
       { "set-cookie": `${a.cookie}=${a.token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000` },
-      `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${attr(to)}"><title>Guitar Room</title><script>location.replace(${JSON.stringify(to).replace(/</g, "\\u003c")})</script><p>Opening the app…</p>`,
+      `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${attr(to)}"><title>Struna</title><script>location.replace(${JSON.stringify(to).replace(/</g, "\\u003c")})</script><p>Opening the app…</p>`,
     );
     return true;
   }
@@ -86,7 +87,7 @@ export function checkAccess(req: IncomingMessage, res: ServerResponse, url: URL,
     res,
     403,
     {},
-    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Guitar Room</title><body style="font:16px/1.5 system-ui,sans-serif;max-width:34rem;margin:3rem auto;padding:0 16px"><h1>Open the access link</h1><p>This server only answers browsers that have opened its access link once. The link was printed when the server started; it ends in <code>?token=</code> followed by the contents of the <code>${TOKEN_FILE}</code> file in the app's state folder.</p></body>`,
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Struna</title><body style="font:16px/1.5 system-ui,sans-serif;max-width:34rem;margin:3rem auto;padding:0 16px"><h1>Open the access link</h1><p>This server only answers browsers that have opened its access link once. The link was printed when the server started; it ends in <code>?token=</code> followed by the contents of the <code>${TOKEN_FILE}</code> file in the app's state folder.</p></body>`,
   );
   return true;
 }

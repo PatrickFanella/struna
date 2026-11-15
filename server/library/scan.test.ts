@@ -144,7 +144,7 @@ test("companions: lesson downloads, ArtistWorks charts and tracks, and archive s
 test("a rescan never shows a reader an empty or partial index", async () => {
   const path = join(tmp, "state3");
   const writer = openDb(path);
-  const reader = new DatabaseSync(join(path, "guitar-room.sqlite"));
+  const reader = new DatabaseSync(join(path, "struna.sqlite"));
   writeIndex(writer, items);
   const full = searchLibrary(reader, { limit: 500, offset: 0 }).total;
   let stop = false;

@@ -93,8 +93,8 @@ export function Materials({ active }: { active: boolean }) {
       const d = (e as CustomEvent<Changed | undefined>).detail;
       if (d?.materials || d?.plan) void load();
     };
-    addEventListener("guitar-room:changed", on);
-    return () => removeEventListener("guitar-room:changed", on);
+    addEventListener("struna:changed", on);
+    return () => removeEventListener("struna:changed", on);
   }, [load]);
 
   // The open item follows the list, so a saved copy or a new title shows without reopening it.
@@ -169,7 +169,7 @@ export function Materials({ active }: { active: boolean }) {
     } catch {
       /* storage unavailable */
     }
-    dispatchEvent(new Event("guitar-room:material"));
+    dispatchEvent(new Event("struna:material"));
     location.hash = "#practice";
   };
 

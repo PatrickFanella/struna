@@ -17,12 +17,12 @@ import { endpointProxy, PROXY_VARS, proxyEnv, upstreamProxy } from "./egress.ts"
 const execFileP = promisify(execFile);
 
 /**
- * Which coaches this instance offers (generic mode). "Locally hosted" means loopback TCP with the access
+ * Which coaches this instance offers (studio mode). "Locally hosted" means loopback TCP with the access
  * token: the player is whoever runs the server. Elsewhere the operator decides:
- * - host logins (this computer's `claude` and `codex`): on when locally hosted, else GUITAR_COACH_HOST_LOGINS=1; "0" turns them off;
- * - ChatGPT sign-in from the web: when locally hosted, or GUITAR_COACH_DEVICE_SIGNIN=1;
+ * - host logins (this computer's `claude` and `codex`): on when locally hosted, else STRUNA_COACH_HOST_LOGINS=1; "0" turns them off;
+ * - ChatGPT sign-in from the web: when locally hosted, or STRUNA_COACH_DEVICE_SIGNIN=1;
  * - keys and endpoints: when locally hosted, or with REQUIRE_USER, since anyone who can open the instance spends them;
- * - endpoints on loopback or a private network: when locally hosted, or GUITAR_COACH_PRIVATE_ENDPOINTS=1.
+ * - endpoints on loopback or a private network: when locally hosted, or STRUNA_COACH_PRIVATE_ENDPOINTS=1.
  * `codexSandboxed` says whether Codex runs under the permission profile that keeps it out of the state
  * folder (its install folder was found). Without it every Codex coach is off: the workspace-write
  * sandbox limits only writes, so a command could read the saved keys and the ChatGPT login.
@@ -103,7 +103,7 @@ const LIMIT = /\b429\b|rate.?limit|quota|credit balance|usage limit|too many req
 export function plainError(text: string, o: { label: string; chatgpt?: boolean }): string {
   const t = text.trim().slice(0, 800);
   // The app's own endpoint proxy refused a hop: a 403 that says nothing about the key.
-  const hintText = /Guitar Room refused/.test(t) ? "" : AUTH.test(t)
+  const hintText = /Struna refused/.test(t) ? "" : AUTH.test(t)
     ? o.chatgpt
       ? "The ChatGPT sign-in has expired or was revoked. Sign in again under Coach settings."
       : "Check or replace the key under Coach settings."
@@ -278,7 +278,7 @@ export type ProviderRow = {
   ok: boolean;
   /** The status line. */
   detail: string;
-  /** Whether this coach may use the web (also off when GUITAR_COACH_WEB=0). */
+  /** Whether this coach may use the web (also off when STRUNA_COACH_WEB=0). */
   web: boolean;
   /** The saved model, or the default; null for the CLI's own default. */
   model: string | null;
@@ -379,7 +379,7 @@ export async function rowFor(id: ProviderId, ctx: RowCtx, host?: { claude: HostS
   };
 }
 
-/** What `/api/providers` adds in the generic mode: the host statuses and every coach this instance offers. */
+/** What `/api/providers` adds in the studio mode: the host statuses and every coach this instance offers. */
 export async function providerRows(ctx: RowCtx): Promise<ProviderList> {
   const off = { ok: false, detail: "turned off" };
   const host = ctx.policy.hostLogins ? await providerStatus({ plain: true }) : { claude: off, codex: off };
@@ -404,7 +404,7 @@ type Job = { state: "starting" | LoginView["state"]; child?: ChildProcess; url?:
 const lastLine = (out: string) => (out.split("\n").map((l) => l.trim()).filter(Boolean).pop() ?? "(nothing)").replace(CODE_ALL, "[code]").slice(0, 200);
 
 /**
- * The coach routes (generic mode): save, replace and remove a coach's settings, and the ChatGPT
+ * The coach routes (studio mode): save, replace and remove a coach's settings, and the ChatGPT
  * device sign-in. Every non-GET route sits behind the app's header check and the access token or edge.
  * `stop` ends a running sign-in, for the server's exit.
  */

@@ -8,9 +8,9 @@ import { after, before, test } from "node:test";
 const tmp = await mkdtemp(join(tmpdir(), "guitar-practice-"));
 const vault = join(tmp, "vault");
 await cp(join(import.meta.dirname, "fixtures/vault"), vault, { recursive: true });
-process.env.GUITAR_VAULT_ROOT = vault;
-process.env.GUITAR_STATE_DIR = join(tmp, "state");
-process.env.GUITAR_MEDIA_ROOT = join(tmp, "media");
+process.env.STRUNA_VAULT_ROOT = vault;
+process.env.STRUNA_STATE_DIR = join(tmp, "state");
+process.env.STRUNA_MEDIA_ROOT = join(tmp, "media");
 
 const { handle } = await import("./index.ts");
 const { openDb } = await import("./db.ts");
@@ -27,7 +27,7 @@ after(async () => {
   await rm(tmp, { recursive: true, force: true });
 });
 
-const H = { "x-guitar-room": "1", "content-type": "application/json" };
+const H = { "x-struna": "1", "content-type": "application/json" };
 
 test("GET /api/today places the first session of the block", async () => {
   const r = await fetch(`${base}/api/today`);

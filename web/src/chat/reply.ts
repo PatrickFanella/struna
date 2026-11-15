@@ -34,7 +34,7 @@ function hostOf(src: string): string {
 }
 
 /**
- * A picture in a generic-mode reply. The coach reads pages other people wrote, so a picture from
+ * A picture in a studio-mode reply. The coach reads pages other people wrote, so a picture from
  * another site is fetched by the server (the image host never sees the player's device) and is
  * captioned with its site, so an unexpected one is easy to spot.
  */
@@ -54,5 +54,5 @@ function ReplyImage({ src, alt }: ImgHTMLAttributes<HTMLImageElement>) {
   );
 }
 
-/** A coach reply in generic mode: pictures go through `ReplyImage`. */
+/** A coach reply in studio mode: pictures go through `ReplyImage`. */
 export const GENERIC_REPLY_MARKDOWN = { remarkPlugins: [remarkGfm], components: { img: ReplyImage } };

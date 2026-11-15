@@ -1,8 +1,8 @@
-# Guitar Room: Library and Tabs Implementation Plan (Plan B)
+# Struna: Library and Tabs Implementation Plan (Plan B)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the searchable lesson library and the Guitar Pro tab browser to Guitar Room.
+**Goal:** Add the searchable lesson library and the Guitar Pro tab browser to Struna.
 
 **Architecture:**
 - A scan job builds a SQLite FTS5 index over the Guitar media folder (including the local book copies) and the vault lesson PDFs.
@@ -11,7 +11,7 @@
 
 **Tech stack:** Plan A's stack, plus `ffmpeg` and `ffprobe` (installed on Kvant), `epubjs`, `@coderline/alphatab`, and `unzip -p` for zip entries.
 
-**Spec:** `/home/shared/Work/Lab/guitar-room-design/design.md`, sections "Where the material lives", "Library" and "Tabs". Plan A (`2026-11-13-guitar-room-practice.md`) must be complete. This plan uses its `config`, `openDb`, `HttpError`, `send`, `route`, the pdf.js material viewer and the app shell.
+**Spec:** [`docs/design.md`](../design.md), sections "Where the material lives", "Library" and "Tabs". Plan A (`2026-11-13-struna-practice.md`) must be complete. This plan uses its `config`, `openDb`, `HttpError`, `send`, `route`, the pdf.js material viewer and the app shell.
 
 ## Global Constraints
 
@@ -26,7 +26,7 @@
 - **Video titles:** CGO titles and descriptions come from the vault article notes, `Sources/Raw/Country Guitar Online/Articles/*.md` (front matter `video-archive:` and its source URL), and fall back to `.info.json` `title`. ArtistWorks titles come from file names: drop the leading `NN_`, the instructor initials and `_ArtistWorks`, and turn `_` into spaces. The archive's duplicate encodings of the same lesson share a group key, the Vimeo or YouTube numeric ID in brackets or the file stem.
 - **Books:** titles are the file names without the extension. The Calibre ID for each book's "Open in Calibre-Web" link (`https://books.subcult.tv/book/<id>`) comes from `~/.local/state/guitar-books-from-calibre-20261114.json`, matched by destination path; no network call at scan time. When a book has both a PDF and an EPUB, it is one item with two formats, PDF preferred.
 - **Tabs:** `Restricted or Rights Review/Guitar Pro Tabs and Wiring/Collection/Guitar_Pro_Tabs/<letter>/<Artist>/<Artist> - <Title>[ (n)].gp3|gp4|gp5`. That's about 21,100 gp3, 3,500 gp4 and 5 gp5 files.
-- **Remux cache:** `~/.cache/guitar-room/remux/<sha1(path)>.mp4`. Copy the video stream. Convert audio to AAC 160k unless it is already `aac` or `mp3`. Evict least-recently-used files once the cache passes 40 GB.
+- **Remux cache:** `~/.cache/struna/remux/<sha1(path)>.mp4`. Copy the video stream. Convert audio to AAC 160k unless it is already `aac` or `mp3`. Evict least-recently-used files once the cache passes 40 GB.
 - **Read-only:** the app never modifies, moves or deletes library files, including `Books/`. Media is served only from inside `mediaRoot` and the thread folder.
 - **Library and Tabs are browse-only.** "Use in practice" opens an item in the session's material pane for that session only and never changes the block.
 
@@ -81,7 +81,7 @@
   - `GET /api/library?q=&source=&kind=&offset=` returns `{ items, total, scannedAt }`.
   - `POST /api/library/scan` returns `{ started: true }`. One scan at a time; a second call while one runs returns `{ started: false }`.
   - The server runs a scan at startup when `scannedAt` is older than 24 hours.
-  - The Library screen has a search field, source and kind filters, rows with title, source and duration or size, Rescan, and "Use in practice" on PDFs and videos. "Use in practice" sets `sessionStorage["guitar-room.material"]`, which the Plan A material pane reads.
+  - The Library screen has a search field, source and kind filters, rows with title, source and duration or size, Rescan, and "Use in practice" on PDFs and videos. "Use in practice" sets `sessionStorage["struna.material"]`, which the Plan A material pane reads.
 
 - [ ] **Step 1: Write failing tests** in `server/library/routes.test.ts`:
   - `GET /api/library?q=strumming&source=cgo` returns the fixture lesson;
@@ -161,5 +161,5 @@
 
 ### Task 6: Release
 
-- [ ] **Step 1:** Run `pnpm test && pnpm build`, then restart `guitar-room.service`. Through `guitar.subcult.tv` in a signed-in browser, play a CGO video from the library and open a tab.
+- [ ] **Step 1:** Run `pnpm test && pnpm build`, then restart `struna.service`. Through `struna.subcult.tv` in a signed-in browser, play a CGO video from the library and open a tab.
 - [ ] **Step 2:** Update the README: sources, the rescan, the remux cache location and limit, and the local book copies with their Calibre-Web links. Update the Kvant briefing entry in Machinum with the cache path and the ffmpeg dependency. Commit and push both.

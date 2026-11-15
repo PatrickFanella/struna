@@ -21,7 +21,7 @@ export const PROVIDERS: Record<HostProvider, (coach: CoachProfile) => Run> = {
   codex: (coach) => (req) => codexChat(req, coach.codex),
 };
 
-/** `fragment` is what is on the stand: the personal block's fragment, or the generic mode's material. */
+/** `fragment` is what is on the stand: the personal block's fragment, or the studio mode's material. */
 export type Screen = { view: string; stage?: string; fragment?: string; bpm?: number; subdivision?: string };
 
 /** What a turn changed in the studio folder; sent to the web as the SSE event `changed`. */
@@ -31,7 +31,7 @@ export type AfterTurn = { changed?: Changed; notices?: string[]; followUp?: stri
 /** What a mode gives the chat: the instructions, the context block and what each CLI may touch. */
 export type CoachProfile = {
   system: string | (() => Promise<string>);
-  /** The [Guitar Room] block that prefixes each message. */
+  /** The [Struna] block that prefixes each message. */
   context: (screen: Screen) => Promise<string>;
   claude: ClaudeOptions;
   codex: CodexOptions;
@@ -45,12 +45,12 @@ export type CoachProfile = {
    */
   afterTurn?: (before: unknown, pass?: { final: boolean }) => Promise<AfterTurn>;
   /**
-   * Generic mode with its coach list: the profile and run for one coach id, built for each request so a
+   * Studio mode with its coach list: the profile and run for one coach id, built for each request so a
    * new key applies at once. Null for an id it does not know; throws an HttpError for one turned off here.
    * Without it, the two host providers in `PROVIDERS` are the only coaches.
    */
   forProvider?: (id: Provider) => { profile: CoachProfile; run: Run } | null;
-  /** Generic mode with its coach list: what `/api/providers` adds to the host statuses. */
+  /** Studio mode with its coach list: what `/api/providers` adds to the host statuses. */
   providerList?: () => Promise<ProviderList>;
 };
 
@@ -68,17 +68,17 @@ The practice notes are in 001 Projects/Threads/Guitar/Practice/: the practice sy
 Write only inside 001 Projects/Threads/Guitar/. Never commit or push, and never change files elsewhere.
 Super Productivity is unavailable here: list any task changes for the owner instead of making them.
 The owner is usually at the music stand with a guitar: keep answers short and concrete, with tempos, bars and what to listen for.
-Each message starts with a [Guitar Room] block describing what the owner is looking at. It is context only: never repeat or imitate it in your reply.`;
+Each message starts with a [Struna] block describing what the owner is looking at. It is context only: never repeat or imitate it in your reply.`;
 
 export function buildContext(screen: Screen, t: TodayLike): string {
-  const lines = ["[Guitar Room]", `Screen: ${screen.view}`];
+  const lines = ["[Struna]", `Screen: ${screen.view}`];
   if (t.block) lines.push(`Block: ${t.block.title} (${t.block.id})`);
   lines.push(`Week ${t.position.week}, session ${t.position.sessionInWeek}: ${t.position.type}`);
   if (screen.stage) lines.push(`Stage: ${screen.stage}`);
   if (screen.fragment) lines.push(`Fragment: ${screen.fragment}`);
   if (screen.bpm) lines.push(`Metronome: ${screen.bpm} BPM${screen.subdivision ? `, ${screen.subdivision}` : ""}`);
   if (t.next.text) lines.push(`Next instruction: ${t.next.text}`);
-  return `${lines.join("\n")}\n[/Guitar Room]`;
+  return `${lines.join("\n")}\n[/Struna]`;
 }
 
 function screenOf(v: any): Screen {
@@ -103,7 +103,7 @@ function whyFailed(e: any): string {
 
 /**
  * Whether the host's own `claude` and `codex` CLIs are signed in to a subscription. Both exit 1 when
- * signed out; `plain` (the generic mode) then reads what they printed instead of the error, whose text
+ * signed out; `plain` (the studio mode) then reads what they printed instead of the error, whose text
  * names the binary's path. The personal mode keeps the text it always had.
  */
 export async function providerStatus(o: { plain?: boolean } = {}): Promise<{ claude: HostStatus; codex: HostStatus }> {
@@ -223,7 +223,7 @@ export async function coachTurn(o: { coach: CoachProfile; run: Run; prompt: stri
 async function chat(req: IncomingMessage, res: ServerResponse, store: Conversations, db: DatabaseSync, coach: CoachProfile) {
   const input = await readJson(req);
   const provider = String(input.provider ?? "") as Provider;
-  // The coach list (generic mode) refuses an id that is turned off here before anything is stored.
+  // The coach list (studio mode) refuses an id that is turned off here before anything is stored.
   const picked = coach.forProvider ? coach.forProvider(provider) : Object.hasOwn(PROVIDERS, provider) ? { profile: coach, run: PROVIDERS[provider as HostProvider](coach) } : null;
   if (!picked) throw new HttpError(400, "unknown provider");
   const message = String(input.message ?? "").trim();
