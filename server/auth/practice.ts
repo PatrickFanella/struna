@@ -1,3 +1,4 @@
+import { hostedRecordingRoutes } from "../recordings.ts";
 import { materialsRoutes } from "../generic/materials.ts";
 import { chmodSync, lstatSync, mkdirSync, readdirSync, realpathSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -64,8 +65,9 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
       const privateRouter = createRouter();
       // Registrations close over this request’s verified workspace, never a global owner.
-      if (url.pathname.startsWith("/api/materials")) {
+      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings")) {
         return await withStudio(identity, async (s) => {
+          hostedRecordingRoutes({ mediaRoot: s.home, db: s.db, assertActive: identity.assertActive }, privateRouter.route);
           materialsRoutes(s, { cacheDir: join(root, "accounts", identity.account, "cache"), assertActive: identity.assertActive }, privateRouter.route);
           const found = privateRouter.match(req.method === "HEAD" ? "GET" : req.method ?? "GET", url.pathname);
           if (!found) return false;

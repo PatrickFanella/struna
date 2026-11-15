@@ -5,7 +5,7 @@ import { activeElapsed, hasIncompleteTiming, moveStage, pauseTimer, startStageBr
 import { sessionChecklist, type Activity } from "./sessionScope.ts";
 import { useEffect, useRef, useState } from "react";
 
-import { api, store } from "../api.ts";
+import { accountHeaders, privateUrl, api, store } from "../api.ts";
 import { audio } from "../audio/context.ts";
 import { MicDenied } from "../audio/mic.ts";
 import { metronome, type Subdivision } from "../audio/metronome.ts";
@@ -27,7 +27,7 @@ import { StageMaterialLink } from "./StageMaterialLink.tsx";
 import { setStageSuggestion } from "../tools/stageSuggestion.ts";
 import { TempoRow } from "./TempoRow.tsx";
 
-export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
+export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string; src?: string };
 export type SessionState = {
   submissionId?: string;
   /** The session kind's id: `full` or `floor` in personal mode, the plan's own ids in studio mode. */
@@ -273,19 +273,21 @@ export function Session({ today, state, setState, items, material, onFinish, onD
       try { setTake(await r.stop()); } finally { setFinalizing(false); }
     }
   };
+  const takeRetry = useRef<{ take: Take; id: string } | null>(null);
   const saveTake = async () => {
     if (!take || !today.block) return;
+    if (takeRetry.current?.take !== take) takeRetry.current = { take, id: crypto.randomUUID() };
     setSaving(true);
     setRecError("");
     try {
-      const res = await fetch(`/api/recordings?blockId=${encodeURIComponent(today.block.id)}&label=${takeLabel}&ext=${take.ext}`, {
+      const res = await fetch(`/api/recordings?blockId=${encodeURIComponent(today.block.id)}&label=${takeLabel}&ext=${take.ext}&seconds=${take.seconds}`, {
         method: "POST",
-        headers: { "x-struna": "1", "content-type": take.blob.type || "application/octet-stream" },
+        headers: { ...accountHeaders(), "x-struna-take": takeRetry.current!.id, "x-struna": "1", "content-type": take.blob.type || "application/octet-stream" },
         body: take.blob,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? res.statusText);
-      setState((s) => ({ ...s, recording: { path: data.path, label: takeLabel, purpose } }));
+      setState((s) => ({ ...s, recording: { path: data.path, label: takeLabel, purpose, ...(data.src ? { src: privateUrl(data.src) } : {}) } }));
       setTake(null);
       setPurpose("");
     } catch (e) {
@@ -493,7 +495,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
       {requesting && <p role="status">Waiting for microphone permission. <button className="linkbtn" onClick={() => void stopTake()}>Cancel microphone request</button></p>}
       {finalizing && <p role="status">Finishing the recording…</p>}
       <SessionStatus timerRunning={state.resumedAt !== null} recording={recording !== null} take={take !== null} saving={saving} saved={state.recording !== null} error={recError} />
-      {state.recording && !take && <p className="srcnote takesaved">Saved take: {state.recording.path}</p>}
+      {state.recording && !take && <div className="srcnote takesaved">Saved take: {state.recording.path}{state.recording.src && <audio controls src={state.recording.src} preload="none" />}</div>}
       {take && (
         <div className="takebox" role="dialog" aria-label="Save this take">
           <p className="grp">Save this take (<span className="num">{Math.round(take.seconds)}</span> s)</p>
