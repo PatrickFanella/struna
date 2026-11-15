@@ -50,6 +50,7 @@ function main() {
   const env = process.env;
   const dir = env.FAKE_DIR ?? "";
   const argv = process.argv.slice(2);
+  if (argv[0] === "--version") { console.log("0.0.0-offline-stand-in"); return; }
   const file = (name: string) => (dir ? join(dir, name) : "");
   const readOr = (p: string) => (p && existsSync(p) ? readFileSync(p, "utf8").trim() : "");
   const fail = env.FAKE_FAIL ?? readOr(file("fail"));
@@ -126,8 +127,21 @@ function main() {
     log(input);
     const slow = Number(readOr(file("slow")) || 0);
     if (slow) await new Promise((r) => setTimeout(r, slow));
-    if (input.includes("BREAK THE PLAN")) writeFileSync("plan/plan.json", '{"version": 2}');
-    if (input.includes("Fix the file") && existsSync(file("good-plan.json"))) copyFileSync(file("good-plan.json"), "plan/plan.json");
+    const candidate = /This turn's plan candidate: ([^\s]+)\./.exec(argv.join(" "))?.[1] ?? "plan/plan.json";
+    if (input.includes("PROPOSE PLAN") && existsSync(file("good-plan.json"))) {
+      const plan = JSON.parse(readFileSync(file("good-plan.json"), "utf8"));
+      plan.next = "Play the proposed slow roll";
+      writeFileSync(candidate, JSON.stringify(plan, null, 2));
+    }
+    if (input.includes("TRY LIVE WRITE")) {
+      const results: boolean[] = [];
+      for (const target of ["plan/plan.json", "plan/archive/hostile.json"]) {
+        try { writeFileSync(target, "hostile"); results.push(false); } catch { results.push(true); }
+      }
+      writeFileSync(file("denied-writes.json"), JSON.stringify(results));
+    }
+    if (input.includes("BREAK THE PLAN")) writeFileSync(candidate, '{"version": 2}');
+    if (input.includes("Fix the file") && existsSync(file("good-plan.json"))) copyFileSync(file("good-plan.json"), candidate);
     const key = env.ANTHROPIC_API_KEY ?? env.CODEX_API_KEY ?? env.STRUNA_ENDPOINT_KEY ?? env.AWS_BEARER_TOKEN_BEDROCK ?? "";
     if (claude) {
       const resume = argv.includes("--resume") ? argv[argv.indexOf("--resume") + 1]! : "";

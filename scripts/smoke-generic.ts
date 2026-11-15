@@ -139,6 +139,7 @@ writeFileSync(
   `#!/usr/bin/env node
 const fs = require("node:fs");
 const argv = process.argv.slice(2);
+if (argv[0] === "--version") { console.log("offline-smoke"); process.exit(0); }
 if (argv[0] === "auth") { console.log(JSON.stringify({ loggedIn: true, authMethod: "claude.ai", subscriptionType: "max" })); process.exit(0); }
 if (argv[0] === "login") { console.log("Logged in using ChatGPT"); process.exit(0); }
 let input = "";
@@ -149,7 +150,8 @@ process.stdin.on("data", (d) => (input += d)).on("end", () => {
   try {
     const plan = JSON.parse(fs.readFileSync("plan/plan.json", "utf8"));
     plan.next = ${JSON.stringify(COACH_NEXT)};
-    fs.writeFileSync("plan/plan.json", JSON.stringify(plan, null, 2));
+    const candidate = /This turn's plan candidate: ([^\\s]+)\\./.exec(argv.join(" "))?.[1];
+    if (candidate) fs.writeFileSync(candidate, JSON.stringify(plan, null, 2));
   } catch {}
   const links = "materials/links.json";
   let list = [];
@@ -248,10 +250,15 @@ async function walk(page: Page, env: string) {
   await toast(/coach/i).first().waitFor();
   check(true, "the onboarding toast appeared after the profile was saved");
   check(existsSync(join(home, "profile.json")) && existsSync(join(home, "plan/plan.json")), "profile.json and a starter plan/plan.json were written");
-  // The stand-in coach changes plan.next; the `changed` event reloads the start screen.
+  // The stand-in proposes plan.next; Today changes only after explicit Apply.
+  await chatIdle();
+  check(!JSON.parse(readFileSync(join(home, "plan/plan.json"), "utf8")).next.includes(COACH_NEXT), "the active plan is unchanged before Apply");
+  await page.locator(".top").getByRole("button", { name: /^Coach/ }).click();
+  await page.getByRole("button", { name: "Apply plan change", exact: true }).click();
+  await page.getByRole("dialog", { name: "Coach" }).getByRole("button", { name: "Done", exact: true }).click();
   await page.getByText(COACH_NEXT).waitFor({ timeout: 20_000 });
-  check(true, "the start screen reloaded with the coach's next instruction (SSE changed)");
-  check(await page.locator(".top .unread").count(), "the Coach button shows an unread dot");
+  check(true, "Today reloaded only after explicit Apply");
+  check((await page.locator(".top .unread").count()) === 0, "opening Coach clears the unread dot");
   await shot("start", true);
   const calls = () => readFileSync(join(dir, "calls.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as { cwd: string; input: string }).filter((c) => c.cwd === home);
   check(calls().length === 1 && /profile/i.test(calls()[0]!.input), "one coach turn ran, in the studio folder, with the onboarding text");
@@ -411,7 +418,8 @@ async function walk(page: Page, env: string) {
 
   // Delete one: asked inline, then moved to the trash folder.
   const row = mat.locator(".matitem").filter({ hasText: "Hand position" });
-  await row.getByRole("button", { name: "Delete" }).click();
+  await row.getByRole("button", { name: /^Manage/ }).click();
+  await row.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await shot("materials-delete-ask", true);
   await row.getByRole("button", { name: "Yes, delete" }).click();
   await waitItems(7);
@@ -459,7 +467,7 @@ async function apiPass() {
     check(ep.status === 200 && ep.json.ok, "an Ollama endpoint is saved");
 
     const a = await api("POST", "/api/chat", { provider: "anthropic", message: "Hello. BREAK THE PLAN", screen: { view: "start" } });
-    check(events(a.text).join(",") === "conversation,thread,delta,changed,delta,thread,delta,changed,done", `the Anthropic coach answers, with the plan repair turn (${events(a.text).join(",")})`);
+    check(events(a.text).join(",") === "conversation,thread,delta,delta,thread,delta,notice,done", `the Anthropic coach answers, with the plan repair turn (${events(a.text).join(",")})`);
     const claudeCalls = log().filter((c) => c.argv[0] === "-p");
     check(claudeCalls.length === 2 && claudeCalls.every((c) => c.CLAUDE_CONFIG_DIR === join(state, "cli", "anthropic") && c.sha256.ANTHROPIC_API_KEY === sha256(KEY) && !c.envNames.includes("CLAUDE_CODE_OAUTH_TOKEN")), "it ran in its own config folder with the key in its environment only");
     const e = await api("POST", "/api/chat", { provider: "endpoint", message: "Hello", screen: { view: "start" } });

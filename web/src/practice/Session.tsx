@@ -29,6 +29,7 @@ export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpo
 export type SessionState = {
   /** The session kind's id: `full` or `floor` in personal mode, the plan's own ids in studio mode. */
   kind: string;
+  today?: Today;
   stages?: Stage[];
   addedActivities?: Activity[];
   attemptedActivities?: string[];

@@ -1,3 +1,4 @@
+import { syncPractice } from "./sharedSession.ts";
 import { stopTimer } from "./sessionTimer.ts";
 import { validBpm, type TempoRecord } from "./stageTempo.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -67,6 +68,9 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   const app = useApp();
   const generic = app.mode === "studio";
   const m = useMetronome();
+  const [leaseUntil, setLeaseUntil] = useState(0);
+  const [leaseError, setLeaseError] = useState("");
+  const [leaseRetry, setLeaseRetry] = useState(0);
 
   const load = useCallback(() => {
     api.get<Today>("/api/today").then(
@@ -78,6 +82,32 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     );
   }, []);
   useEffect(load, [load]);
+  useEffect(() => {
+    if (!generic) return;
+    let live = true;
+    if (session && !leaseUntil) setSession((s) => stopTimer(s, Date.now()));
+    const sync = async () => {
+      try {
+        const lease = await syncPractice(Boolean(session));
+        if (live) { setLeaseUntil(lease.expiresAt); setLeaseError(""); dispatchEvent(new Event("struna:practice-state")); }
+      } catch (e) {
+        if (live) { setLeaseUntil(0); setLeaseError((e as Error).message); setSession((s) => stopTimer(s, Date.now())); }
+      }
+    };
+    void sync();
+    const timer = setInterval(() => void sync(), 20_000);
+    const visibility = () => { if (document.visibilityState === "visible") { setLeaseUntil(0); void sync(); } };
+    document.addEventListener("visibilitychange", visibility);
+    return () => { live = false; clearInterval(timer); document.removeEventListener("visibilitychange", visibility); };
+  }, [generic, Boolean(session), leaseRetry]);
+  useEffect(() => {
+    if (!generic || !session || !leaseUntil) return;
+    const timer = setTimeout(() => {
+      setLeaseUntil(0); setLeaseError("Practice registration expired. Reconnect before resuming.");
+      setSession((s) => stopTimer(s, leaseUntil));
+    }, Math.max(0, leaseUntil - Date.now()));
+    return () => clearTimeout(timer);
+  }, [generic, Boolean(session), leaseUntil]);
   // Studio mode: the coach changed the plan or the profile, so today is out of date.
   useEffect(() => {
     const on = (e: Event) => {
@@ -157,6 +187,9 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   };
 
   const start = async (kind: string, cross?: string) => {
+    if (generic) {
+      try { const lease = await syncPractice(true); setLeaseUntil(lease.expiresAt); } catch (e) { setLoadError(`Could not register practice safely: ${(e as Error).message}`); return; }
+    }
     // An item sent from the library ("Use in practice") leads this session; otherwise the block's first PDF.
     // In studio mode the coach orders the plan's materials, so the first one that exists leads.
     const first = generic ? (extra ?? items.find((i) => !i.missing)) : (extra ?? items.find((i) => !i.missing && i.kind === "pdf") ?? items[0]);
@@ -171,6 +204,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     }
     const s: SessionState = {
       kind,
+      ...(generic ? { today: today! } : {}),
       stages: sessionKind(today!, kind).stages,
       addedActivities: extra ? [{ key: extra.key, title: extra.label }] : [],
       cross: cross ?? null,
@@ -198,6 +232,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   const end = () => {
     metronome.stop();
     saveSession(null);
+    if (generic) void syncPractice(false).catch(() => {});
     setSessionState(null);
     // "Use in practice" lasts for one session only.
     try {
@@ -270,11 +305,13 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     }} />;
   }
 
+  if (generic && session && !leaseUntil) return <div className="notice" role="status"><h1>Reconnect practice</h1><p>{leaseError || "Registering the restored session before practice resumes."} Your stage, panes and measurements are kept. The timer is paused until registration succeeds.</p><button className="btn outline" onClick={() => setLeaseRetry((n) => n + 1)}>Retry practice connection</button></div>;
+  const sessionToday = session.today ?? today;
   if (phase.name === "review") {
     const View = generic ? GenericReview : Review;
     return (
       <View
-        today={today}
+        today={sessionToday}
         session={session}
         bpm={m.bpm}
         material={material?.label ?? ""}
@@ -311,7 +348,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       </div>
     )}
     <Session
-      today={today}
+      today={sessionToday}
       state={session}
       setState={setSession}
       items={items}

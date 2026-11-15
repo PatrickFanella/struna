@@ -121,7 +121,7 @@ test("an Anthropic key: saved without echo, used through the environment, same S
   const before = turns().length;
   const r = await chat({ provider: "anthropic", message: "BREAK THE PLAN", screen: { view: "start" } });
   assert.equal(r.status, 200);
-  assert.deepEqual(names(r.events), ["conversation", "thread", "delta", "changed", "delta", "thread", "delta", "changed", "done"]);
+  assert.deepEqual(names(r.events), ["conversation", "thread", "delta", "delta", "thread", "delta", "notice", "done"]);
   const [first, second] = turns().slice(before);
   for (const c of [first!, second!]) {
     assert.equal(c.CLAUDE_CONFIG_DIR, join(state, "cli", "anthropic"));
@@ -144,7 +144,12 @@ test("the host Claude row runs exactly as before: same arguments, the host envir
   assert.deepEqual(names(r.events), ["conversation", "thread", "delta", "done"]);
   const c = turns()[before]!;
   const expected = claudeCommand({ system: c.argv[c.argv.indexOf("--append-system-prompt") + 1]!, options: genericCoach(studio).claude });
-  assert.deepEqual(c.argv, expected);
+  const allowedAt = c.argv.indexOf("--allowedTools") + 1;
+  const normalized = [...c.argv];
+  assert.match(normalized[allowedAt]!, /Edit\(\.coach-candidates\//);
+  assert.doesNotMatch(normalized[allowedAt]!, /Edit\(plan/);
+  normalized[allowedAt] = expected[allowedAt]!;
+  assert.deepEqual(normalized, expected);
   assert.equal(c.CLAUDE_CONFIG_DIR, null);
   assert.ok(c.envNames.includes("CLAUDE_CODE_OAUTH_TOKEN"), "the host row keeps subscriptionEnv");
   assert.ok(!c.argv.some((a) => a.startsWith("--model=") || a === "--max-budget-usd"));
@@ -470,7 +475,7 @@ test("a setup change during a turn: the old session is not saved back, and no re
     const id = r.events[0]![1].id;
     assert.equal(convs.get(id)!.thread_id, null, "the reset stands");
     assert.equal(turns().length, before + 1, "no repair turn ran");
-    assert.ok(r.events.some(([e, d]) => e === "notice" && /cannot use/.test(d.message)), "the plan problem is told instead");
+    assert.ok(!r.events.some(([e, d]) => e === "notice" && /proposed plan is ready/.test(d.message)), "a stale turn creates no proposal");
     const next = await chat({ provider: "anthropic", conversation: id, message: "again" });
     assert.deepEqual(next.events[1], ["notice", { message: FRESH_NOTICE }]);
     assert.ok(!turns().at(-1)!.argv.includes("--resume"));
@@ -541,4 +546,37 @@ test("no secret reached a response, the database or the fake's log", () => {
   for (const k of [ANTHROPIC, OPENAI, ENDPOINT]) assert.ok(!all.includes(k), k.slice(0, 12));
   // The store is the one place that holds them.
   assert.ok(readFileSync(store.file, "utf8").includes(ANTHROPIC));
+});
+
+test("all seven Studio paths stage automatic proposals and cannot write active plan/archive", async () => {
+  await call("PUT", "/api/coach/providers/anthropic", { key: ANTHROPIC });
+  await call("PUT", "/api/coach/providers/openai", { key: OPENAI });
+  await call("PUT", "/api/coach/providers/bedrock", { key: "bedrock-DUMMY-qualification", region: "us-east-1" });
+  await call("PUT", "/api/coach/providers/endpoint", { preset: "openrouter", key: ENDPOINT, model: "test-model" });
+  writeFileSync(join(store.dir("chatgpt"), "auth.json"), JSON.stringify({ fake: true }));
+  const original = readFileSync(join(home, "plan/plan.json"), "utf8");
+  for (const provider of ["claude", "anthropic", "bedrock", "codex", "chatgpt", "openai", "endpoint"]) {
+    const count = (db.prepare("SELECT COUNT(*) AS n FROM plan_proposals WHERE state='pending'").get() as { n: number }).n;
+    const r = await chat({ provider, message: "PROPOSE PLAN; TRY LIVE WRITE", auto: "material-added" });
+    assert.equal(r.status, 200);
+    assert.ok(!names(r.events).includes("error"), provider);
+    assert.ok(r.events.some(([e, d]) => e === "notice" && /proposed plan is ready/.test(d.message)), provider);
+    assert.deepEqual(JSON.parse(readFileSync(join(dir, "denied-writes.json"), "utf8")), [true, true]);
+    assert.equal(readFileSync(join(home, "plan/plan.json"), "utf8"), original);
+    assert.equal(existsSync(join(home, "plan/archive/hostile.json")), false);
+    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM plan_proposals WHERE state='pending'").get() as { n: number }).n, count + 1);
+  }
+});
+
+test("failed qualification disables every provider path without a direct-write fallback", async () => {
+  policy.planSandbox = { claude: { ok: false, detail: "Offline plan sandbox probe failed" }, codex: { ok: false, detail: "Offline plan sandbox probe failed" } };
+  try {
+    const rows = (await call("GET", "/api/providers")).json.list;
+    assert.ok(rows.every((r: { ok: boolean; unavailable: boolean }) => !r.ok && r.unavailable));
+    for (const provider of ["claude", "anthropic", "bedrock", "codex", "chatgpt", "openai", "endpoint"]) {
+      const r = await chat({ provider, message: "Try to change my plan" });
+      assert.equal(r.status, 400, provider);
+      assert.match(r.text, /probe failed/);
+    }
+  } finally { delete policy.planSandbox; }
 });

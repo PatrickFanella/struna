@@ -72,7 +72,7 @@ export function CoachProviders() {
   const list = status.list ?? [];
   return (
     <div className="coachprov">
-      <p className="srcnote">Sending a message gives this coach access to edit your active plan, materials, notes and profile. Those edits take effect directly; there is no Apply preview yet.</p>
+      <p className="srcnote">Sending stages plan proposals for review. Only Apply changes the active plan; materials, notes and profile edits still take effect directly. Providers are unavailable when their plan-write sandbox cannot be qualified.</p>
       <p className="grp">Coach</p>
       {list.length === 0 && <p className="notice">Every coach is turned off on this instance. Ask whoever runs it to turn one on.</p>}
       <ul className="provlist">

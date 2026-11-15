@@ -1,3 +1,4 @@
+import type { PlanSandbox } from "../generic/planSandbox.ts";
 import { execFile } from "node:child_process";
 import { access, constants, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -8,6 +9,7 @@ import { config } from "../config.ts";
 import { type ChatEvent, type ChatRequest, jsonLines } from "./process.ts";
 
 export type CodexOptions = {
+  planSandbox?: PlanSandbox | undefined;
   /** The working directory: with temp, the only writable place. */
   cwd: string;
   /**
@@ -105,6 +107,7 @@ export async function* codexChat(req: ChatRequest, options: CodexOptions): Async
     signal: req.signal,
     timeoutMs: options.timeoutMs ?? config.chatTimeoutMs,
     env: options.env,
+    planSandbox: options.planSandbox,
   });
 
   let messages = 0;

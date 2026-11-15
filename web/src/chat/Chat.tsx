@@ -1,3 +1,4 @@
+import { PlanCandidates } from "./PlanCandidates.tsx";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import Markdown from "react-markdown";
 
@@ -158,6 +159,7 @@ async function send(text: string, auto?: ActionId, find = false): Promise<FindTu
         else if (ev === "changed") {
           dispatchEvent(new CustomEvent("struna:changed", { detail: d }));
         } else if (ev === "done") {
+          dispatchEvent(new Event("struna:proposals"));
           complete = true;
           if (d.aborted) { ok = false; problem = "The Coach stopped"; }
         }
@@ -335,7 +337,7 @@ function PromptSheet({ prompts, screen, sheetRef }: { prompts: Prompt[]; screen:
           </section>
         ) : null;
       })}
-      <p className="srcnote">Draft fills the message box for you to review. Send submits the request immediately. Plan change requests are drafted; sending them can change the active plan directly, without an Apply preview.</p>
+      <p className="srcnote">Draft fills the message box for you to review. Send submits the request immediately. Plan change requests are drafted; sending them stages proposed plan changes for your review. Only Apply changes Today. Materials, notes and profile edits still take effect directly.</p>
     </div>
   );
 }
@@ -356,6 +358,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
 
   useEffect(() => {
     if (!open) return;
+    dispatchEvent(new Event("struna:proposals"));
     void loadProviders(true).then((p) => p && setStatus(p));
   }, [open]);
   // The settings changed a coach: the module already asked again; show its answer.
@@ -541,10 +544,11 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
           <PromptSheet prompts={prompts} screen={screen} sheetRef={sheet} />
         ) : (
           <div className="chatlog" ref={log} aria-live="polite">
+            {generic && <PlanCandidates />}
             {state.messages.length === 0 && (
               <div className="chatempty">
                 <p>{generic
-                  ? "Ask about today's session, a song, a chord, or what to practise next. The coach sees your plan, the stage you are on and the tempo, and can change the active plan directly. There is no Apply preview yet."
+                  ? "Ask about today's session, a song, a chord, or what to practise next. The coach sees your plan, the stage you are on and the tempo, and can propose plan changes. Review the before/after preview and choose Apply to change Today."
                   : "Ask about today's session, a passage, or a block review. The coach sees the current block, stage and tempo."}</p>
                 {!coaches && st && !st.ok && <p className="notice">{NAMES[state.provider]} is not signed in on {status?.host ?? "Kvant"}: {st.detail}</p>}
                 {offered.length > 0 && !noCoach && <Chips prompts={offered.slice(0, 6)} more={() => setMore(true)} />}

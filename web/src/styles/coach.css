@@ -117,3 +117,9 @@
 
 /* Keep a busy prompt focusable so modal dismissal can restore its exact launcher. */
 .promptchips button[aria-disabled="true"] { opacity: .5; cursor: default; }
+
+.plan-proposal { border:1px solid var(--rule); padding:12px; border-radius:8px; margin:12px 0; }
+.plan-diff { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.plan-diff pre { overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:13px var(--mono); max-height:260px; background:var(--wash); padding:8px; }
+.plan-proposal summary { min-height:44px; cursor:pointer; }
+@media(max-width:719px) { .plan-diff { grid-template-columns:minmax(0,1fr); } }
