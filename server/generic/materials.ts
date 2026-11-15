@@ -190,19 +190,23 @@ function editLinks<T>(s: Pick<Studio, "home">, change: (raw: unknown[]) => Promi
 }
 
 /** What the active plan names, read leniently: a plan the validator rejects still marks its materials. */
-async function planRefs(s: Pick<Studio, "home">): Promise<{ files: Set<string>; urls: Set<string> }> {
+async function planRefs(s: Pick<Studio, "home">): Promise<{ files: Set<string>; urls: Set<string>; names: Map<string, string> }> {
   const files = new Set<string>();
   const urls = new Set<string>();
+  const names = new Map<string, string>();
   try {
     const plan = JSON.parse(await readFile(join(s.home, "plan", "plan.json"), "utf8"));
     for (const m of Array.isArray(plan?.materials) ? plan.materials : []) {
+      const label = str(m?.label, 300);
+      if (label && typeof m?.file === "string") names.set(m.file.replace(/^\.\//, ""), label);
+      if (label && typeof m?.url === "string") names.set(m.url, label);
       if (typeof m?.file === "string") files.add(m.file.replace(/^\.\//, ""));
       if (typeof m?.url === "string") urls.add(m.url);
     }
   } catch {
     /* no plan yet */
   }
-  return { files, urls };
+  return { files, urls, names };
 }
 
 const libraries = new Map<string, { at: number; scan: Promise<{ lists: FileInfo[][]; truncated: boolean }> }>();
@@ -232,6 +236,10 @@ function fileItem(f: FileInfo, inPlan: boolean): Listed {
   return { id, title: titleOf(basename(f.rel)), kind: kindOf(f.rel), source: "studio", path: `materials/${f.rel}`, src: srcOf(id), url: null, youtube: null, note: "", size: f.size, added: new Date(f.mtimeMs).toISOString(), inPlan };
 }
 
+function displayMetadata(e: Entry): Pick<MaterialItem, "shortTitle" | "provider" | "level"> {
+  return { ...(str(e.shortTitle, 300) ? { shortTitle: str(e.shortTitle, 300) } : {}), ...(str(e.provider, 200) ? { provider: str(e.provider, 200) } : {}), ...(str(e.level, 200) ? { level: str(e.level, 200) } : {}) };
+}
+
 function linkItem(home: string, e: Entry, fallbackAdded: string, inPlan: boolean): Listed {
   let host = e.url;
   try {
@@ -242,6 +250,7 @@ function linkItem(home: string, e: Entry, fallbackAdded: string, inPlan: boolean
   return {
     id: linkId(e.url),
     title: str(e.title, 300) || host,
+    ...displayMetadata(e),
     kind: "link",
     source: "link",
     path: null,
@@ -276,11 +285,16 @@ export async function listMaterials(s: Pick<Studio, "home" | "libraryDirs">, opt
     const saved = typeof e.file === "string" ? byPath.get(e.file.replace(/^\.\//, "")) : undefined;
     if (saved && !saved.url) {
       // A saved link shows once, as its file.
+      Object.assign(saved, displayMetadata(e));
       saved.url = e.url;
       saved.title = str(e.title, 300) || saved.title;
       saved.note = [str(e.note, 1000), str(e.level, 200)].filter(Boolean).join(" · ");
       saved.inPlan ||= inPlan;
     } else own.push(linkItem(s.home, e, linksAdded, inPlan));
+  }
+  for (const item of own) {
+    const name = plan.names.get(item.path ?? "") || plan.names.get(item.url ?? "");
+    if (!item.shortTitle && name) item.shortTitle = name;
   }
   own.sort((a, b) => b.added.localeCompare(a.added) || a.title.localeCompare(b.title));
 
@@ -298,7 +312,7 @@ export async function listMaterials(s: Pick<Studio, "home" | "libraryDirs">, opt
   const hit = (i: Listed) => {
     if (kind && i.kind !== kind) return false;
     if (!words.length) return true;
-    const hay = `${i.title} ${i.note} ${i.path ?? ""} ${i.url ?? ""}`.toLocaleLowerCase();
+    const hay = `${i.shortTitle ?? ""} ${i.title} ${i.provider ?? ""} ${i.level ?? ""} ${i.note} ${i.path ?? ""} ${i.url ?? ""}`.toLocaleLowerCase();
     return words.every((w) => hay.includes(w));
   };
   const all = [...own, ...folder].filter(hit);
@@ -512,6 +526,10 @@ export function materialsRoutes(s: Studio, extra: { cacheDir?: string | undefine
   route("GET", "/api/materials", async (_req, res, { url }) => {
     const limit = Math.min(LIBRARY_CAP * 2, Math.max(1, Number(url.searchParams.get("limit")) || 500));
     send(res, 200, await listMaterials(s, { q: (url.searchParams.get("q") ?? "").slice(0, 200), kind: url.searchParams.get("kind") ?? "", limit }));
+  });
+
+  route("GET", "/api/materials/item", async (_req, res, { url }) => {
+    send(res, 200, await found(url.searchParams.get("id") ?? ""));
   });
 
   route("GET", "/api/materials/file", async (req: IncomingMessage, res: ServerResponse, { url }) => {

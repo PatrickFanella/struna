@@ -18,6 +18,7 @@ export type PaneItem = {
   note?: string;
   libId?: string;
   poster?: string;
+  provider?: string;
   url?: string;
   youtube?: string;
 };
