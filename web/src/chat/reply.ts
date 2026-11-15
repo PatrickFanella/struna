@@ -1,8 +1,10 @@
 import { createElement, type ImgHTMLAttributes, useState } from "react";
 import remarkGfm from "remark-gfm";
 
-/** A coach reply in personal mode: as it has always been rendered. */
-export const REPLY_MARKDOWN = { remarkPlugins: [remarkGfm] };
+import { nestedHeadings } from "../markdown.ts";
+
+/** A coach reply in personal mode, nested below the view heading. */
+export const REPLY_MARKDOWN = { remarkPlugins: [remarkGfm], components: nestedHeadings };
 
 /** Where a reply's picture is loaded from: the app's own address as it is, another site through the server. */
 export function imageSrc(src: string | undefined): string | null {
@@ -55,4 +57,4 @@ function ReplyImage({ src, alt }: ImgHTMLAttributes<HTMLImageElement>) {
 }
 
 /** A coach reply in studio mode: pictures go through `ReplyImage`. */
-export const GENERIC_REPLY_MARKDOWN = { remarkPlugins: [remarkGfm], components: { img: ReplyImage } };
+export const GENERIC_REPLY_MARKDOWN = { remarkPlugins: [remarkGfm], components: { ...nestedHeadings, img: ReplyImage } };

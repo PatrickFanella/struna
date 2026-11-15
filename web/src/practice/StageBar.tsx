@@ -11,7 +11,7 @@ export function StageBar({ stages, current, progress }: { stages: Stage[]; curre
   const pct = Math.round(Math.min(1, Math.max(0, progress)) * 100);
   return (
     <>
-      <div className="stages" role="img" aria-label={`Stage ${current + 1} of ${stages.length}, ${pct} percent done`}>
+      <div className="stages" role="img" aria-label={`Stage ${current + 1} of ${stages.length}, current stage timer ${pct} percent elapsed`}>
         {stages.map((s, i) => (
           <i key={s.key} className={i < current ? "done" : i === current ? "now" : ""} style={{ flex: s.minutes, ...(i === current ? ({ "--p": `${pct}%` } as React.CSSProperties) : {}) }} />
         ))}

@@ -1,3 +1,5 @@
+import { hasIncompleteTiming, playedMinutes } from "./sessionTimer.ts";
+import { sessionChecklist } from "./sessionScope.ts";
 import { useEffect, useState } from "react";
 
 import { api } from "../api.ts";
@@ -5,7 +7,7 @@ import { SUBDIVISIONS } from "../audio/metronome.ts";
 import { coachAction } from "../chat/actions.tsx";
 import { sessionKind, type Today } from "../types.ts";
 import { coachReady } from "../chat/Chat.tsx";
-import { type Difficulty, elapsedMinutes, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, tempo } from "./genericLogic.ts";
+import { type Difficulty, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, tempo } from "./genericLogic.ts";
 import { Choice, Text } from "./Review.tsx";
 import type { SessionState } from "./Session.tsx";
 
@@ -29,7 +31,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
     const first = {
       material,
       target: "",
-      minutes: String(elapsedMinutes(session.startedAt, Date.now())),
+      minutes: String(playedMinutes(session, Date.now())),
       metronome: (clicked ? "used" : "not used") as "used" | "not used",
       startTempo: String(session.startBpm),
       cleanTempo: String(bpm),
@@ -97,6 +99,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
         minutes: Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : 0,
         material: f.material,
         target: f.target,
+        activities: sessionChecklist(session.stages ?? kind.stages, session.addedActivities).map((a) => ({ ...a, attempted: session.attemptedActivities?.includes(a.key) ?? false })),
         startTempo: start === null ? "" : String(start),
         cleanTempo: clean === null ? "" : String(clean),
         subdivision: used && (start !== null || clean !== null) ? subdivision : "",
@@ -127,6 +130,11 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
     <form className="review greview" onSubmit={submit}>
       <h1>{session.pain ? "Stopped: pain or tension" : "How did it go?"}</h1>
       <p className="instr">{session.pain ? painNote(coach) : "Mostly taps, and nothing is required. The coach reads this before it plans your next session."}</p>
+      <div className="field">
+        <p className="grp">This session included</p>
+        <ul>{sessionChecklist(session.stages ?? kind.stages, session.addedActivities).map((a) => <li key={a.key}>{a.title}{session.attemptedActivities?.includes(a.key) ? " — attempted" : " — unmeasured"}</li>)}</ul>
+      </div>
+      {hasIncompleteTiming(session) && <p className="notice" role="status">Earlier stage times were not recorded in this older session. Minutes played includes only recovered timing; adjust it if you know the total.</p>}
       <Text label="What you worked on" value={f.material} onChange={set("material")} placeholder="A song, an exercise, a page" />
       <Text label="Target (optional)" value={f.target} onChange={set("target")} placeholder="What you were aiming for today" />
       <div className="row2">
@@ -149,7 +157,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
       </div>
       <Text label="What to do first next time" value={f.next} onChange={set("next")} area />
       <Text label="Notes (optional)" value={f.notes} onChange={set("notes")} area />
-      {error && <p className="notice" role="alert"><b>The log was not written.</b> {error}</p>}
+      <p className={error ? "notice" : "srcnote"} role="status" aria-atomic="true">{busy ? "Saving session log" : error ? `The log was not written. ${error}` : "Session log not saved yet"}</p>
       <button className="btn primary full" disabled={busy}>{busy ? "Writing the log" : "Write the log"}</button>
       <div className="row2 reviewfoot">
         <button type="button" className="btn quiet" onClick={onBack}>Back to the session</button>

@@ -114,12 +114,9 @@ textarea.input{resize:vertical;line-height:1.4}
 
 /* Coach: a slide-over panel from any screen. */
 .chatwrap{position:fixed;inset:0;z-index:40;pointer-events:none}
-.chatwrap .scrim{position:absolute;inset:0;background:rgba(0,0,0,.28);opacity:0;transition:opacity .2s}
-.chatwrap.open{pointer-events:auto}
-.chatwrap.open .scrim{opacity:1}
-.chat{position:absolute;top:0;right:0;bottom:0;width:min(100%,520px);display:flex;flex-direction:column;background:var(--page);border-left:1px solid var(--rule);transform:translateX(100%);transition:transform .22s ease-out;padding:max(10px,env(safe-area-inset-top)) var(--gap) max(12px,env(safe-area-inset-bottom))}
-.chatwrap.open .chat{transform:none}
-.chatwrap:not(.open) .chat{visibility:hidden;transition:transform .22s ease-out,visibility 0s .22s}
+.chat{position:fixed;inset:0 0 0 auto;margin:0;width:min(100%,520px);max-width:none;height:100dvh;max-height:none;flex-direction:column;background:var(--page);color:var(--ink);border:0;border-left:1px solid var(--rule);padding:max(10px,env(safe-area-inset-top)) var(--gap) max(12px,env(safe-area-inset-bottom));pointer-events:auto}
+.chat[open]{display:flex}
+.chat::backdrop{background:rgba(0,0,0,.28)}
 .chathd{display:flex;align-items:center;gap:10px;padding-bottom:8px}
 .chathd h2{margin:0;font-family:var(--display);font-weight:400;font-size:var(--fs-name)}
 .chathd .seg{flex:1;margin:0}
@@ -284,8 +281,11 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .pane-coach .chathd h2,.pane-coach .chathd .sheetdone{display:none}
 .pane .matnote{padding:12px}
 .emptypane{align-items:center;justify-content:center}
-.panemenu{position:absolute;top:100%;right:8px;z-index:20;display:flex;flex-direction:column;min-width:240px;max-width:min(90vw,360px);max-height:60vh;overflow:auto;padding:6px;background:var(--page);border:1px solid var(--edge);border-radius:var(--r)}
-.panemenu button{text-align:left;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:var(--ink);font-size:14px}
+.panemenu{position:fixed;z-index:40;display:flex;flex-direction:column;width:min(360px,calc(100vw - 24px));overflow:auto;overscroll-behavior:contain;padding:6px;background:var(--page);border:1px solid var(--edge);border-radius:var(--r)}
+.panemenu button{flex:none;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left;padding:10px;border:0;border-radius:6px;background:transparent;color:var(--ink);font-size:14px}
+.panemenu button span,.panemenu button small{display:block}
+.panemenu button span{font-weight:700}
+.panemenu button small{margin-top:4px;color:var(--muted);font-size:12px}
 .panemenu button:hover,.panemenu button:focus-visible{background:var(--wash)}
 .panemenu .grp{margin:8px 10px 2px;font-size:12px}
 .panetabs{display:flex;gap:6px;overflow-x:auto}
@@ -533,3 +533,61 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .draftrow .btn{height:44px;padding:0 16px;font-size:15px}
 .draftrow .srcnote{margin:0;flex:1;min-width:220px}
 @media (max-width:719px){.coachline{font-size:13px}.session .backb{order:3}}
+
+/* The stage and timer lead; metadata and progression stay secondary. */
+.sessiontop > .stagerow { order: -2; }
+.sessiontop > .sessionline { order: 2; }
+.sessiontop > .session-time { margin: 0; }
+.session .stagetext h1 { font-size: 26px; }
+.session button.clock, .session button.clock.waiting {
+  background: var(--ink); color: var(--on-ink); border: 1px solid var(--ink);
+  border-radius: var(--r); padding: 10px 14px; align-items: flex-start;
+}
+.session button.clock .t, .session button.clock.waiting .t,
+.session button.clock .s, .session button.clock.waiting .s { color: inherit; }
+.session button.clock .s { text-decoration: none; font-weight: 400; }
+.clock-action { font-weight: 700; font-size: 16px; }
+.session .nextb { background: var(--panel); color: var(--ink); border: 1px solid var(--edge); }
+@media (max-width:719px) {
+  .session .stagetext h1 { font-size: 22px; }
+  .session button.clock { flex-wrap: wrap; max-width: 100%; gap: 6px 10px; }
+  .session button.clock .s { flex-basis: 100%; }
+  .session .nextb { min-height: 48px; height: auto; }
+}
+
+/* Expand the mounted reader without replacing its document or player. */
+.reader-expanded::before { content: ""; position: fixed; inset: 0; background: var(--page); z-index: 89; }
+.pane.expanded-reader { position: fixed; inset: 8px; z-index: 90; }
+.expanded-reader .panehd { flex-wrap: wrap; }
+.expanded-reader .panetitle { white-space: normal; overflow-wrap: anywhere; }
+.pane-manage { display: inline-flex; gap: 6px; }
+.pane-manage[hidden] { display: none; }
+.paneacts { flex-wrap: wrap; justify-content: flex-end; }
+.panehd { flex-wrap: wrap; }
+.session-tools-toggle { display: none; }
+.session-secondary { display: contents; }
+@media (max-width:719px) {
+  .session-tools-toggle { display: inline-flex; }
+  .sessionbar:not(.tools-visible) .passrow,
+  .sessionbar:not(.tools-visible) .session-secondary { display: none; }
+  .sessionbar .met { flex-basis: auto; flex: 1; }
+  .sessionbar.tools-visible .met { flex-basis: 100%; }
+  .sessionbar .stoppain { margin-left: auto; }
+  .app:has(.view.on .session) { height: auto; min-height: 100dvh; }
+  .app:has(.view.on .session) > .dock { position: static; }
+  .session .workspace { flex: none; height: 38dvh; min-height: 200px; }
+}
+/* Tool names stay visible on narrow screens, including desktop zoom. */
+@media (max-width:600px){
+  .top .wrap{flex-wrap:wrap}
+  .top .acts{margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+}
+@media (max-width:360px){
+  #metronome .r4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #metronome .r4 button{padding:0 6px;gap:6px}
+  #metronome .r4 button svg{width:24px;flex-shrink:0}
+}
+
+/* Persistent practice states; live text excludes ticking clocks and beat counters. */
+.sessionstatus{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--muted);font-size:14px}
+.sessionstatus p{margin:0}

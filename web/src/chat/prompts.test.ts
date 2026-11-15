@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Prompt } from "../generic.ts";
-import { fillAction, fillPrompt, promptsFor, screenId } from "./prompts.ts";
+import { fillAction, fillPrompt, promptAction, promptPurpose, promptsFor, screenId } from "./prompts.ts";
 
 const p = (id: string, screens: string[], text: string): Prompt => ({ id, label: id, text, group: "plan", screens });
 
@@ -46,4 +46,19 @@ test("action messages take the caller's values and read sensibly without them", 
   assert.equal(fillAction("I added {names}.", { names: "Blues in A and a link" }), "I added Blues in A and a link.");
   assert.equal(fillAction("{days} days; log {log}", { days: "9" }), "9 days; log the newest file in logs/");
   assert.equal(fillAction("Stopped ({summary}).", { summary: " " }), "Stopped (no details given).");
+});
+
+test("prompt intent and action are explicit, including complete plan requests and custom prompts", () => {
+  const advice = p("advice", ["start"], "Explain this.");
+  assert.equal(promptAction(advice), "Send");
+  assert.equal(promptPurpose(advice), "Advice");
+  const plan: Prompt = { ...advice, purpose: "plan-change" };
+  assert.equal(promptAction(plan), "Draft");
+  assert.equal(promptPurpose(plan), "Plan change");
+  const length: Prompt = { ...advice, purpose: "session-length" };
+  assert.equal(promptAction(length), "Send");
+  assert.equal(promptPurpose(length), "Session length");
+  assert.equal(promptAction({ ...advice, text: "Teach {input}" }), "Draft");
+  assert.equal(promptAction({ ...advice, custom: true }), "Draft");
+  assert.equal(promptPurpose({ ...advice, custom: true }), "Custom request");
 });

@@ -14,7 +14,7 @@ export function ToolsSheet({ tool, onSwitch, onClose }: { tool: Tool; onSwitch: 
         </div>
         <button className="sheetdone" onClick={onClose}>Done</button>
       </div>
-      {tool === "tuner" ? <TunerPanel /> : <MetronomePanel />}
+      {tool === "tuner" ? <TunerPanel onMetronome={() => onSwitch("metronome")} /> : <MetronomePanel />}
     </section>
   );
 }

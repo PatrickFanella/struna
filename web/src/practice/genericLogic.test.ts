@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { Profile } from "../generic.ts";
 import { sessionKind, sessionKinds, type Stage, type Today } from "../types.ts";
-import { breakDue, defaultProfile, elapsedMinutes, fromForm, kindLabel, logFacts, nextDraft, profileAction, sameProfile, shortDate, statsFacts, tempo, toForm } from "./genericLogic.ts";
+import { breakDue, defaultProfile, fromForm, kindLabel, logFacts, nextDraft, profileAction, sameProfile, shortDate, statsFacts, tempo, toForm } from "./genericLogic.ts";
 
 const stage = (key: string, minutes: number): Stage => ({ key, title: key, minutes, output: key });
 const personal: Today = {
@@ -81,11 +81,7 @@ test("labels, stats and history lines", () => {
   assert.equal(shortDate("soon"), "soon");
 });
 
-test("minutes and tempos for the review", () => {
-  assert.equal(elapsedMinutes(undefined, 5), 1);
-  assert.equal(elapsedMinutes(1000, 1000 + 20_000), 1);
-  assert.equal(elapsedMinutes(1000, 1000 + 17.6 * 60_000), 18);
-  assert.equal(elapsedMinutes(1, 1 + 48 * 3_600_000), 600);
+test("optional tempos for the review", () => {
   assert.equal(tempo("72"), 72);
   assert.equal(tempo(""), null);
   assert.equal(tempo("12"), null);

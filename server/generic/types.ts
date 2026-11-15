@@ -37,6 +37,9 @@ export type PlanStage = {
   minutes: number;
   /** What to do, in one or two sentences. */
   task: string;
+  /** Optional stable reference, using exactly one file or URL. */
+  material?: { file?: string; url?: string };
+  targetBpm?: number;
 };
 
 export type PlanSession = {
@@ -88,6 +91,10 @@ export type MaterialKind = "pdf" | "video" | "audio" | "image" | "tab" | "text" 
 export type MaterialItem = {
   id: string;
   title: string;
+  /** Optional musical name; title remains the original source title. */
+  shortTitle?: string;
+  provider?: string;
+  level?: string;
   kind: MaterialKind;
   /** Where it came from: an upload, the coach's own writing, a saved web copy, a link, or a read-only library folder. */
   source: "studio" | "link" | "folder";
@@ -109,6 +116,8 @@ export type MaterialItem = {
 export type LinkEntry = {
   url: string;
   title: string;
+  shortTitle?: string;
+  provider?: string;
   note?: string;
   /** Who it suits, in the coach's words. */
   level?: string;
@@ -125,11 +134,14 @@ export type PromptGroup = "plan" | "session" | "material" | "find" | "learn" | "
 
 /** A prompt the player can pick in the coach panel. */
 export type Prompt = {
+  /** What the request asks for; this is not a file-access restriction. */
+  purpose?: "advice" | "plan-change" | "session-length" | "materials";
   id: string;
   label: string;
   /**
    * The message. `{material}`, `{stage}`, `{bpm}` and `{level}` are filled from the screen.
-   * A text ending in `{input}` is put in the message box for the player to finish, not sent.
+   * A text containing `{input}`, a plan-change request or a custom prompt is drafted.
+   * Other requests are sent only by a button explicitly labeled Send.
    */
   text: string;
   group: PromptGroup;
