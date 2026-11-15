@@ -1,3 +1,4 @@
+import { accountCredentials } from "./credentials.ts";
 import { accountCoach, type HostedReply } from "./coach.ts";
 import { hostedRecordingRoutes } from "../recordings.ts";
 import { materialsRoutes } from "../generic/materials.ts";
@@ -24,6 +25,7 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     if (root === other || root.startsWith(other + sep) || other.startsWith(root + sep)) throw new Error("Hosted root must be separate from owner data");
   }
   const coach = accountCoach(options.run);
+  const credentials = accountCredentials(root, coach.revokeAccount);
   const contexts = new WeakMap<IncomingMessage, Studio>();
   const router = createRouter();
   genericRoutes((req) => {
@@ -68,8 +70,9 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
       const privateRouter = createRouter();
       // Registrations close over this request’s verified workspace, never a global owner.
-      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:conversations|prompts|chat)(?:\/|$)/.test(url.pathname)) {
+      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:conversations|prompts|chat|providers)(?:\/|$)/.test(url.pathname)) {
         return await withStudio(identity, async (s) => {
+          credentials.register(s, identity, privateRouter.route);
           coach.register(s, identity, privateRouter.route);
           hostedRecordingRoutes({ mediaRoot: s.home, db: s.db, assertActive: identity.assertActive }, privateRouter.route);
           materialsRoutes(s, { cacheDir: join(root, "accounts", identity.account, "cache"), assertActive: identity.assertActive }, privateRouter.route);
