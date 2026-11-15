@@ -89,7 +89,7 @@ export function FileBody({ item, onOpen, open, hideLabel = false }: { item: Pane
   if (item.missing) return <p className="matnote">Material missing: {item.note ?? item.label}. {generic ? "The plan names a file that is not in your materials. Add it, or ask the coach to fix the plan." : "Check the link in the block note."}</p>;
   if (item.kind === "link") return <LinkBody item={item} hideLabel={hideLabel} />;
   if (item.kind === "image" && item.src) return <ImageBody key={item.src} src={item.src} label={item.label} />;
-  if (item.kind === "text" && item.src) return <TextView src={item.src} label={item.label} />;
+  if (item.kind === "text" && item.src) return <TextView src={item.src} label={item.label} hideLabel={hideLabel} />;
   if (item.kind === "tabfile" && item.src) return <TabPlayer src={item.src} title={item.label} />;
   if (item.kind === "epub" && item.src) return <EpubView src={item.src} storageKey={item.key} />;
   if (item.kind === "tg") return <p className="matnote">Export to Guitar Pro to view here. This is a TuxGuitar file ({item.note ?? item.label}).</p>;
@@ -468,7 +468,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot, focusReq
                 ) : p.content.type === "tab" ? (
                   <TabPlayer src={`/api/tabs/${p.content.tabId}/file`} title={paneTitle(p.content)} />
                 ) : (
-                  <FileBody item={p.content.item} onOpen={(c) => void open(c, "add")} open={openKeys} />
+                  <FileBody item={p.content.item} hideLabel onOpen={(c) => void open(c, "add")} open={openKeys} />
                 )}
               </div>
             </section>
