@@ -20,7 +20,17 @@ mkdirSync(join(home, "plan"), { recursive: true });
 const date = new Date().toISOString();
 const profile = normalizeProfile({ level: "beginner" }, date);
 writeFileSync(join(home, "profile.json"), JSON.stringify(profile));
-writeFileSync(join(home, "plan/plan.json"), JSON.stringify(starterPlan(profile, date.slice(0, 10))));
+const plan = starterPlan(profile, date.slice(0, 10));
+if (issue === "18") {
+  mkdirSync(join(home, "materials"), { recursive: true });
+  plan.materials = Array.from({ length: 30 }, (_, i) => {
+    const label = i === 0 ? "Old Joe Clark — melody and alternating bass practice" : i === 1 ? "ArtistWorks/Bluegrass guitar/" + "Long musical title with slow variations ".repeat(4) + ".md" : `Exercise ${i + 1}`;
+    const file = `materials/exercise-${i}.md`;
+    writeFileSync(join(home, file), `# Exercise ${i + 1}\n\nPlay slowly.`);
+    return { label, file, note: "Scratch lesson source; melody and accompaniment" };
+  });
+}
+writeFileSync(join(home, "plan/plan.json"), JSON.stringify(plan));
 const fake = writeFakeBin(join(dir, "fake"));
 const port = await new Promise<number>((resolve) => {
   const s = createServer().listen(0, "127.0.0.1", () => {
@@ -59,6 +69,68 @@ async function theme(page: Page) {
   await fits(page);
   await page.screenshot({ path: join(dir, `${page.viewportSize()!.width}-doubled.png`), fullPage: true });
 }
+async function panePicker(page: Page) {
+  await page.getByRole("button", { name: /^Short session/ }).click();
+  const add = page.getByRole("button", { name: "Add pane", exact: true });
+  const menu = page.getByRole("menu", { name: "Choose pane content" });
+  for (const mode of ["light", "dark", "Device"]) {
+    await page.evaluate((mode) => {
+      if (mode === "Device") delete document.documentElement.dataset.theme;
+      else document.documentElement.dataset.theme = mode;
+    }, mode);
+    await add.focus();
+    await page.keyboard.press("Enter");
+    await menu.waitFor();
+    check(await menu.getByRole("menuitem").first().evaluate((e) => e === document.activeElement), "Picker initially focuses first choice");
+    check(await menu.evaluate((e) => e.scrollHeight > e.clientHeight && e.clientHeight <= innerHeight - 24), "Long picker scrolls within viewport");
+    check(await menu.getByRole("menuitem").evaluateAll((els) => els.every((e) => e.scrollWidth <= e.clientWidth)), "Complete choice labels wrap without clipping");
+    check(await menu.evaluate((e) => { const r = e.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }), "Picker edges stay in viewport");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    const long = menu.getByRole("menuitem").nth(2);
+    check(await long.locator("span").textContent() === plan.materials[1]!.label.split("/").pop()!.replace(/\.md$/, ""), "Musical title comes before source");
+    check((await long.getAttribute("role")) === "menuitem" && (await long.innerText()).includes(plan.materials[1]!.label), "Full resource label remains in accessible choice text");
+    await page.screenshot({ path: join(dir, `${page.viewportSize()!.width}-${mode}-picker.png`), fullPage: true });
+    await page.keyboard.press("Escape");
+    check(await add.evaluate((e) => e === document.activeElement), "Escape restores exact Add opener");
+    await add.click();
+    await page.mouse.click(2, 2);
+    check(await add.evaluate((e) => e === document.activeElement), "Outside close restores Add opener");
+    await add.click();
+    await menu.getByRole("menuitem").nth(2).click();
+    await menu.waitFor({ state: "detached" });
+    check(await page.locator(".pane:visible .mdoc").filter({ hasText: "Exercise 2" }).innerText() === "Exercise 2\n\nPlay slowly.", "Touch/pointer choice opens selected resource");
+    const change = page.locator(".pane:visible").last().getByRole("button", { name: /^Change what/ });
+    await change.focus();
+    await page.keyboard.press("Enter");
+    await menu.waitFor();
+    await page.keyboard.press("Escape");
+    check(await change.evaluate((e) => e === document.activeElement), "Escape restores exact replacement opener");
+    await change.focus();
+    await page.keyboard.press("Enter");
+    await menu.waitFor();
+    await page.keyboard.press("Home");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await menu.waitFor({ state: "detached" });
+    check(await page.locator(".pane:visible .mdoc").filter({ hasText: "Exercise 3" }).innerText() === "Exercise 3\n\nPlay slowly.", "Keyboard replacement opens selected resource");
+    await fits(page);
+  }
+  while (await page.locator(".pane").count() < 4) {
+    const n = await page.locator(".pane").count();
+    await add.press("Enter");
+    await menu.getByRole("menuitem").nth(10 + n).press("Enter");
+    await menu.waitFor({ state: "detached" });
+  }
+  check(await page.locator(".pane:visible [aria-haspopup='menu']").evaluateAll((els) => els.some((e) => e === document.activeElement)), "Adding fourth pane restores focus to visible control after Add disappears");
+  await page.locator(".pane:visible [aria-haspopup='menu']").last().press("Enter");
+  await menu.getByRole("menuitem").nth(25).press("Enter");
+  await menu.waitFor({ state: "detached" });
+  check(await page.locator(".pane:visible [aria-haspopup='menu']").evaluateAll((els) => els.some((e) => e === document.activeElement)), "Replacing fourth pane restores focus to visible replacement control");
+
+}
 try {
   for (let i = 0; ; i++) {
     if (server.exitCode !== null) throw new Error("Scratch server exited");
@@ -78,6 +150,7 @@ try {
       await page.goto(`${base}/?token=${token}`);
       await page.locator(".gstart").waitFor();
       if (issue === "28") await theme(page);
+      if (issue === "18") await panePicker(page);
       check(!errors.length, `${width}: no page errors`);
       await context.close();
     }
