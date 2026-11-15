@@ -1,3 +1,4 @@
+import { ConfirmDiscard } from "./ConfirmDiscard.tsx";
 import { useState } from "react";
 
 import { api } from "../api.ts";
@@ -59,6 +60,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
     next: `Start at ${bpm} BPM, ${subLog(session.subdivision)}, with ${material}; listen for `,
     observation: "",
   });
+  const [discarding, setDiscarding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const defaultNext = `Start at ${bpm} BPM, ${subLog(session.subdivision)}, with ${material}; listen for `;
@@ -120,6 +122,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
         recall: f.recall,
         ...(session.recording ? { recording: session.recording } : {}),
         pain,
+        partial: session.partial === true,
         improvement: f.improvement,
         failure: f.failure,
         next: f.next,
@@ -144,7 +147,9 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
 
   return (
     <form className="review" onSubmit={submit}>
-      <h1>{session.pain ? "Stopped: pain or tension" : "Session review"}</h1>
+      {discarding && <ConfirmDiscard onCancel={() => setDiscarding(false)} onDiscard={onDiscard} />}
+      {session.partial && <p className="notice">Partial session · does not count toward plan progress. Minutes reflect active playing time.</p>}
+      <h1>{session.partial ? "Partial session review" : session.pain ? "Stopped: pain or tension" : "Session review"}</h1>
       <p className="instr">{session.pain ? "Stop playing. Note what you felt; the log flags it and this session will not count." : "Mostly taps. Anything left blank is written as not recorded."}</p>
       <div className="draftrow">
         <button type="button" className="btn outline" disabled={drafting} onClick={() => void askCoach()}>{drafting ? "The coach is drafting" : "Ask the coach to fill this in"}</button>
@@ -172,7 +177,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
       <button className="btn primary full" disabled={busy}>{busy ? "Writing the log" : "Write the log"}</button>
       <div className="row2 reviewfoot">
         <button type="button" className="btn quiet" onClick={onBack}>Back to the session</button>
-        <button type="button" className="btn quiet" onClick={() => confirm("Discard this session without writing a log?") && onDiscard()}>Discard session</button>
+        <button type="button" className="btn quiet" onClick={() => setDiscarding(true)}>Discard session</button>
       </div>
     </form>
   );

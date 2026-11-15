@@ -29,6 +29,7 @@ export type GenericReview = {
   wentWell: string;
   struggled: string;
   pain: boolean;
+  partial?: boolean;
   recording: string;
   notes: string;
   next: string;
@@ -54,6 +55,7 @@ export type GenericLog = {
   wentWell: string;
   struggled: string;
   pain: boolean;
+  partial?: boolean;
   next: string | null;
 };
 
@@ -62,7 +64,7 @@ const BLANK = "not recorded";
 const KIND_ID = /^[a-z][a-z0-9-]{0,30}$/;
 
 /** A counted session: not stopped for pain and not an off-day extra. */
-export const isCounted = (l: GenericLog) => !l.pain && !l.extra;
+export const isCounted = (l: GenericLog) => !l.pain && !l.extra && !l.partial;
 
 export function parseGenericReview(input: any): GenericReview {
   const s = (v: unknown, max = 2000) => (typeof v === "string" || typeof v === "number" ? String(v).slice(0, max) : "");
@@ -121,6 +123,7 @@ export function parseGenericReview(input: any): GenericReview {
     wentWell: s(input.wentWell),
     struggled: s(input.struggled),
     pain: input.pain === true,
+    partial: input.partial === true,
     recording: recording.slice(0, 1100),
     notes: s(input.notes, 4000),
     next: s(input.next, 4000),
@@ -152,6 +155,7 @@ plan: ${one(r.planId, "none")}
 - **Plan:** ${one(r.planTitle)} (\`${one(r.planId, "none")}\`)
 - **Phase:** ${one(r.phase)}
 - **Session:** ${session}
+- **Partial session:** ${r.partial ? "yes (not counted)" : "no"}
 - **Minutes practised:** ${r.minutes}
 - **Material:** ${one(r.material)}
 - **Target:** ${one(r.target)}
@@ -200,6 +204,7 @@ export function parseGenericLog(file: string, text: string): GenericLog {
     difficulty: (DIFFICULTY as readonly string[]).includes(difficulty) ? (difficulty as Difficulty) : null,
     wentWell: field("What went well"),
     struggled: field("What was hard"),
+    partial: /^yes\b/i.test(value(body, "Partial session")),
     pain: /^yes\b/i.test(value(body, "Pain or tension")),
     next: next && next !== BLANK ? next : null,
   };
