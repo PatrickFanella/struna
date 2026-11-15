@@ -32,6 +32,7 @@ export type GenericReview = {
   recording: string;
   notes: string;
   next: string;
+  activities?: { key: string; title: string; attempted: boolean }[];
 };
 
 /** What a log says, read back from its Markdown. */
@@ -85,6 +86,16 @@ export function parseGenericReview(input: any): GenericReview {
   };
   const minutes = Number(input.minutes ?? 0);
   if (!Number.isFinite(minutes) || minutes < 0) throw new HttpError(400, "minutes must be a number, 0 or more");
+  let activities: GenericReview["activities"];
+  if (input.activities !== undefined) {
+    if (!Array.isArray(input.activities) || input.activities.length > 128) throw new HttpError(400, "activities must be an array of at most 128 items");
+    activities = input.activities.map((a: unknown) => {
+      if (!a || typeof a !== "object") throw new HttpError(400, "each activity must be an object");
+      const item = a as Record<string, unknown>;
+      if (typeof item.key !== "string" || !item.key.trim() || item.key.length > 4000 || typeof item.title !== "string" || !item.title.trim() || item.title.length > 300 || typeof item.attempted !== "boolean") throw new HttpError(400, "activities need a key, title and attempted boolean");
+      return { key: item.key.trim(), title: item.title.trim(), attempted: item.attempted };
+    });
+  }
   const rec = input.recording;
   // The take box calls a "weekly" take "Progress"; the log says what the player saw, and keeps their purpose.
   const label = rec && typeof rec === "object" ? s(rec.label, 40).trim() : "";
@@ -113,6 +124,7 @@ export function parseGenericReview(input: any): GenericReview {
     recording: recording.slice(0, 1100),
     notes: s(input.notes, 4000),
     next: s(input.next, 4000),
+    ...(activities ? { activities } : {}),
   };
 }
 
@@ -152,7 +164,7 @@ plan: ${one(r.planId, "none")}
 - **Recording:** ${one(r.recording, "none")}
 - **Notes:** ${one(r.notes, "none")}
 
-## Next instruction
+${r.activities?.length ? `## Session checklist\n\n${r.activities.map((a) => `- ${one(a.title)}: ${a.attempted ? "attempted" : "unmeasured"}`).join("\n")}\n\n` : ""}## Next instruction
 
 ${r.next.trim() || BLANK}
 `;

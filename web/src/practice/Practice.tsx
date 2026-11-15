@@ -151,7 +151,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       // Replacing swaps the lesson's files; the coach and any tab stay.
       const kept = how === "replace" ? s.panes.filter((p) => p.content.type !== "file") : s.panes;
       const fresh = cs.filter((c) => !kept.some((p) => p.content.type === "file" && c.type === "file" && p.content.item.key === c.item.key));
-      return { ...s, panes: [...fresh.map(pane), ...kept].slice(0, MAX_PANES), ...(how === "replace" ? { guides: {} } : {}) };
+      return { ...s, addedActivities: [...(s.addedActivities ?? []).filter((a) => a.key !== item.key), { key: item.key, title: item.label }], panes: [...fresh.map(pane), ...kept].slice(0, MAX_PANES), ...(how === "replace" ? { guides: {} } : {}) };
     });
   };
 
@@ -170,6 +170,8 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     }
     const s: SessionState = {
       kind,
+      stages: sessionKind(today!, kind).stages,
+      addedActivities: extra ? [{ key: extra.key, title: extra.label }] : [],
       cross: cross ?? null,
       startedAt: Date.now(),
       stage: 0,
