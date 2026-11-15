@@ -80,6 +80,8 @@ The coach works in the player's studio folder. Its saved credentials live outsid
 
 Local subscription coaches use existing CLI logins. The app removes API-key settings for that path. Coaches configured inside Struna instead get their own config folder and an allowlisted environment. Key fields show only a short hint after saving. Provider endpoints must implement the Responses API wire format; this path is experimental.
 
+The account-based hosted mode remains scratch-only: production refuses its practice enablement switch. Its optional Coach supports a player-owned OpenAI API key through a direct Responses adapter, with an explicit connection test before sending. Hosted requests never use the owner CLI logins or custom endpoints; they currently share conversation text only. See [Wave 5 connection checks](docs/verification/roadmap-77-wave-5-connect-ai.md) for evidence and the remaining public-access/provider checkpoints.
+
 Deployment templates are [struna-studio.service](deploy/struna-studio.service), [struna.service](deploy/struna.service), [struna-edge-tunnel.service](deploy/struna-edge-tunnel.service) and [struna.Caddyfile](deploy/struna.Caddyfile). The personal unit and tunnel retain the existing checkout, socket and secret paths for compatibility; the Studio unit is a new-install example. Adapt paths before installing them. Do not enable a replacement unit alongside the existing writer. Repository changes do not update installed units or restart services.
 
 ## Your files

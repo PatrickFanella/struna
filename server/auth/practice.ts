@@ -16,7 +16,7 @@ import type { AppInfo } from "../generic/types.ts";
 export type PracticeIdentity = { account: string; session: string; csrf: string; assertActive?: () => void };
 
 /** Only server-verified opaque ids reach this resolver. No owner defaults or cached handles. */
-export function hostedPractice(root: string, excluded: string[], timeZone: string, options: { run?: HostedReply } = {}) {
+export function hostedPractice(root: string, excluded: string[], timeZone: string, options: { run?: HostedReply; transport?: typeof fetch } = {}) {
   root = resolve(root);
   mkdirSync(root, { recursive: true, mode: 0o700 });
   root = realpathSync(root);
@@ -25,8 +25,8 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     const other = (() => { try { return realpathSync(path); } catch { return path; } })();
     if (root === other || root.startsWith(other + sep) || other.startsWith(root + sep)) throw new Error("Hosted root must be separate from owner data");
   }
-  const coach = accountCoach(options.run);
-  const credentials = accountCredentials(root, coach.revokeAccount);
+  const coach = accountCoach(options.run, options.transport);
+  const credentials = accountCredentials(root, coach.revokeAccount, options.transport, coach.isBusy);
   const contexts = new WeakMap<IncomingMessage, Studio>();
   const router = createRouter();
   genericRoutes((req) => {
@@ -66,20 +66,19 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
   }
   function privateRoutes(s: Studio, identity: PracticeIdentity) {
     const privateRouter = createRouter();
-          guestImportRoutes(s, identity, privateRouter.route);
-          credentials.register(s, identity, privateRouter.route);
-          coach.register(s, identity, privateRouter.route);
-          hostedRecordingRoutes({ mediaRoot: s.home, db: s.db, assertActive: identity.assertActive }, privateRouter.route);
-          materialsRoutes(s, { cacheDir: join(root, "accounts", identity.account, "cache"), assertActive: identity.assertActive }, privateRouter.route);
+    guestImportRoutes(s, identity, privateRouter.route);
+    const connection = credentials.register(s, identity, privateRouter.route);
+    coach.register(s, identity, privateRouter.route, connection.connection);
+    hostedRecordingRoutes({ mediaRoot: s.home, db: s.db, assertActive: identity.assertActive }, privateRouter.route);
+    materialsRoutes(s, { cacheDir: join(root, "accounts", identity.account, "cache"), assertActive: identity.assertActive }, privateRouter.route);
     return privateRouter;
   }
   const info = (identity: PracticeIdentity): Promise<AppInfo> => withStudio(identity, async (s) => ({ ...await genericAppInfo(s, {}), mode: "hosted", sections: ["practice", "materials"], account: identity.account, session: identity.session, csrf: identity.csrf }));
   return {
     info,
     inventory: (identity: PracticeIdentity) => withStudio(identity, async s => [...router.inventory(), ...privateRoutes(s, identity).inventory()]),
-    revoke: coach.revoke,
+    revoke: (session: string) => { coach.revoke(session); credentials.revoke(session); },
     async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
-
       // Registrations close over this request’s verified workspace, never a global owner.
       if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:conversations|prompts|chat|providers|guest-import)(?:\/|$)/.test(url.pathname)) {
         return await withStudio(identity, async (s) => {

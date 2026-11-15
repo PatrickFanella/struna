@@ -1,16 +1,19 @@
+import { responses } from "./responses.ts";
+import type { Connection } from "./responses.ts";
 import type { Studio } from "../generic/studio.ts";
 import { conversations } from "../conversations.ts";
 import { promptRoutes } from "../generic/prompts.ts";
 import { HttpError, readJson, send, type route } from "../http.ts";
 import type { PracticeIdentity } from "./practice.ts";
 
-/** A deliberately injected offline runner. Hosted inference is wired separately in #97. */
+/** Optional offline runner for ownership tests; normal hosted inference uses the direct Responses adapter. */
 export type HostedReply = (input: { message: string; signal: AbortSignal }) => AsyncGenerator<string>;
-export function accountCoach(run?: HostedReply) {
+export function accountCoach(run?: HostedReply, transport?: typeof fetch) {
+  const infer = responses(transport);
   const active = new Map<string, { session: string; abort: AbortController }>();
   const revoke = (session: string) => { for (const work of active.values()) if (work.session === session) work.abort.abort(); };
   const revokeAccount = (account: string) => { for (const [id, work] of active) if (id.startsWith(account + ":")) work.abort.abort(); };
-  return { revoke, revokeAccount, register(s: Studio, identity: PracticeIdentity, register: typeof route) {
+  return { revoke, revokeAccount, isBusy: (account: string) => [...active.keys()].some(id => id.startsWith(account + ":")), register(s: Studio, identity: PracticeIdentity, register: typeof route, connection: () => Connection) {
     const store = conversations(s.db);
     promptRoutes(s.db, "studio", register);
     const find = (id: string) => { const c = store.get(id); if (!c) throw new HttpError(404, "Conversation not found"); return c; };
@@ -27,11 +30,13 @@ export function accountCoach(run?: HostedReply) {
     register("POST", "/api/chat", async (req, res) => {
       const body = await readJson(req);
       if (body.provider !== "openai") throw new HttpError(400, "Hosted Coach supports only a player-owned OpenAI API connection");
+      if (body.auto) throw new HttpError(400, "Hosted Coach requires an explicit Send; automatic requests cannot spend your key");
       if (body.images || body.attachments) throw new HttpError(400, "Hosted attachments are not enabled");
       const message = typeof body.message === "string" ? body.message.trim() : "";
       if (!message || message.length > 20000) throw new HttpError(400, "Enter a message of at most 20000 characters");
       const previous = body.conversation ? find(String(body.conversation)) : null;
-      if (!run) throw new HttpError(503, "Connect your AI is not enabled yet. Practice tools remain available.");
+      const credential = run ? null : connection();
+      if ([...active.keys()].some(id => id.startsWith(identity.account + ":"))) throw new HttpError(409, "A reply is already running. Stop it before sending another.");
       const id = previous?.id ?? store.create("openai", message).id, key = `${identity.account}:${id}`;
       if (active.has(key)) throw new HttpError(409, "This conversation already has a running reply");
       const abort = new AbortController();
@@ -49,7 +54,8 @@ export function accountCoach(run?: HostedReply) {
         res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", "x-accel-buffering": "no" });
         emit("conversation", { id });
         let reply = "";
-        iterator = run({ message, signal: abort.signal });
+        const history = (previous?.messages ?? []).filter(m => m.role === "user" || m.role === "assistant").slice(-20).map(m => ({ role: m.role as "user" | "assistant", content: m.text.slice(0, 20000) }));
+        iterator = run ? run({ message, signal: abort.signal }) : infer({ ...credential!, message, history, signal: abort.signal });
         for (;;) {
           const next = await Promise.race([iterator.next(), ended]);
           if (!next || abort.signal.aborted) break;
@@ -61,9 +67,10 @@ export function accountCoach(run?: HostedReply) {
           if (abort.signal.aborted) store.append(id, "error", "Reply stopped.");
           else { identity.assertActive?.(); store.append(id, "assistant", reply); }
         }
-      } catch {
-        if (store.get(id)) store.append(id, "error", "Reply unavailable. Try again after checking your connection.");
-        emit("error", { message: "Reply unavailable. Try again after checking your connection." });
+      } catch (e) {
+        const problem = abort.signal.aborted ? "Reply stopped." : e instanceof HttpError ? e.message : "Reply unavailable. Try again after checking your connection.";
+        if (store.get(id)) store.append(id, "error", problem);
+        if (!abort.signal.aborted) emit("error", { message: problem });
       } finally {
         const stopped = abort.signal.aborted;
         abort.abort(); clearInterval(validity); active.delete(key); res.off("close", stop);

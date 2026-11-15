@@ -54,6 +54,12 @@
     "hosted": "account"
   },
   {
+    "source": "auth/credentials.ts",
+    "method": "POST",
+    "path": "/api/providers/:id/test",
+    "hosted": "account"
+  },
+  {
     "source": "auth/guest.ts",
     "method": "GET",
     "path": "/api/guest-import",
