@@ -8,7 +8,7 @@ import { audio } from "../audio/context.ts";
 import { MicDenied, micUsers } from "../audio/mic.ts";
 import { metronome, type Subdivision } from "../audio/metronome.ts";
 import { type Take, TakeRecorder } from "../audio/record.ts";
-import { type HelperState, type Suggestion, tempoHelper } from "../audio/tempo.ts";
+import { type HelperState, type Suggestion } from "../audio/tempo.ts";
 import { useMetronome } from "../audio/useMetronome.ts";
 import { useApp } from "../mode.ts";
 import { blockName, sessionKind, type Stage, type Today, todayLine } from "../types.ts";
@@ -18,6 +18,7 @@ import { StageBar, stageShort } from "./StageBar.tsx";
 import { SessionStatus } from "./SessionStatus.tsx";
 import { resolveStageTempo, validBpm, type StageTempo, type TempoRecord } from "./stageTempo.ts";
 import { refPaneItem } from "../materials/item.ts";
+import { recordPass, emptyPasses, type Checkpoint, type PassState } from "./checkpoints.ts";
 import { TempoRow } from "./TempoRow.tsx";
 
 export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
@@ -29,6 +30,9 @@ export type SessionState = {
   attemptedActivities?: string[];
   stageTempos?: Record<string, StageTempo>;
   tempoRecords?: TempoRecord[];
+  checkpoints?: Checkpoint[];
+  materialPasses?: Record<string, PassState>;
+  measurementMaterials?: Record<string, { key: string; label: string }>;
   focusRequest?: { itemKey: string; stageKey: string };
   cross: string | null;
   /** Epoch ms when the session began, for the minutes in the generic review. */
@@ -151,6 +155,10 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   const stage = stages[at]!;
   const tempoKey = `${kind.id}:${stage.key}:${stage.material?.key ?? "unassigned"}`;
   const stageTempo = state.stageTempos?.[tempoKey];
+  const measurementItems = [...new Map([...(stage.material ? [refPaneItem(stage.material)] : []), ...state.panes.flatMap((p) => p.content.type === "file" ? [p.content.item] : []), ...items].filter((i) => !i.missing).map((i) => [i.key, i])).values()];
+  const measured = state.measurementMaterials?.[tempoKey] ?? measurementItems[0];
+  const passKey = `${kind.id}:${stage.key}:${measured?.key ?? "unassigned"}`;
+  const passState = state.materialPasses?.[passKey] ?? emptyPasses();
   useEffect(() => {
     if (!generic) return; // Personal plans keep their existing material-based click across stages.
     let active = true;
@@ -252,15 +260,19 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   const back = () => setState((s) => (s.stage > 0 ? moveStage(s, s.stage - 1, Date.now()) : s));
   const pause = () =>
     setState((s) => pauseTimer(s, Date.now()));
-  const log = (event: "clean" | "miss") =>
+  const log = (event: "clean" | "miss") => {
+    const bpm = metronome.get().bpm; // Capture the played tempo before any suggested increment.
     setState((s) => {
-      const r = tempoHelper(s.helper, event);
-      const passes = event === "miss" ? 0 : s.passes >= 3 ? 1 : s.passes + 1;
-      return { ...s, helper: r.state, passes, suggestion: r.suggestion, metThree: s.metThree || r.suggestion?.kind === "raise", cleanTotal: (s.cleanTotal ?? 0) + (event === "clean" ? 1 : 0), missTotal: (s.missTotal ?? 0) + (event === "miss" ? 1 : 0) };
+      const result = recordPass(s.materialPasses?.[passKey] ?? emptyPasses(), event);
+      return { ...s, helper: result.helper, passes: result.passes, suggestion: result.suggestion,
+        materialPasses: { ...s.materialPasses, [passKey]: result },
+        checkpoints: event === "clean" && measured ? [...(s.checkpoints ?? []), { materialKey: measured.key, materialLabel: measured.label, stageKey: stage.key, sessionKind: kind.id, bpm, confirmedAt: new Date().toISOString(), context: "clean-pass" as const, pass: result.passes }] : (s.checkpoints ?? []),
+        metThree: s.metThree || result.suggestion?.kind === "raise", cleanTotal: (s.cleanTotal ?? 0) + (event === "clean" ? 1 : 0), missTotal: (s.missTotal ?? 0) + (event === "miss" ? 1 : 0) };
     });
+  };
   const apply = (sg: Suggestion) => {
     metronome.set({ bpm: m.bpm + sg.delta });
-    setState((s) => ({ ...s, suggestion: null, passes: 0 }));
+    setState((s) => ({ ...s, suggestion: null, passes: 0, materialPasses: { ...s.materialPasses, [passKey]: { ...(s.materialPasses?.[passKey] ?? emptyPasses()), suggestion: null, passes: 0 } } }));
   };
 
   const [showTools, setShowTools] = useState(false);
@@ -370,6 +382,17 @@ export function Session({ today, state, setState, items, material, onFinish, clo
         </div>
       </div>
 
+        {measurementItems.length > 0 && <label className="measurement-pick">Measure material
+          <select aria-label="Measure material" className="input" value={measured?.key} onChange={(e) => {
+            const item = measurementItems.find((i) => i.key === e.target.value)!;
+            setState((s) => ({ ...s, measurementMaterials: { ...s.measurementMaterials, [tempoKey]: { key: item.key, label: item.label } } }));
+          }}>{measurementItems.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}</select>
+        </label>}
+
+      {!!state.checkpoints?.length && <div className="srcnote measurements" aria-label="Confirmed material tempos">
+        <b>Confirmed clean passes</b>
+        <ul>{[...new Map(state.checkpoints.map((c) => [c.materialKey, c])).values()].map((c) => <li key={c.materialKey}>{c.materialLabel}: {c.bpm} BPM · {c.stageKey}</li>)}</ul>
+      </div>}
       <Workspace onOpenContent={(content) => {
         const activity = content.type === "file" ? { key: content.item.key, title: content.item.label } : content.type === "tab" ? { key: `tab:${content.tabId}`, title: content.title } : null;
         if (activity) setState((s) => ({ ...s, addedActivities: [...(s.addedActivities ?? []).filter((a) => a.key !== activity.key), activity] }));
@@ -378,7 +401,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
       <div className={`sessionbar${showTools || recording !== null || take ? " tools-visible" : ""}`}>
         <button className="btn outline session-tools-toggle" aria-expanded={showTools || recording !== null || Boolean(take)} onClick={() => setShowTools(!showTools)}>Tools</button>
         {stage.key === "tune" && <button className="btn outline" onClick={() => openTool("tuner")}>Tuner</button>}
-        <TempoRow passes={state.passes} suggestion={state.suggestion} onClean={() => log("clean")} onMiss={() => log("miss")} onApply={apply} />
+        <TempoRow passes={passState.passes} suggestion={passState.suggestion} onClean={() => log("clean")} onMiss={() => log("miss")} onApply={apply} />
         <span className="barsp" />
         <span className="session-secondary">
         {recording ? (
