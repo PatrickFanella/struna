@@ -24,7 +24,7 @@ White text on forest measures 7.40:1; dark ink on vanilla measures 12.45:1. Soft
 
 Dark mode is a complete app mapping: navy page `#1B2433`, panel `#253246`, warm ink `#F5F0E5`, muted `#BEC6D1`, visible edge `#8998A6`, green selection `#344A43`, mint primary `#A3D2BB` with navy labels, butter focus and pale coral errors. Peach, butter and pink become deeper accent surfaces with light ink. Primary fill changes in dark mode so its boundary remains visible against dark panels. Source PDF/image/video content retains its own appearance.
 
-The existing Light/Dark/Device preference and storage compatibility remain. CSS `light-dark()` resolves app colors through `color-scheme`; explicit overrides win over device changes. The app already targets modern browsers for its music engines; this foundation requires `light-dark()` support. Browser theme-color metadata matches vanilla/navy according to the device; explicit app color selection is a content theme and does not promise a matching installed OS chrome tint.
+The existing Light/Dark/Device preference and storage compatibility remain. Explicit dark rules and the Device media query supply concrete color values; explicit overrides win over device changes. Keep color tokens concrete because EPUB documents and alphaTab consume them outside the app style context. Browser theme-color metadata matches vanilla/navy according to the device; explicit app color selection is a content theme and does not promise a matching installed OS chrome tint.
 
 ## Type and surface roles
 

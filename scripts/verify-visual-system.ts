@@ -10,6 +10,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
+import { model } from "@coderline/alphatab";
 import { normalizeProfile } from "../server/generic/studio.ts";
 import { starterPlan } from "../server/generic/starter.ts";
 
@@ -85,7 +86,17 @@ try {
         for (const [fg, bg] of [["ink", "page"], ["ink", "panel"], ["muted", "page"], ["muted", "panel"], ["on-primary", "primary"], ["on-ring", "ring"], ["err", "panel"], ["ring-ink", "page"], ["ink", "accent-peach"], ["ink", "accent-butter"], ["ink", "accent-green"], ["ink", "accent-pink"], ["focus", "page"], ["focus", "panel"], ["edge", "panel"], ["edge", "page"]]) {
           const a = luminance(color(fg!)), b = luminance(color(bg!)); ratios[`${fg}/${bg}`] = (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
         }
-        return { page: color("page"), ink: color("ink"), scheme: css.colorScheme, ratios,
+        // EpubView passes the raw ink token to an independent light-scheme document.
+        // Test that boundary, not just the app's own correctly computed text color.
+        const exportedInk = css.getPropertyValue("--ink").trim();
+        const frame = document.createElement("iframe");
+        const loaded = new Promise<void>((resolve) => { frame.onload = () => resolve(); });
+        frame.srcdoc = `<style>body{color:${exportedInk}!important;background:transparent}</style><body>Original open-string reader probe</body>`;
+        document.body.append(frame);
+        await loaded;
+        const readerInk = getComputedStyle(frame.contentDocument!.body).color;
+        frame.remove();
+        return { page: color("page"), ink: color("ink"), exportedInk, readerInk, scheme: css.colorScheme, ratios,
           fonts: [...document.fonts].filter((f) => f.status === "loaded").map((f) => `${f.family}:${f.weight}`),
           overflow: document.documentElement.scrollWidth > innerWidth,
           mark: getComputedStyle(document.querySelector(".brandmark")!, "::before").maskImage,
@@ -94,6 +105,8 @@ try {
       assert.equal(metrics.scheme, dark ? "dark" : "light", `${width} ${choice}: theme`);
       assert.equal(metrics.overflow, false, `${width} ${choice}: overflow`);
       assert.equal(metrics.primaryRadius, "14px");
+      assert.equal(metrics.readerInk, metrics.ink, "EPUB document must receive the effective ink");
+      assert(model.Color.fromJson(metrics.exportedInk), "alphaTab must accept the exported color");
       assert(metrics.fonts.some((f) => f.includes("Jost")) && metrics.fonts.some((f) => f.includes("Atkinson Hyperlegible Next")), "local faces loaded");
       assert(metrics.mark.includes("app-mark.svg"));
       for (const [pair, ratio] of Object.entries(metrics.ratios)) assert(ratio >= (/^(focus|edge)\//.test(pair) ? 3 : 4.5), `${choice}: ${pair} contrast ${ratio}`);
@@ -115,7 +128,7 @@ try {
   }
   assert.deepEqual(errors, []);
   writeFileSync(join(evidence, "visual-system.json"), JSON.stringify({ scratch: true, cases: results, pageErrors: errors, limits: "Local Chromium only; no native zoom, Safari, screen-reader speech or hardware audio qualification." }, null, 2));
-  console.log(`PASS: ${results.length} viewport/theme cases, local fonts, mark, text/control contrast, focus, persistence and overflow. Evidence: ${evidence}`);
+  console.log(`PASS: ${results.length} viewport/theme cases, local fonts, mark, text/control contrast, focus, persistence, overflow and EPUB/alphaTab color boundaries. Evidence: ${evidence}`);
 } finally {
   await browser?.close();
   if (child.exitCode === null && child.signalCode === null) {

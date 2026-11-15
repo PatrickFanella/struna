@@ -19,7 +19,7 @@ jobs:
       - name: Install offline sandbox and media test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap ffmpeg unzip
+          sudo apt-get install -y bubblewrap ffmpeg unzip poppler-utils
           if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
             sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
