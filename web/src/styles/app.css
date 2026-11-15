@@ -534,3 +534,14 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .draftrow .btn{height:44px;padding:0 16px;font-size:15px}
 .draftrow .srcnote{margin:0;flex:1;min-width:220px}
 @media (max-width:719px){.coachline{font-size:13px}.session .backb{order:3}}
+
+/* Tool names stay visible on narrow screens, including desktop zoom. */
+@media (max-width:600px){
+  .top .wrap{flex-wrap:wrap}
+  .top .acts{margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+}
+@media (max-width:360px){
+  #metronome .r4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #metronome .r4 button{padding:0 6px;gap:6px}
+  #metronome .r4 button svg{width:24px;flex-shrink:0}
+}
