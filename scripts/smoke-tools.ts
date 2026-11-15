@@ -1,3 +1,4 @@
+import { layoutEvidence } from "./layout-evidence.ts";
 /** Issue #23: scratch-only tool states; synthetic audio, no real microphone/provider.
  * node scripts/smoke-tools.ts [artifact-directory] (directory must not exist)
  */
@@ -34,6 +35,7 @@ let stderr = "";
 server.stderr.on("data", (b) => { stderr += String(b); });
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
 const results: string[] = [];
+const geometry: object[] = [];
 try {
   for (let i = 0; i < 100; i++) {
     assert.equal(server.exitCode, null, "owned server must still be running");
@@ -41,13 +43,13 @@ try {
     await new Promise((r) => setTimeout(r, 100));
   }
   const token = readFileSync(join(dir, "state/access-token"), "utf8").trim();
-  const sizes = [[320, 700], [390, 844], [1003, 814], [502, 407]] as const;
+  const sizes = [[320, 700], [390, 844], [844, 390], [820, 1180], [1153, 814], [1440, 900], [1003, 814], [576, 407]] as const;
   for (const [width, height] of sizes) for (const theme of ["light", "dark", "device-light", "device-dark"] as const) {
     const label = `${width}x${height}-${theme}`;
-    const context = width === 502
-      ? await chromium.launchPersistentContext(join(dir, `zoom-${theme}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"], viewport: { width: 1003, height: 814 }, colorScheme: theme.endsWith("dark") ? "dark" : "light" })
-      : await browser.newContext({ viewport: { width, height }, colorScheme: theme.endsWith("dark") ? "dark" : "light" });
-    if (width === 502) {
+    const context = width === 576
+      ? await chromium.launchPersistentContext(join(dir, `zoom-${theme}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"], viewport: { width: 1153, height: 814 }, reducedMotion: "reduce", colorScheme: theme.endsWith("dark") ? "dark" : "light" })
+      : await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce", colorScheme: theme.endsWith("dark") ? "dark" : "light" });
+    if (width === 576) {
       const settings = await context.newPage(); await settings.goto("chrome://settings/appearance");
       await settings.evaluate(async () => {
         const { chrome } = globalThis as unknown as { chrome: { settingsPrivate: { setDefaultZoom: (factor: number) => Promise<void> } } };
@@ -74,12 +76,13 @@ try {
     });
     await page.goto(`${base}/?token=${token}`);
     await page.waitForURL(`${base}/`);
-    if (width === 502) assert.ok(await page.evaluate(() => innerWidth === 501 && devicePixelRatio === 2), "native desktop 200% zoom");
+    if (width === 576) assert.ok(await page.evaluate(() => innerWidth === 576 && devicePixelRatio === 2), "native desktop 200% zoom");
     await page.evaluate((theme) => {
       if (theme.startsWith("device")) document.documentElement.removeAttribute("data-theme");
       else document.documentElement.dataset.theme = theme;
     }, theme);
     const shot = async (name: string) => {
+      geometry.push({ name, ...await layoutEvidence(page) });
       await page.screenshot({ path: join(dir, `${label}-${name}.png`), fullPage: true });
       const overflow = await page.evaluate(() => [...document.querySelectorAll("body *")].filter((e) => e.getClientRects().length && e.getBoundingClientRect().right > innerWidth + 1).slice(0, 8).map((e) => `${e.tagName}.${e.className}: ${e.getBoundingClientRect().right}`));
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${label}/${name}: no horizontal page overflow: ${overflow.join(", ")}`);
@@ -196,6 +199,7 @@ try {
   console.log(results.join("\n"));
   console.log(`Artifacts: ${dir}`);
 } finally {
+  writeFileSync(join(dir, "geometry.json"), JSON.stringify(geometry, null, 2));
   writeFileSync(join(dir, "checks.txt"), results.join("\n") + "\n");
   writeFileSync(join(dir, "server-stderr.log"), stderr);
   await browser.close();

@@ -1,3 +1,4 @@
+import { layoutEvidence } from "./layout-evidence.ts";
 /** Scratch-only stage metadata regression. pnpm build; node scripts/smoke-stage-tempo.ts */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -42,6 +43,7 @@ const child = spawn(process.execPath, ["server/index.ts"], { cwd: join(import.me
   ...process.env, NODE_ENV: "production", STRUNA_MODE: "studio", STRUNA_HOME: home, STRUNA_STATE_DIR: join(dir, "state"), STRUNA_CACHE_DIR: join(dir, "cache"),
   STRUNA_LIBRARY_DIRS: "", STRUNA_TABS_DIR: "", SOCKET_PATH: "", EDGE_SECRET_FILE: "", REQUIRE_USER: "", STRUNA_NO_SCAN: "1", STRUNA_COACH_HOST_LOGINS: "0", CLAUDE_BIN: "/bin/false", CODEX_BIN: "/bin/false", HOST: "127.0.0.1", PORT: String(port),
 }, stdio: "ignore" });
+const geometry: object[] = [];
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
 try {
   for (let i = 0; ; i++) {
@@ -51,11 +53,11 @@ try {
     await new Promise((r) => setTimeout(r, 100));
   }
   const token = (await readFile(join(dir, "state/access-token"), "utf8")).trim();
-  for (const [width, height] of [[320, 700], [390, 844], [1003, 814], [502, 407]]) for (const theme of ["light", "dark", "device"]) {
-    const context = width === 502
-      ? await chromium.launchPersistentContext(join(dir, `zoom-${theme}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"], viewport: { width: 1003, height: 814 }, permissions: ["microphone"], colorScheme: theme === "dark" ? "dark" : "light" })
-      : await browser.newContext({ viewport: { width: width!, height: height! }, permissions: ["microphone"], colorScheme: theme === "dark" ? "dark" : "light" });
-    if (width === 502) {
+  for (const [width, height] of [[320, 700], [390, 844], [844, 390], [820, 1180], [1153, 814], [1440, 900], [1003, 814], [576, 407]]) for (const theme of ["light", "dark", "device-light", "device-dark"]) {
+    const context = width === 576
+      ? await chromium.launchPersistentContext(join(dir, `zoom-${theme}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"], viewport: { width: 1153, height: 814 }, permissions: ["microphone"], reducedMotion: "reduce", colorScheme: theme.endsWith("dark") ? "dark" : "light" })
+      : await browser.newContext({ viewport: { width: width!, height: height! }, permissions: ["microphone"], reducedMotion: "reduce", colorScheme: theme.endsWith("dark") ? "dark" : "light" });
+    if (width === 576) {
       const settings = await context.newPage(); await settings.goto("chrome://settings/appearance");
       await settings.evaluate(async () => {
         const { chrome } = globalThis as unknown as { chrome: { settingsPrivate: { setDefaultZoom: (factor: number) => Promise<void> } } };
@@ -66,8 +68,10 @@ try {
     console.log(`Stage review case ${width} ${theme}`);
     const page = await context.newPage();
     page.on("pageerror", (e) => console.error("PAGE ERROR", e.message));
-    await page.addInitScript((choice) => { if (choice !== "device") localStorage.setItem("struna.theme", choice); }, theme);
+    await page.addInitScript((choice) => { if (!choice.startsWith("device")) localStorage.setItem("struna.theme", choice); }, theme);
     await page.goto(`${base}/?token=${token}#practice`);
+    await page.locator(".practice-choice > .btn").waitFor();
+    geometry.push(await layoutEvidence(page));
     assert.match(await page.locator("#scope-custom-quick").innerText(), /Tuning · 2 min; Technique · 6 min; Logging · 2 min/);
     assert.doesNotMatch(await page.locator("#scope-custom-quick").innerText(), /Tune practice/);
     await page.locator('input[value="custom-full"]').check();
@@ -117,6 +121,7 @@ try {
     await page.keyboard.press("Shift+Tab");
     const focus = await page.locator(".clock").evaluate((el) => getComputedStyle(el).outlineStyle);
     assert.notEqual(focus, "none", "clock has visible keyboard focus");
+    geometry.push(await layoutEvidence(page));
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-session.png`), fullPage: true });
     if (width! < 720) {
       assert.equal(await page.getByRole("button", { name: /Log clean pass/ }).isVisible(), true, "playing keeps clean-pass controls visible");
@@ -144,7 +149,8 @@ try {
     const reader = page.getByRole("dialog", { name: "Baseline roll", exact: true });
     await reader.waitFor();
     const rect = await reader.boundingBox();
-    assert.ok(rect && rect.height > (width === 502 ? 407 : height!) * 0.9 && rect.width > width! * 0.9);
+    assert.ok(rect && rect.height > (width === 576 ? 407 : height!) * 0.9 && rect.width > width! * 0.9);
+    geometry.push(await layoutEvidence(page));
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-reader.png`), fullPage: false });
     await page.keyboard.press("Escape");
     assert.equal(await page.getByRole("dialog", { name: "Baseline roll", exact: true }).count(), 0);
@@ -180,6 +186,7 @@ try {
     assert.match(await page.locator(".greview").innerText(), /Technique — attempted/);
     assert.equal(await page.getByLabel("Minutes played", { exact: true }).inputValue(), "1");
     assert.doesNotMatch(await page.locator(".greview").innerText(), /Tune practice/);
+    geometry.push(await layoutEvidence(page));
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}.png`), fullPage: true });
     assert.equal(await page.getByLabel("Baseline roll clean BPM (optional)", { exact: true }).inputValue(), "80");
     assert.equal(await page.getByLabel("Black Mountain Rag clean BPM (optional)", { exact: true }).count(), 0, "omitted tune has no review field");
@@ -227,6 +234,7 @@ try {
     assert.equal(await page.getByLabel("Minutes played", { exact: true }).inputValue(), "1");
     await page.reload();
     await page.getByRole("heading", { name: "Partial session review", exact: true }).waitFor();
+    geometry.push(await layoutEvidence(page));
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-partial.png`), fullPage: true });
     await page.getByRole("button", { name: "Write the log", exact: true }).click();
     await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
@@ -263,7 +271,8 @@ try {
     assert.equal(await page.getByLabel("What went well", { exact: true }).inputValue(), "Separate review draft retained");
     await page.getByText("Optional notes", { exact: true }).click();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    if (width === 502) assert.ok(await page.evaluate(() => innerWidth === 501 && devicePixelRatio === 2));
+    if (width === 576) assert.ok(await page.evaluate(() => innerWidth === 576 && devicePixelRatio === 2));
+    geometry.push(await layoutEvidence(page));
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-material-review.png`), fullPage: true });
     await roll.fill("401");
     await page.getByRole("button", { name: "Write the log", exact: true }).click();
@@ -343,7 +352,8 @@ try {
     assert.match(log, /Workspace addition: unmeasured/);
     assert.doesNotMatch(log, /Tune practice/);
   }
-  console.log(`Stage tempo and Full/Short/Quick material review smoke passed: 12 width/theme/native-zoom cases; artifacts ${dir}`);
+  await writeFile(join(dir, "geometry.json"), JSON.stringify(geometry, null, 2));
+  console.log(`Stage tempo and Full/Short/Quick material review smoke passed: 32 width/theme/native-zoom cases; artifacts ${dir}`);
 } finally {
   await browser.close();
   child.kill("SIGTERM");

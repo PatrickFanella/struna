@@ -61,7 +61,7 @@ try {
   await page.getByText(/^Saved take:/).waitFor();
   await page.getByRole("button", { name: /^Finish/ }).click();
   await page.getByLabel("Target").fill("pattern 1 even at 87");
-  await page.getByLabel("One improvement").fill("relaxed picking hand");
+  await page.getByLabel("What felt better (your reflection)", { exact: true }).fill("relaxed picking hand");
   await page.getByLabel("One limiting failure").fill("flat 5th slide rushes");
   await page.getByRole("radio", { name: "Memory" }).click();
   await page.getByRole("button", { name: "Write the log" }).click();
@@ -72,6 +72,7 @@ try {
   const recDir = join(dir, "media/Recordings/g-vocabulary-nine-pound-hammer-01");
   console.log("recordings:", readdirSync(recDir).map((f) => `${f} ${readFileSync(join(recDir, f)).length} bytes`));
   await page.getByRole("button", { name: "Back to today" }).click();
+  await page.locator(".plan-details summary").click();
   await page.getByText("session 2: decode").waitFor();
   console.log("start screen after the session:", await page.locator(".meta dd").nth(1).textContent(), "|", await page.locator(".counts").textContent());
 } finally {

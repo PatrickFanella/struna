@@ -1,3 +1,4 @@
+import { layoutEvidence } from "./layout-evidence.ts";
 /** Materials issue smoke. Fresh, retained scratch home/state/cache; no live providers or external requests.
  * pnpm build && node scripts/smoke-materials.ts <artifact-directory> [13|14|22|66]
  */
@@ -48,6 +49,7 @@ server.stdout.on("data", b => output += b.toString());
 server.stderr.on("data", b => output += b.toString());
 let browser: Browser | undefined;
 const results: string[] = [];
+const geometry: object[] = [];
 try {
   // The server reports the ephemeral port; never log its access token.
   for (let i = 0; i < 100 && !/http:\/\/127\.0\.0\.1:\d+/.test(output); i++) {
@@ -58,13 +60,13 @@ try {
   assert.ok(base, "scratch server reports its port");
   const token = readFileSync(join(scratch, "state/access-token"), "utf8").trim();
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
-  for (const [width, height] of [[320, 700], [390, 844], [1003, 814], [502, 407]] as const) {
+  for (const [width, height] of [[320, 700], [390, 844], [844, 390], [820, 1180], [1153, 814], [1440, 900], [1003, 814], [576, 407]] as const) {
     if (process.env.SMOKE_WIDTH && width !== Number(process.env.SMOKE_WIDTH)) continue;
     for (const theme of ["light", "dark", "device-light", "device-dark"] as const) {
-      const context: BrowserContext = width === 502
-        ? await chromium.launchPersistentContext(join(scratch, `zoom-${theme}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"], viewport: { width: 1003, height: 814 }, colorScheme: theme.endsWith("dark") ? "dark" : "light" })
-        : await browser.newContext({ viewport: { width, height }, colorScheme: theme.endsWith("dark") ? "dark" : "light" });
-      if (width === 502) {
+      const context: BrowserContext = width === 576
+        ? await chromium.launchPersistentContext(join(scratch, `zoom-${theme}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"], viewport: { width: 1153, height: 814 }, reducedMotion: "reduce", colorScheme: theme.endsWith("dark") ? "dark" : "light" })
+        : await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce", colorScheme: theme.endsWith("dark") ? "dark" : "light" });
+      if (width === 576) {
         const settings = await context.newPage(); await settings.goto("chrome://settings/appearance");
         await settings.evaluate(async () => {
           const { chrome } = globalThis as unknown as { chrome: { settingsPrivate: { setDefaultZoom: (factor: number) => Promise<void> } } };
@@ -79,7 +81,7 @@ try {
       const errors: string[] = [];
       page.on("pageerror", e => errors.push(e.message));
       await page.goto(`${base}/#materials`);
-      if (width === 502) assert.ok(await page.evaluate(() => innerWidth === 501 && devicePixelRatio === 2), "native desktop 200% zoom");
+      if (width === 576) assert.ok(await page.evaluate(() => innerWidth === 576 && devicePixelRatio === 2), "native desktop 200% zoom");
       const row = page.locator(".matitem").filter({ hasText: "Black Mountain Rag" });
       await row.waitFor();
       const longRow = page.locator(".matitem").filter({ hasText: "A long musical exercise title" });
@@ -133,6 +135,7 @@ try {
       await context.close();
     }
   }
+  writeFileSync(join(out, "geometry.json"), JSON.stringify(geometry, null, 2));
   writeFileSync(join(out, "results.json"), JSON.stringify({ scratch, results }, null, 2));
   console.log(`${results.length} matrix cases passed; artifacts ${out}; scratch ${scratch}`);
 } finally {
@@ -141,6 +144,7 @@ try {
 }
 async function screenshot(page: Page, name: string) {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${name}: horizontal overflow`);
+  geometry.push({ name, ...await layoutEvidence(page) });
   await page.screenshot({ path: join(out, `${name}.png`), fullPage: !name.includes("-zoom-200"), scale: "device" });
 }
 
