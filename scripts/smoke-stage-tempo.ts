@@ -56,7 +56,10 @@ try {
     assert.match(await page.locator("#scope-custom-full").innerText(), /Tune practice · 10 min/);
     assert.equal(await page.locator("#scope-custom-short").innerText(), "Technique · 6 min");
     await page.getByRole("button", { name: /^Quick/ }).click();
+    await page.getByRole("button", { name: "Add pane", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Coach", exact: true }).click();
     await page.getByRole("button", { name: /Next stage/ }).click();
+    await page.locator(".pane-file:not([hidden])").first().waitFor();
     await page.getByText("Suggested 80 BPM", { exact: false }).waitFor();
     assert.match(await page.locator(".stage-tempo").innerText(), /Plan target/);
     await page.getByRole("button", { name: "Tuner", exact: true }).click();

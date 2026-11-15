@@ -1,3 +1,4 @@
+import { validBpm, type TempoRecord } from "./stageTempo.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Tool } from "../App.tsx";
@@ -162,6 +163,11 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     // On a wide screen the coach opens beside the lesson.
     const panes = [...lead.map(pane), ...(window.innerWidth >= 1180 && lead.length < 3 ? [pane({ type: "coach" })] : [])];
     if (extra) store.set("struna.material-placed", extra.key);
+    if (!generic && first) {
+      const records = await api.get<TempoRecord[]>("/api/tempos").catch(() => []);
+      const saved = records.find((r) => r.fragment === first.label);
+      if (saved && validBpm(saved.bpm)) metronome.set({ bpm: saved.bpm });
+    }
     const s: SessionState = {
       kind,
       stages: sessionKind(today!, kind).stages,
