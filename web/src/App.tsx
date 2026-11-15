@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { Account } from "./account/Account.tsx";
 import { CoachToasts } from "./chat/actions.tsx";
 import { Chat, openCoach } from "./chat/Chat.tsx";
 import type { AppInfo } from "./generic.ts";
@@ -83,6 +84,7 @@ export function App() {
 
   // Nothing is drawn until the server says which app this is, so the wrong sections never flash.
   if (!info) return <div className="app"><IconSprite /></div>;
+  if (info.mode === "hosted") return <Account />;
   const generic = info.mode === "studio";
   const section = sectionFromHash(hash, info.sections);
   const SECTIONS = info.sections.map((id) => ({ id, ...SECTION[id] }));
