@@ -58,8 +58,8 @@ export const config = {
   threadDir,
   practiceDir: join(threadDir, "Practice"),
   mediaRoot: resolve(env.STRUNA_MEDIA_ROOT ?? join(home, "Documents/Reference Library/Ars Malefica/Guitar")),
-  stateDir: resolve(env.STRUNA_STATE_DIR ?? existingPath(join(stateHome, suffix), join(stateHome, legacySuffix))),
-  cacheDir: resolve(env.STRUNA_CACHE_DIR ?? existingPath(join(cacheHome, suffix), join(cacheHome, legacySuffix))),
+  stateDir: resolve(env.STRUNA_STATE_DIR ?? (mode === "hosted" ? join(stateHome, suffix) : existingPath(join(stateHome, suffix), join(stateHome, legacySuffix)))),
+  cacheDir: resolve(env.STRUNA_CACHE_DIR ?? (mode === "hosted" ? join(cacheHome, suffix) : existingPath(join(cacheHome, suffix), join(cacheHome, legacySuffix)))),
   calibreReceipt: env.STRUNA_CALIBRE_RECEIPT ?? join(home, ".local/state/guitar-books-from-calibre-20261114.json"),
   timeZone: timeZone(),
   /** Studio mode: the studio folder, extra read-only folders, an optional Guitar Pro collection. */

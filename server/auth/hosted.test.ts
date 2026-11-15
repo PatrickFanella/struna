@@ -33,7 +33,7 @@ test("hosted identities, rotation, revocation, expiry, CSRF and private-route de
     assert.equal(r.status, 200);
     assert.match(r.headers.get("set-cookie")!, /Secure; HttpOnly; SameSite=Lax/);
     const state = new URL((await r.json()).redirect).searchParams.get("state")!;
-    return { state, flow: r.headers.get("set-cookie")!.split(";")[0]! };
+    return { state, flow: r.headers.getSetCookie().find((v) => v.startsWith("__Host-struna-login="))!.split(";")[0]! };
   };
   const finish = (flow: string, state: string, code: string, old = "") => request(`/auth/callback?state=${state}&code=${code}`, { headers: { cookie: `${flow}; ${old}` } });
   try {
@@ -71,8 +71,10 @@ test("hosted identities, rotation, revocation, expiry, CSRF and private-route de
     const e = await start();
     assert.equal((await request(`/auth/callback?state=${e.state}&error=denied`, { headers: { cookie: e.flow } })).headers.get("location"), "/?signin=failed");
     const f = await start(); assert.equal((await finish(f.flow, "forged", "alice")).status, 400);
-    for (let i = 0; i < 31; i++) await request("/auth/login", { method: "POST", headers: { origin, "x-struna": "1" } });
-    assert.equal((await request("/auth/login", { method: "POST", headers: { origin, "x-struna": "1" } })).status, 429);
+    const rateCookie = "__Host-struna-rate=browser-one";
+    for (let i = 0; i < 31; i++) await request("/auth/login", { method: "POST", headers: { origin, "x-struna": "1", cookie: rateCookie } });
+    assert.equal((await request("/auth/login", { method: "POST", headers: { origin, "x-struna": "1", cookie: rateCookie } })).status, 429);
+    assert.equal((await request("/auth/login", { method: "POST", headers: { origin, "x-struna": "1", cookie: "__Host-struna-rate=browser-two" } })).status, 200, "another browser behind the proxy has a separate quota");
   } finally { await new Promise<void>((r) => server.close(() => r())); auth.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 test("return destinations only accept named app locations", () => {
