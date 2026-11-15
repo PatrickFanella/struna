@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import Markdown from "react-markdown";
 
 import { api } from "../api.ts";
 import type { ActionId, Prompt } from "../generic.ts";
 import { useApp } from "../mode.ts";
+import { addedMaterials, type FindTurn, type MaterialsSnapshot } from "../materials/find.ts";
 import { screenContext } from "../screen.ts";
 import { CoachProviders, PROVIDERS_CHANGED } from "./CoachProviders.tsx";
 import { fillPrompt, GROUPS, promptsFor, screenId, usePrompts } from "./prompts.ts";
@@ -14,8 +15,8 @@ import { applyEvent, type Msg } from "./stream.ts";
 type Provider = ProviderId;
 type Conv = { id: string; provider: Provider; title: string; updated: string };
 type Status = ProviderStatus;
-/** `done` hears whether the turn ran to its end; a message dropped from the queue hears false. */
-type Queued = { text: string; auto?: ActionId; done?: (ok: boolean) => void };
+/** Each queued request resolves its own outcome, including requests dropped before sending. */
+type Queued = { text: string; auto?: ActionId; find?: boolean; done: (result: FindTurn) => void };
 const NAMES: Record<string, string> = { claude: "Claude", codex: "ChatGPT" };
 /** The studio mode's names for the host logins, also when they are turned off and not in the list (as in server/generic/providers.ts CATALOG). */
 const HOST_LABELS: Record<string, string> = { claude: "Claude plan (this computer)", codex: "ChatGPT plan (this computer)" };
@@ -92,16 +93,37 @@ export async function coachReady(): Promise<{ ok: boolean; detail: string }> {
 function dropQueue() {
   const dropped = state.queue;
   state.queue = [];
-  for (const q of dropped) q.done?.(false);
+  for (const q of dropped) q.done({ ok: false, complete: true, additions: null, problem: "The queued request was cancelled" });
 }
 
-/** Returns whether the turn ran to its end without an error or a stop. */
-async function send(text: string, auto?: ActionId): Promise<boolean> {
+/** Collect terminal status and, for a find request, the actual Materials additions. */
+async function send(text: string, auto?: ActionId, find = false): Promise<FindTurn> {
   const abort = new AbortController();
   state.busy = abort;
   let ok = true;
+  let complete = false;
+  let problem = "";
+  let unavailable = false;
+  let additions: FindTurn["additions"] = null;
+  let before: MaterialsSnapshot | null = null;
+  let sent = false;
+  const snapshot = () => api.get<MaterialsSnapshot>("/api/materials?limit=40000");
   update((m) => [...m, { role: "user", text, ...(auto ? { auto } : {}) }, { role: "assistant", text: "", streaming: true }]);
   try {
+    if (find) {
+      // This happens when this request reaches the front of the queue, after earlier turns.
+      const status = await loadProviders(true);
+      const ready = readiness(status, state.provider);
+      const current = status?.list?.find(row => row.id === state.provider);
+      if (!ready.ok || (current && !current.web)) {
+        unavailable = true;
+        complete = true;
+        throw new Error(!ready.ok ? ready.detail : "this coach has no web access");
+      }
+      before = await snapshot();
+      addedMaterials(before, before); // Refuse an incomplete baseline before sending a turn.
+    }
+    sent = true;
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "x-struna": "1", "content-type": "application/json" },
@@ -110,6 +132,7 @@ async function send(text: string, auto?: ActionId): Promise<boolean> {
     });
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
+      complete = true;
       throw new Error(err.error ?? res.statusText);
     }
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -128,15 +151,27 @@ async function send(text: string, auto?: ActionId): Promise<boolean> {
         const d = JSON.parse(data);
         if (ev === "conversation") state.conversation = d.id;
         else if (ev === "delta" || ev === "notice" || ev === "error") {
-          if (ev === "error") ok = false;
+          if (ev === "error") { ok = false; problem = d.message ?? "The Coach reported an error"; }
           update((m) => applyEvent(m, ev, d));
         }
         // The coach changed the plan, the materials or the profile: the screens showing them reload.
-        else if (ev === "changed") dispatchEvent(new CustomEvent("struna:changed", { detail: d }));
+        else if (ev === "changed") {
+          dispatchEvent(new CustomEvent("struna:changed", { detail: d }));
+        } else if (ev === "done") {
+          complete = true;
+          if (d.aborted) { ok = false; problem = "The Coach stopped"; }
+        }
       }
+    }
+    if (find && complete && before) {
+      try { additions = addedMaterials(before, await snapshot()); }
+      catch (e) { problem = (e as Error).message; }
     }
   } catch (e) {
     ok = false;
+    problem = String((e as Error).message ?? e);
+    // No request was sent if the initial snapshot or readiness check failed.
+    if (find && !sent) complete = true;
     if ((e as Error).name !== "AbortError") update((m) => [...m, { role: "error", text: String((e as Error).message ?? e) }]);
   } finally {
     state.busy = null;
@@ -146,7 +181,7 @@ async function send(text: string, auto?: ActionId): Promise<boolean> {
         .filter((x) => !(x.role === "assistant" && !x.text)),
     );
   }
-  return ok && !abort.signal.aborted;
+  return { ok: ok && complete && !abort.signal.aborted, complete, additions, problem, ...(unavailable ? { unavailable } : {}) };
 }
 
 let pumping = false;
@@ -160,9 +195,9 @@ async function pump() {
     if (!providers) await loadProviders();
     for (let next = state.queue.shift(); next; next = state.queue.shift()) {
       emit();
-      const ok = await send(next.text, next.auto);
-      next.done?.(ok);
-      if (!ok && state.queue.length) {
+      const result = await send(next.text, next.auto, next.find);
+      next.done(result);
+      if (!result.ok && state.queue.length) {
         dropQueue();
         emit();
       }
@@ -176,22 +211,39 @@ async function pump() {
 
 /** Open the coach, unless a workspace pane already shows it. */
 export function openCoach(): void {
-  if (!panes) dispatchEvent(new Event("struna:coach-open"));
+  // A retained pane may be in another section, behind the tuner, or off the pane switcher.
+  const shown = panes && [...document.querySelectorAll<HTMLElement>(".pane-coach .chatbody")].some((el) => el.checkVisibility());
+  if (!shown) dispatchEvent(new Event("struna:coach-open"));
 }
 
 /**
  * Send a message to the coach from anywhere in the app. It joins the current conversation and
  * waits its turn behind a running reply. `auto` marks a message the app sent because something happened.
  */
-export function askCoach(text: string, opts: { auto?: ActionId; open?: boolean } = {}): Promise<boolean> {
+function enqueue(text: string, opts: { auto?: ActionId; open?: boolean; find?: boolean } = {}): Promise<FindTurn> {
   const t = text.trim();
-  if (!t) return Promise.resolve(false);
+  if (!t) return Promise.resolve({ ok: false, complete: true, additions: null, problem: "The request is blank" });
   state.more = false;
-  const result = new Promise<boolean>((done) => state.queue.push({ text: t, ...(opts.auto ? { auto: opts.auto } : {}), done }));
+  const result = new Promise<FindTurn>((done) => state.queue.push({ text: t, ...(opts.auto ? { auto: opts.auto } : {}), ...(opts.find ? { find: true } : {}), done }));
   emit();
   if (opts.open) openCoach();
   void pump();
   return result;
+}
+
+export function askCoach(text: string, opts: { auto?: ActionId; open?: boolean } = {}): Promise<boolean> {
+  return enqueue(text, opts).then(result => result.ok);
+}
+
+/** Resolve only this queued request, using the actual Materials changes during its turn. */
+export function findMaterialsWithCoach(text: string): Promise<FindTurn> {
+  return enqueue(text, { find: true });
+}
+
+export function openCoachSettings(): void {
+  state.settings = true;
+  emit();
+  openCoach();
 }
 
 /** Put text in the message box for the player to finish, and open the coach. */
@@ -297,6 +349,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
   const input = useRef<HTMLTextAreaElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const shown = useRef(false);
+  const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -335,22 +388,17 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     state.draft = null;
     setText(draft);
     setList(null);
-    setTimeout(() => {
-      input.current?.focus();
-      input.current?.setSelectionRange(draft.length, draft.length);
+    const timer = setTimeout(() => {
+      if (!input.current?.checkVisibility() || input.current.closest("[inert]")) return;
+      input.current.focus();
+      input.current.setSelectionRange(draft.length, draft.length);
     }, 60);
+    return () => clearTimeout(timer);
   }, [open, state.version]);
 
   useEffect(() => {
     log.current?.scrollTo({ top: log.current.scrollHeight });
   }, [state.version]);
-
-  useEffect(() => {
-    if (!open || !onClose) return;
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    addEventListener("keydown", esc);
-    return () => removeEventListener("keydown", esc);
-  }, [open, onClose]);
 
   const showList = async () => setList(await api.get<Conv[]>("/api/conversations"));
   const submit = (e?: React.FormEvent) => {
@@ -400,14 +448,16 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     shown.current = true;
     if (first && !onClose) return;
     const t = setTimeout(() => {
+      if (!body.current?.checkVisibility() || body.current.closest("[inert]")) return;
       if (showMore) sheet.current?.querySelector<HTMLButtonElement>("button")?.focus();
-      else if (!list) input.current?.focus();
+      else if (showSettings || list) body.current.querySelector<HTMLButtonElement>(".chatbar button")?.focus();
+      else input.current?.focus();
     }, 50);
     return () => clearTimeout(t);
-  }, [open, showMore, Boolean(list)]);
+  }, [open, showMore, showSettings, Boolean(list)]);
 
   return (
-    <div className="chatbody">
+    <div className="chatbody" ref={body}>
         <div className="chathd">
           <h2>Coach</h2>
           {generic ? (
@@ -556,13 +606,42 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
   );
 }
 
+/** The native modal owns background inertness; the panel stays mounted to retain drafts and requests. */
 export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useLayoutEffect(() => {
+    const el = dialog.current;
+    if (!open || !el) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    el.showModal();
+    return () => {
+      el.close();
+      const target = opener?.isConnected && opener.tabIndex >= 0 && !opener.matches(":disabled") && opener.checkVisibility() && !opener.closest("[inert]")
+        ? opener : document.querySelector<HTMLButtonElement>(".top .acts button:last-of-type");
+      target?.focus();
+    };
+  }, [open]);
   return (
-    <div className={`chatwrap${open ? " open" : ""}`} aria-hidden={!open}>
-      <div className="scrim" onClick={onClose} />
-      <aside className="chat" role="dialog" aria-label="Coach" aria-modal="true">
+    <div className={`chatwrap${open ? " open" : ""}`}>
+      <dialog ref={dialog} className="chat" aria-label="Coach" aria-modal="true" onCancel={(e) => {
+        e.preventDefault();
+        close.current();
+      }} onClick={(e) => {
+        if (e.target !== e.currentTarget) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) close.current();
+      }} onKeyDownCapture={(e) => {
+        if (e.key !== "Tab") return;
+        const controls = [...e.currentTarget.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea, [tabindex]")]
+          .filter((x) => x.tabIndex >= 0 && !x.matches(":disabled") && x.checkVisibility() && !x.closest("[inert]"));
+        const at = controls.indexOf(document.activeElement as HTMLElement);
+        e.preventDefault();
+        controls[(at + (e.shiftKey ? -1 : 1) + controls.length) % controls.length]?.focus();
+      }}>
         <ChatPanel open={open} onClose={onClose} />
-      </aside>
+      </dialog>
     </div>
   );
 }
