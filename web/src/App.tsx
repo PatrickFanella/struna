@@ -1,3 +1,4 @@
+import { GuestImport } from "./onboarding/GuestImport.tsx";
 import { Guest } from "./onboarding/Guest.tsx";
 import "./onboarding/guest.css";
 import { useEffect, useState } from "react";
@@ -67,7 +68,7 @@ export function App() {
   }, [info]);
   // Studio mode takes file drops: one that lands outside the Materials list must not open the file in
   // the tab and leave the app. Materials handles its own drops first (on the document).
-  const takesDrops = info?.mode === "studio";
+  const takesDrops = info?.mode === "studio" || info?.mode === "hosted";
   useEffect(() => {
     if (!takesDrops) return;
     const stray = (e: DragEvent) => {
@@ -88,6 +89,7 @@ export function App() {
   if (location.pathname === "/try" || hash === "#try" || info?.mode === "guest") return <Guest />;
   if (!info) return <div className="app"><IconSprite /></div>;
   if (info.mode === "hosted" && !info.account) return <Account />;
+  if (info.mode === "hosted" && info.session && hash === "#guest-import") return <GuestImport session={info.session} />;
   const generic = info.mode === "studio" || info.mode === "hosted";
   const section = sectionFromHash(hash, info.sections);
   const SECTIONS = info.sections.filter((id) => id === "practice" || id === "materials").map((id) => ({ id, ...SECTION[id] }));

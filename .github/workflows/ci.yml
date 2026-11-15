@@ -33,6 +33,7 @@ jobs:
       - run: node scripts/verify-hosted-practice.ts --without-bootstrap
       - run: node scripts/verify-contextual-help.ts /tmp/struna-help-evidence
       - run: node scripts/verify-guest.ts /tmp/struna-guest-evidence
+      - run: node scripts/verify-wave-4.ts /tmp/struna-wave4-evidence
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -42,4 +43,5 @@ jobs:
             /tmp/struna-reading-evidence
             /tmp/struna-help-evidence
             /tmp/struna-guest-evidence
+            /tmp/struna-wave4-evidence
           if-no-files-found: ignore

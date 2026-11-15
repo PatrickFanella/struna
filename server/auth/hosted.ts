@@ -25,7 +25,7 @@ function setCookie(name: string, value: string, seconds: number) {
 }
 /** Return only app-owned hash destinations. Never redirect to a browser-supplied host/path. */
 export function returnTo(v: unknown): string {
-  return typeof v === "string" && /^#(?:practice|materials|coach)$/.test(v) ? `/${v}` : "/#practice";
+  return typeof v === "string" && /^#(?:practice|materials|coach|guest-import)$/.test(v) ? `/${v}` : "/#practice";
 }
 export type IdentityAdapter = {
   issuer: string;
@@ -62,6 +62,7 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
     CREATE TABLE IF NOT EXISTS accounts(id TEXT PRIMARY KEY, issuer TEXT NOT NULL, subject TEXT NOT NULL, disabled INTEGER NOT NULL DEFAULT 0, UNIQUE(issuer, subject));
     CREATE TABLE IF NOT EXISTS sessions(hash TEXT PRIMARY KEY, account TEXT NOT NULL, created INTEGER NOT NULL, touched INTEGER NOT NULL, revoked INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS attempts(hash TEXT PRIMARY KEY, state TEXT NOT NULL, nonce TEXT NOT NULL, verifier TEXT NOT NULL, destination TEXT NOT NULL, created INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS guest_handoffs(id TEXT PRIMARY KEY, flow TEXT NOT NULL, account TEXT, created INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS rate(hash TEXT PRIMARY KEY, started INTEGER NOT NULL, count INTEGER NOT NULL);`);
   function session(req: IncomingMessage) {
     const token = cookie(req, SESSION);
@@ -108,8 +109,15 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
         if (count.n >= 1000) throw new HttpError(429, "Sign-in is busy. Try again later.");
         const token = random(), state = random(), nonce = random(), verifier = oidc.randomPKCECodeVerifier();
         const destination = returnTo(body.returnTo);
+        if (body.handoff !== undefined && (typeof body.handoff !== "string" || !/^[a-f0-9-]{36}$/.test(body.handoff) || destination !== "/#guest-import")) throw new HttpError(400, "Invalid guest handoff");
         const redirect = await adapter.begin(state, nonce, verifier);
         db.prepare("INSERT INTO attempts VALUES(?, ?, ?, ?, ?, ?)").run(hash(token), state, nonce, verifier, destination, now());
+        if (body.handoff) {
+          db.prepare("DELETE FROM guest_handoffs WHERE account IS NULL AND created<?").run(now()-600_000);
+          const prior = db.prepare("SELECT account FROM guest_handoffs WHERE id=?").get(body.handoff) as { account: string | null } | undefined;
+          if (prior?.account) throw new HttpError(409, "This guest handoff already belongs to a private account");
+          db.prepare("INSERT INTO guest_handoffs VALUES(?,?,NULL,?) ON CONFLICT(id) DO UPDATE SET flow=excluded.flow,created=excluded.created").run(body.handoff, hash(token), now());
+        }
         res.setHeader("set-cookie", [setCookie(FLOW, token, 600), setCookie(RATE, browser, 600)]);
         send(res, 200, { redirect }); return true;
       }
@@ -129,6 +137,7 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
         if (account.disabled) throw new HttpError(403, "Account unavailable");
         const prior = hash(cookie(req, SESSION));
         db.prepare("UPDATE sessions SET revoked=1 WHERE hash=?").run(prior); practice?.revoke(prior);
+        db.prepare("UPDATE guest_handoffs SET account=?, flow='' WHERE flow=? AND account IS NULL").run(account.id, flow);
         const token = random();
         db.prepare("INSERT INTO sessions VALUES(?, ?, ?, ?, 0)").run(hash(token), account.id, now(), now());
         res.setHeader("set-cookie", [setCookie(FLOW, "", 0), setCookie(SESSION, token, 30 * 86400)]);
@@ -155,6 +164,11 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
         if (method !== "GET" && method !== "HEAD") {
           mutation(req);
           if (!equal(String(req.headers["x-csrf-token"] ?? ""), csrf(current.token))) throw new HttpError(403, "Invalid CSRF token");
+        }
+        if (path.startsWith("/api/guest-import")) {
+          const id = (method === "GET" || method === "HEAD") ? url.searchParams.get("id") : (await readJson(req)).id;
+          const handoff = db.prepare("SELECT account FROM guest_handoffs WHERE id=?").get(typeof id === "string" ? id : "") as { account: string | null } | undefined;
+          if (!handoff || handoff.account !== current.account) throw new HttpError(409, "This guest handoff belongs to another sign-in. Return to guest practice to continue locally.");
         }
         if (await practice.handle(req, res, url, { account: current.account, session: current.hash, csrf: csrf(current.token), assertActive: () => { if (session(req)?.hash !== current.hash) throw new HttpError(401, "Your session expired. Sign in again."); } })) return true;
       }

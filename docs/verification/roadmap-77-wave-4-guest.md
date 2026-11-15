@@ -1,0 +1,11 @@
+# Recoverable guest-to-account handoff (#106)
+
+A completed guest exercise offers Save across devices and Ask AI Coach. Both explain the account and optional player-owned AI connection, and allow continuing locally. The guest state stays in local storage; an immutable pending snapshot and random import ID live in this tab's session storage. Failed or canceled sign-in does not delete either copy. Storage failure stops sign-in before navigation so the unsaved state remains visible.
+
+The OIDC attempt binds the import ID to the verified callback account. A different account cannot claim that handoff, even after reloading the page with a new session. The application session/CSRF checks still apply. Only named return destinations are accepted.
+
+After sign-in the player chooses whether to import the original starter plus reflection into Materials or save only the note. Both preserve the current profile and plan; the screen states this explicitly for new and existing accounts. Saving requires the current account-work revision. The material has a deterministic ID and exclusive filename; retries and concurrent requests share an account-owned database receipt. A partial file-before-receipt write is recoverable without overwriting a different document. This does not add a historical practice log or claim measured improvement. The next action opens the saved material or opens AI Coach, whose runtime inference remains unavailable until #97.
+
+HTTP tests cover new/existing identities, concurrent/repeated saves, conflicting choices/revisions, saved-note readback, forged handoffs, account switch, canceled login and unsafe return destinations. Browser verification in scripts/verify-wave-4.ts covers the complete built guest-to-account flow, cancel/failed-login retention, refresh before/after save, note readback, hosted file upload/reading and account-scoped Materials-to-practice storage. No live issuer or AI provider is contacted.
+
+The automated browser matrix includes 320x700, 390x844, 844x390, 820x1180, 1153x814 and 1440x900, each with light, dark, Device/light and Device/dark, plus native Chromium 200% zoom in all four theme states. Receipts include import geometry and overflow checks. Keyboard Tab navigation is exercised. This does not qualify Safari, screen-reader speech, hardware capture or audible playback; those remain #110.

@@ -1,3 +1,4 @@
+import { HANDOFF_KEY } from "./handoff.ts";
 import { TaskHelp } from "./TaskHelp.tsx";
 import { useEffect, useState } from "react";
 import { freshGuest, GUEST_KEY, guestExercise, readGuest, type GuestState } from "./guest.ts";
@@ -10,6 +11,20 @@ export function Guest() {
   });
   const [state, setState] = useState(initial.state);
   const [storage, setStorage] = useState(initial.storage);
+  const [accountAction, setAccountAction] = useState<"save" | "coach" | null>(null);
+  const [accountError, setAccountError] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const connect = async () => {
+    if (!accountAction) return;
+    setAccountError(""); setConnecting(true);
+    try {
+      const handoff = { id: crypto.randomUUID(), action: accountAction, state };
+      sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(handoff));
+      const result = await fetch("/auth/login", { method: "POST", headers: { "x-struna": "1", "content-type": "application/json" }, body: JSON.stringify({ returnTo: "#guest-import", handoff: handoff.id }) });
+      const data = await result.json(); if (!result.ok) throw new Error();
+      location.assign(data.redirect);
+    } catch { setAccountError("Sign-in could not start. Your guest practice is still here; try again or continue locally."); setConnecting(false); }
+  };
   const [theme, setThemeChoice] = useState<ThemeChoice>(getTheme);
   useEffect(() => {
     if (storage === "incompatible") return;
@@ -56,6 +71,9 @@ export function Guest() {
         <h1>{state.mode === "explore" ? "Exercise explored" : "Practice marked complete"}</h1><p>{storage === "ready" ? "Your choices and any reflection are kept in this browser on this device." : "Your choices and reflection are available in this open page only."} This is your report of the activity, not a measured result.</p>
         {state.reflection && <blockquote><p className="grp">Your reflection</p><p>{state.reflection}</p></blockquote>}
         <button className="btn primary full" onClick={() => start(state.mode)}>Try this exercise again</button>
+        <button className="btn outline full" onClick={() => setAccountAction("save")}>Save across devices</button>
+        <button className="btn quiet full" onClick={() => setAccountAction("coach")}>Ask AI Coach about this practice</button>
+        {accountAction && <div className="notice"><h2>{accountAction === "save" ? "Save to a private account" : "Coaching in your private account"}</h2><p>Sign in to save your choices and reflection across devices. You will review what to import after sign-in. AI also needs your own supported connection and may have provider charges. No membership or payment starts here.</p><button className="btn primary" disabled={connecting} onClick={() => void connect()}>{connecting ? "Opening sign-in…" : "Sign in and review import"}</button> <button className="btn quiet" disabled={connecting} onClick={() => setAccountAction(null)}>Continue locally</button>{accountError && <p role="alert">{accountError}</p>}</div>}
         <button className="btn quiet" onClick={() => setState((s) => ({ ...s, step: "welcome", reflection: "" }))}>Choose a different focus</button>
       </>}
       <footer className="guest-limits"><p>Guest practice stays on this device. Clearing site data or using another browser removes access to it. Accounts and AI are optional next steps and are not needed here.</p>
