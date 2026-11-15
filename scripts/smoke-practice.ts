@@ -12,6 +12,7 @@ import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { chromium } from "playwright-core";
+import { nextStage } from "./practice-steps.ts";
 
 const root = join(import.meta.dirname, "..");
 const dir = resolve(process.argv[2] ?? "smoke");
@@ -48,7 +49,7 @@ try {
   await page.getByRole("button", { name: /^Log clean pass/ }).click();
   await page.getByText("Three clean passes.").waitFor();
   await page.getByRole("button", { name: /^Set 87 BPM/ }).click();
-  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: /^Next stage/ }).click();
+  for (let i = 0; i < 3; i++) await nextStage(page);
   if (!(await page.locator(".tempocol").getAttribute("aria-label"))?.startsWith("87 BPM")) throw new Error("Personal tempo was lost on stage progression");
   await page.getByRole("button", { name: /^Record take/ }).click();
   await page.waitForTimeout(2500);

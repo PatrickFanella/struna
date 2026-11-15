@@ -1,5 +1,5 @@
 import type { Tool } from "../App.tsx";
-import { activeElapsed, hasIncompleteTiming, moveStage, pauseTimer } from "./sessionTimer.ts";
+import { activeElapsed, hasIncompleteTiming, moveStage, pauseTimer, startStageBreak, finishStageBreak, type StageBreak } from "./sessionTimer.ts";
 import { sessionChecklist, type Activity } from "./sessionScope.ts";
 import { useEffect, useRef, useState } from "react";
 
@@ -48,6 +48,7 @@ export type SessionState = {
   /** Total active time before the current resume, across all stages. */
   activeBefore?: number;
   timingIncomplete?: true;
+  stageBreak?: StageBreak;
   /** Epoch ms of the last resume, or null while paused. */
   resumedAt: number | null;
   startBpm: number;
@@ -206,6 +207,16 @@ export function Session({ today, state, setState, items, material, onFinish, onD
   const [now, setNow] = useState(Date.now());
   const elapsed = state.elapsedBefore + (state.resumedAt ? now - state.resumedAt : 0);
   const chimed = useRef(-1);
+  const clock = useRef<HTMLButtonElement>(null);
+  const wasBreaking = useRef(false);
+  const completeBreak = () => setState((s) => finishStageBreak(s, Date.now()));
+  useEffect(() => {
+    if (!state.stageBreak && wasBreaking.current) clock.current?.focus();
+    wasBreaking.current = Boolean(state.stageBreak);
+  }, [Boolean(state.stageBreak)]);
+  useEffect(() => {
+    if (state.stageBreak && now >= state.stageBreak.until) completeBreak();
+  }, [now, state.stageBreak?.until]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 250);
@@ -282,7 +293,8 @@ export function Session({ today, state, setState, items, material, onFinish, onD
   const resume = () => setState(({ ending, ...s }) => ({ ...s, resumedAt: ending?.running ? Date.now() : null }));
   const next = () => {
     if (state.stage + 1 >= stages.length) return onFinish();
-    setState((s) => moveStage(s, s.stage + 1, Date.now()));
+    metronome.stop();
+    setState((s) => startStageBreak(s, s.stage + 1, Date.now()));
   };
   // Going back restarts the earlier stage clock, retaining the current pause state.
   const back = () => setState((s) => (s.stage > 0 ? moveStage(s, s.stage - 1, Date.now()) : s));
@@ -343,6 +355,13 @@ export function Session({ today, state, setState, items, material, onFinish, onD
   const b = today.block!;
   return (
     <div className="session">
+      {state.stageBreak && <SessionDialog title="Take a short break" onClose={completeBreak}>
+        <p role="status">Relax your hands. Practice time is paused during this break.</p>
+        <p className="break-clock num" role="timer" aria-label="Break time remaining" aria-live="off">{Math.max(0, Math.ceil((state.stageBreak.until - Date.now()) / 1000))}<span>seconds</span></p>
+        <p>Up next: <strong>{stages[state.stageBreak.nextStage]?.title ?? "Next stage"}</strong>. {state.stageBreak.running ? "The stage timer will resume when the break ends." : "The stage timer will wait for you to start it."}</p>
+        <p className="srcnote">The click stays stopped until you start it again.</p>
+        <button type="button" className="btn primary full" autoFocus onClick={completeBreak}>Skip break</button>
+      </SessionDialog>}
       {state.ending && !discarding && <SessionDialog title={state.ending.pain ? "Stop: pain or tension" : "End session?"} onClose={resume}>
         <p>{state.ending.pain ? "Stop playing and rest. A pain stop does not count toward plan progress." : "The timer is paused. Ending alone writes no log."}</p>
         {(take || recording !== null || finalizing) && <div>
@@ -415,7 +434,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
             </p>
             )}
           </div>
-          <button className={`clock${state.resumedAt ? "" : " waiting"}`} onClick={pause} aria-label={state.resumedAt ? "Pause the stage timer" : elapsed ? "Resume the stage timer" : "Start the stage timer"}>
+          <button ref={clock} className={`clock${state.resumedAt ? "" : " waiting"}`} onClick={pause} aria-label={state.resumedAt ? "Pause the stage timer" : elapsed ? "Resume the stage timer" : "Start the stage timer"}>
             <span className="clock-action">{state.resumedAt ? "Pause" : elapsed ? "Resume" : "Start"}</span>
             <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
             <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} min` : `over ${stage.minutes} min`) : elapsed ? "paused, tap to resume" : "tap to start the timer"}</span>

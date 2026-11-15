@@ -10,6 +10,7 @@
  */
 import { spawn } from "node:child_process";
 import { chromium, type Page } from "playwright-core";
+import { nextStage } from "./practice-steps.ts";
 const [vault, state, cache, out] = process.argv.slice(2) as [string, string, string, string];
 const port = 5190;
 const srv = spawn("node", ["server/index.ts"], { cwd: process.cwd(), env: { ...process.env, NODE_ENV: "production", PORT: String(port), STRUNA_VAULT_ROOT: vault, STRUNA_STATE_DIR: state, STRUNA_CACHE_DIR: cache }, stdio: ["ignore", "ignore", "inherit"] });
@@ -73,7 +74,7 @@ try {
   const vid = await p.locator(".mat video").waitFor({ timeout: 5000 }).then(() => 1, () => 0);
   report("Use in practice shows the video in the session", vid === 1, await p.locator(".mat .matlabel").textContent() ?? "");
   await p.screenshot({ path: `${out}-session-video.png` });
-  for (let i = 0; i < 3; i++) await p.getByRole("button", { name: /^Next stage/ }).click();
+  for (let i = 0; i < 3; i++) await nextStage(p);
   await p.getByRole("button", { name: /^Finish/ }).click();
   p.once("dialog", (d) => void d.accept());
   await p.getByRole("button", { name: "Discard session" }).click();

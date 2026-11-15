@@ -26,6 +26,7 @@ import { join, resolve } from "node:path";
 import { deflateSync } from "node:zlib";
 
 import { type Browser, chromium, type Page } from "playwright-core";
+import { nextStage } from "./practice-steps.ts";
 
 import { starterPlan } from "../server/generic/starter.ts";
 import { normalizeProfile } from "../server/generic/studio.ts";
@@ -312,7 +313,7 @@ async function walk(page: Page, env: string) {
   await page.locator(".stagebar, .stages").first().waitFor();
   await shot("session-stage-1", true);
   for (let i = 1; i < kind.stages.length; i++) {
-    await page.getByRole("button", { name: /^Next stage/ }).click();
+    await nextStage(page);
     if (i === 1) await shot("session-stage-2", true);
   }
   await shot("session-last-stage", true);

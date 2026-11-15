@@ -12,6 +12,7 @@ import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { chromium, type Page } from "playwright-core";
+import { nextStage } from "./practice-steps.ts";
 
 const root = join(import.meta.dirname, "..");
 const out = resolve(process.argv[2] ?? join(root, "captures"));
@@ -73,8 +74,8 @@ export const VIEWS: Record<string, (page: Page) => Promise<void>> = {
   practice: async () => {},
   "practice-session": async (page) => {
     await page.getByRole("button", { name: /^Full session/ }).click();
-    await page.getByRole("button", { name: /^Next stage/ }).click();
-    await page.getByRole("button", { name: /^Next stage/ }).click();
+    await nextStage(page);
+    await nextStage(page);
     await page.getByRole("button", { name: /^Log clean pass/ }).click();
     await page.getByRole("button", { name: /^Log clean pass/ }).click();
   },
@@ -97,7 +98,7 @@ export const VIEWS: Record<string, (page: Page) => Promise<void>> = {
   },
   "practice-review": async (page) => {
     await page.getByRole("button", { name: /^Short session/ }).click();
-    for (let i = 0; i < 3; i++) await page.getByRole("button", { name: /^Next stage/ }).click();
+    for (let i = 0; i < 3; i++) await nextStage(page);
     await page.getByRole("button", { name: /^Finish/ }).click();
   },
   tuner: async (page) => {

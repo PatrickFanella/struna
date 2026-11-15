@@ -14,6 +14,7 @@ A practice room for guitar you host yourself. Open a plan, work through timed st
 ## A session in Struna
 
 - Start the session your plan calls for. Keep the lesson, sheet or tab beside the stage timer.
+- Take a 20-second break between stages, or choose Skip break to continue immediately. Rest time does not count as practice; the click stops during the break.
 - Use the tuner and metronome from any screen.
 - Log clean passes as you play. Three in a row suggest **+3 BPM**; one miss asks you to repeat; a second suggests **−4 BPM** or a shorter loop. You choose when to apply the change.
 - Record a take and write what improved, what failed, and what to try next.

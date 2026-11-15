@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import { chromium } from "playwright-core";
+import { nextStage } from "./practice-steps.ts";
 import { parseGenericLog } from "../server/generic/logs.ts";
 import { normalizeProfile } from "../server/generic/studio.ts";
 
@@ -79,7 +80,7 @@ try {
     await page.getByRole("button", { name: /^Quick/ }).click();
     await page.getByRole("button", { name: "Add pane", exact: true }).click();
     await page.getByRole("menuitem", { name: "Coach", exact: true }).click();
-    await page.getByRole("button", { name: /Next stage/ }).click();
+    await nextStage(page);
     assert.equal(await page.locator(".clock.waiting").count(), 1, "Next retains the waiting timer");
     await page.locator(".pane-file:not([hidden])").first().waitFor();
     await page.getByText("Suggested 80 BPM", { exact: false }).waitFor();
@@ -99,7 +100,7 @@ try {
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
     await page.getByRole("button", { name: "Back", exact: true }).click();
-    await page.getByRole("button", { name: /Next stage/ }).click();
+    await nextStage(page);
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
     await page.reload();
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
@@ -153,7 +154,7 @@ try {
     await page.clock.install();
     await page.getByRole("button", { name: "Start the stage timer", exact: true }).click();
     await page.clock.fastForward(65_000);
-    await page.getByRole("button", { name: /Next stage/ }).click();
+    await nextStage(page);
     assert.equal(await page.locator(".clock:not(.waiting)").count(), 1, "Next retains a running timer");
     await page.getByRole("button", { name: "Pause the stage timer", exact: true }).click();
     assert.match(await page.locator(".session-time").innerText(), /Active practice 1:05/);
@@ -188,7 +189,7 @@ try {
       await page.getByRole("button", { name: "Pause the stage timer", exact: true }).click();
       await page.reload();
       await page.getByText(/Earlier stage times were not recorded/).waitFor();
-      await page.getByRole("button", { name: /Next stage/ }).click();
+      await nextStage(page);
       await page.getByRole("button", { name: /Finish/ }).press("Enter");
       await page.getByRole("status").filter({ hasText: "Minutes played includes only recovered timing" }).waitFor();
     }
@@ -221,7 +222,7 @@ try {
     // A full session includes the tune, but skipping its work cannot inherit the roll's BPM.
     await page.getByRole("button", { name: "Back to today", exact: true }).click();
     await page.getByRole("button", { name: /^Full/ }).click();
-    await page.getByRole("button", { name: /Next stage/ }).click();
+    await nextStage(page);
     if (width! < 720) await page.getByRole("button", { name: "Tools", exact: true }).click();
     await page.getByRole("button", { name: /Log clean pass/ }).click();
     await page.getByRole("button", { name: "End session", exact: true }).click();
