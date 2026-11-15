@@ -17,6 +17,7 @@
   "dependencies": {
     "@coderline/alphatab": "^1.9.0",
     "epubjs": "^0.3.93",
+    "openid-client": "^6.9.0",
     "pdfjs-dist": "^5.4.394",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

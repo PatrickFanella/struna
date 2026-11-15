@@ -36,8 +36,8 @@ export function sessionKinds(today: Today): SessionKind[] {
   if (today.sessions) return today.sessions;
   const minutes = (stages: Stage[]) => stages.reduce((n, s) => n + s.minutes, 0);
   return [
-    { id: "full", label: "Full session (45 min)", minutes: minutes(today.stages.full), stages: today.stages.full },
-    { id: "floor", label: "Short session (15 min)", minutes: minutes(today.stages.floor), stages: today.stages.floor },
+    { id: "full", label: `Full session (${minutes(today.stages.full)} min)`, minutes: minutes(today.stages.full), stages: today.stages.full },
+    { id: "floor", label: `Short session (${minutes(today.stages.floor)} min)`, minutes: minutes(today.stages.floor), stages: today.stages.floor },
   ];
 }
 

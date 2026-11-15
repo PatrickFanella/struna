@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { Account } from "./account/Account.tsx";
 import { CoachToasts } from "./chat/actions.tsx";
 import { Chat, openCoach } from "./chat/Chat.tsx";
 import type { AppInfo } from "./generic.ts";
@@ -13,7 +14,7 @@ import { ToolsSheet } from "./tools/ToolsSheet.tsx";
 
 type Section = AppInfo["sections"][number];
 const SECTION: Record<Section, { label: string; icon: "i-stand" | "i-books" | "i-tab" }> = {
-  practice: { label: "Practice", icon: "i-stand" },
+  practice: { label: "Today", icon: "i-stand" },
   library: { label: "Library", icon: "i-books" },
   materials: { label: "Materials", icon: "i-books" },
   tabs: { label: "Tabs", icon: "i-tab" },
@@ -83,19 +84,22 @@ export function App() {
 
   // Nothing is drawn until the server says which app this is, so the wrong sections never flash.
   if (!info) return <div className="app"><IconSprite /></div>;
+  if (info.mode === "hosted") return <Account />;
   const generic = info.mode === "studio";
   const section = sectionFromHash(hash, info.sections);
-  const SECTIONS = info.sections.map((id) => ({ id, ...SECTION[id] }));
+  const SECTIONS = info.sections.filter((id) => id === "practice" || id === "materials").map((id) => ({ id, ...SECTION[id] }));
   const has = (s: Section) => info.sections.includes(s);
   const tabs = (
     <nav className="tabs" aria-label="Sections">
-      <div className={SECTIONS.length === 3 ? "wrap" : `wrap n${SECTIONS.length}`}>
+      <div className="wrap">
         {SECTIONS.map((s) => (
           <a key={s.id} href={`#${s.id}`} {...(section === s.id ? { "aria-current": "page" as const } : {})}>
             <Icon id={s.icon} />
             {s.label}
           </a>
         ))}
+        {!has("materials") && <a href="#library"><Icon id="i-books" />Materials</a>}
+        <button className="nav-coach" aria-pressed={chat} onClick={openCoach}><Icon id="i-chat" />AI Coach</button>
       </div>
     </nav>
   );
@@ -116,8 +120,13 @@ export function App() {
                 {s.label}
               </a>
             ))}
+            {!has("materials") && <a href="#library"><Icon id="i-books" />Materials</a>}
           </nav>
           <span className="acts">
+            {(has("library") || has("tabs")) && <details className="secondary-nav"><summary>More</summary><div>
+              {has("library") && <a href="#library">Personal Library</a>}
+              {has("tabs") && <a href="#tabs">Tabs</a>}
+            </div></details>}
             <button className="ib" aria-pressed={tool === "tuner"} onClick={() => setTool("tuner")}>
               <Icon id="i-fork" />
               Tuner
@@ -127,7 +136,7 @@ export function App() {
             </button>
             <button className="ib" aria-pressed={chat} onClick={openCoach}>
               <Icon id="i-chat" />
-              Coach
+              AI Coach
               {generic && unread && !chat && <span className="unread" role="status" aria-label="New reply from the coach" />}
             </button>
           </span>

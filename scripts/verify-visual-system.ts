@@ -71,6 +71,17 @@ try {
       await page.goto(base);
       await page.locator(".gstart").waitFor();
       await page.evaluate(() => document.fonts.ready);
+      const before = await page.evaluate(() => sessionStorage.getItem("struna.session"));
+      const radios = page.locator('.duration-choices input');
+      await radios.first().focus();
+      await page.keyboard.press("ArrowRight");
+      assert.equal(await page.evaluate(() => sessionStorage.getItem("struna.session")), before, "duration preview never starts a session");
+      if (width === 390) {
+        const bottom = await page.locator('.practice-choice > .btn').evaluate((el) => el.getBoundingClientRect().bottom);
+        const nav = await page.locator('.tabs').evaluate((el) => el.getBoundingClientRect().top);
+        assert(bottom <= nav, "all duration choices and Start fit above phone navigation");
+      }
+      await radios.first().check();
       const metrics = await page.evaluate(async () => {
         await Promise.all([document.fonts.load('16px "Jost"'), document.fonts.load('16px "Atkinson Hyperlegible Next"'), document.fonts.load('700 16px "Atkinson Hyperlegible Next"')]);
         const css = getComputedStyle(document.documentElement);

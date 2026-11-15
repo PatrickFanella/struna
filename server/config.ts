@@ -11,10 +11,10 @@ for (const [key, value] of Object.entries(process.env)) {
 }
 if (env.STRUNA_MODE === "generic") env.STRUNA_MODE = "studio";
 
-if (env.STRUNA_MODE && env.STRUNA_MODE !== "personal" && env.STRUNA_MODE !== "studio") throw new Error(`STRUNA_MODE must be "personal" or "studio", not "${env.STRUNA_MODE}"`);
-const mode: "personal" | "studio" = env.STRUNA_MODE === "studio" ? "studio" : "personal";
+if (env.STRUNA_MODE && env.STRUNA_MODE !== "personal" && env.STRUNA_MODE !== "studio" && env.STRUNA_MODE !== "hosted") throw new Error(`STRUNA_MODE must be "personal", "studio" or "hosted", not "${env.STRUNA_MODE}"`);
+const mode: "personal" | "studio" | "hosted" = env.STRUNA_MODE === "hosted" ? "hosted" : env.STRUNA_MODE === "studio" ? "studio" : "personal";
 /** The studio mode keeps its own state and cache, so both modes can run on one machine. */
-const suffix = mode === "studio" ? "struna-studio" : "struna";
+const suffix = mode === "hosted" ? "struna-hosted" : mode === "studio" ? "struna-studio" : "struna";
 const legacySuffix = mode === "studio" ? "guitar-room-generic" : "guitar-room";
 const existingPath = (current: string, legacy: string) => existsSync(current) || !existsSync(legacy) ? current : legacy;
 const stateHome = env.XDG_STATE_HOME ?? join(home, ".local/state");
@@ -37,6 +37,10 @@ const threadDir = join(vaultRoot, threadRel);
 
 export const config = {
   mode,
+  hostedOrigin: env.STRUNA_HOSTED_ORIGIN,
+  oidcIssuer: env.STRUNA_OIDC_ISSUER,
+  oidcClientId: env.STRUNA_OIDC_CLIENT_ID,
+  oidcSecretFile: env.STRUNA_OIDC_SECRET_FILE,
   host: env.HOST ?? "127.0.0.1",
   port: Number(env.PORT ?? 5182),
   production: env.NODE_ENV === "production",

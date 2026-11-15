@@ -133,7 +133,7 @@ export type Changed = { plan?: boolean; materials?: boolean; profile?: boolean }
 
 /** What `/api/app` returns in either mode. */
 export type AppInfo = {
-  mode: "personal" | "studio";
+  mode: "personal" | "studio" | "hosted";
   name: string;
   /** Sections the app shows. */
   sections: ("practice" | "library" | "materials" | "tabs")[];

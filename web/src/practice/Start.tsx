@@ -1,3 +1,4 @@
+import { PracticeChoice } from "./PracticeChoice.tsx";
 import { useState } from "react";
 
 import { Icon } from "../icons.tsx";
@@ -22,12 +23,12 @@ export function Start({ today, onStart, onTune, onCoach, onWeek }: {
   };
   return (
     <div className="start">
-      <dl className="meta">
+      <details className="plan-details"><summary>Current plan</summary><dl className="meta">
         <dt>Block</dt>
         <dd>{b ? blockName(b) : "Not found"}</dd>
         <dt>Today</dt>
         <dd>{todayLine(today)}{today.weekOverride ? " (week set by hand)" : ""}</dd>
-      </dl>
+      </dl><p>{today.next.text}</p><p>{b?.goal}</p></details>
 
       {today.error && (
         <div className="notice" role="alert">
@@ -43,13 +44,12 @@ export function Start({ today, onStart, onTune, onCoach, onWeek }: {
         </div>
       )}
 
-      <h1>Next</h1>
-      <p className="instr">{today.next.text ? cap(today.next.text) : "No instruction recorded yet."}</p>
+      <h1>Today</h1>
+      <p className="today-task">{today.next.text ? cap(today.next.text) : "No instruction recorded yet."}</p>
       <p className="srcnote">{today.next.source === "log" ? "From your last practice log" : "From the progress ledger"}</p>
 
       <div className="startacts">
-        <button className="btn primary full" disabled={!b} onClick={() => onStart("full")}>Full session (45 min)</button>
-        <button className="btn outline full" disabled={!b} onClick={() => onStart("floor")}>Short session (15 min)</button>
+        <PracticeChoice today={today} onStart={onStart} />
         <button className="btn quiet full" onClick={onTune}><Icon id="i-fork" />Tune first</button>
         {b && b.crossTraining.length > 0 && (
           <div className="cross">

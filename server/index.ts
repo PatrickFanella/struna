@@ -1,3 +1,4 @@
+import { hostedAuth, hostedInfo } from "./auth/hosted.ts";
 import { chmodSync, rmSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -40,7 +41,10 @@ export const access: Access | null = config.mode === "studio" && !config.edgeSec
 route("GET", "/api/health", (_req, res) => send(res, 200, { ok: true }));
 /** What `/api/app` answers; also written into index.html, so the first paint needs no extra round trip. */
 let appInfo: () => Promise<AppInfo>;
-if (config.mode === "studio") {
+const hosted = config.mode === "hosted" ? await hostedAuth(config) : null;
+if (hosted) {
+  appInfo = async () => hostedInfo;
+} else if (config.mode === "studio") {
   // One studio folder instead of the vault: the profile, the plan, logs, materials and recordings.
   await ensureStudio(config.home);
   // The coach reads the studio and the library folders: the saved keys and the coaches' own logins must be elsewhere.
@@ -90,7 +94,7 @@ if (config.mode === "studio") {
   libraryRoutes({ ...config, autoScan: !config.noScan, onScan: () => tabs.rescan() }, db);
   mediaRoutes(config, db);
 }
-promptRoutes(db, config.mode);
+if (config.mode !== "hosted") promptRoutes(db, config.mode);
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -121,7 +125,7 @@ async function serveStatic(path: string, res: ServerResponse) {
   const immutable = file.includes(`${sep}assets${sep}`);
   res.writeHead(200, {
     "content-type": TYPES[extname(file)] ?? "application/octet-stream",
-    "cache-control": immutable ? "public, max-age=31536000, immutable" : "no-cache",
+    "cache-control": config.mode === "hosted" ? "no-store" : immutable ? "public, max-age=31536000, immutable" : "no-cache",
     "x-robots-tag": NOINDEX,
   });
   res.end(data);
@@ -135,8 +139,9 @@ export function withAppInfo(html: string, info: AppInfo): string {
 
 export async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
-    guard(req, config);
+    guard(req, config.mode === "hosted" ? { allowedHosts: config.allowedHosts } : config);
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (hosted && await hosted.handle(req, res, url)) return;
     if (access && checkAccess(req, res, url, access)) return;
     const method = req.method ?? "GET";
     // A custom header forces a CORS preflight, which this server never answers.
