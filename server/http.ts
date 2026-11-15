@@ -94,7 +94,7 @@ export function createRouter() {
     return undefined;
   }
 
-  return { route, match };
+  return { route, match, inventory: () => routes.map(r => ({ method: r.method, path: r.parts.join("/") })) };
 }
 export const { route, match } = createRouter();
 

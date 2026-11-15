@@ -64,20 +64,26 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     try { return await fn({ home, db, timeZone, libraryDirs: [], web: false, appName: "Struna" }); }
     finally { db.close(); }
   }
-  const info = (identity: PracticeIdentity): Promise<AppInfo> => withStudio(identity, async (s) => ({ ...await genericAppInfo(s, {}), mode: "hosted", sections: ["practice", "materials"], account: identity.account, session: identity.session, csrf: identity.csrf }));
-  return {
-    info,
-    revoke: coach.revoke,
-    async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
-      const privateRouter = createRouter();
-      // Registrations close over this request’s verified workspace, never a global owner.
-      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:conversations|prompts|chat|providers|guest-import)(?:\/|$)/.test(url.pathname)) {
-        return await withStudio(identity, async (s) => {
+  function privateRoutes(s: Studio, identity: PracticeIdentity) {
+    const privateRouter = createRouter();
           guestImportRoutes(s, identity, privateRouter.route);
           credentials.register(s, identity, privateRouter.route);
           coach.register(s, identity, privateRouter.route);
           hostedRecordingRoutes({ mediaRoot: s.home, db: s.db, assertActive: identity.assertActive }, privateRouter.route);
           materialsRoutes(s, { cacheDir: join(root, "accounts", identity.account, "cache"), assertActive: identity.assertActive }, privateRouter.route);
+    return privateRouter;
+  }
+  const info = (identity: PracticeIdentity): Promise<AppInfo> => withStudio(identity, async (s) => ({ ...await genericAppInfo(s, {}), mode: "hosted", sections: ["practice", "materials"], account: identity.account, session: identity.session, csrf: identity.csrf }));
+  return {
+    info,
+    inventory: (identity: PracticeIdentity) => withStudio(identity, async s => [...router.inventory(), ...privateRoutes(s, identity).inventory()]),
+    revoke: coach.revoke,
+    async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
+
+      // Registrations close over this request’s verified workspace, never a global owner.
+      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:conversations|prompts|chat|providers|guest-import)(?:\/|$)/.test(url.pathname)) {
+        return await withStudio(identity, async (s) => {
+          const privateRouter = privateRoutes(s, identity);
           const found = privateRouter.match(req.method === "HEAD" ? "GET" : req.method ?? "GET", url.pathname);
           if (!found) return false;
           await found.handler(req, res, { url, params: found.params });
