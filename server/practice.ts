@@ -105,6 +105,7 @@ export function parseReview(input: any): SessionReview {
     threePass: input.threePass,
     recall: input.recall,
     pain: input.pain === true,
+    partial: input.partial === true,
     improvement: s(input.improvement),
     failure: s(input.failure),
     next: s(input.next, 4000),

@@ -10,6 +10,7 @@ export type LogFacts = {
   cleanTempo: number | null;
   kind: "full" | "floor" | "cross-training" | null;
   pain: boolean;
+  partial?: boolean;
   nextInstruction: string | null;
 };
 export type SessionType = "decode" | "connect" | "vary" | "prove";
@@ -35,6 +36,7 @@ export function parseLog(file: string, text: string): LogFacts {
     date,
     cleanTempo: n > 0 ? n : null,
     kind,
+    partial: /^yes\b/i.test(value(body, "Partial session")),
     pain: /^yes\b/i.test(value(body, "Pain, numbness, or persistent tension")),
     // The template's blank line ("Start at ___ BPM ...") is not an instruction.
     nextInstruction: next && !next.includes("___") ? next : null,
@@ -44,7 +46,7 @@ export function parseLog(file: string, text: string): LogFacts {
 /** A session counts when its log is in the block, has a clean working tempo, and was not stopped for pain. Cross-training is logged but not counted. */
 export function countSessions(logs: LogFacts[], blockStarted: string): { full: number; floor: number; counted: LogFacts[] } {
   const counted = logs
-    .filter((l) => l.date >= blockStarted && l.cleanTempo !== null && !l.pain && l.kind !== "cross-training")
+    .filter((l) => l.date >= blockStarted && l.cleanTempo !== null && !l.pain && !l.partial && l.kind !== "cross-training")
     .sort((a, b) => a.date.localeCompare(b.date) || a.file.localeCompare(b.file, undefined, { numeric: true }));
   const floor = counted.filter((l) => l.kind === "floor").length;
   return { full: counted.length - floor, floor, counted };

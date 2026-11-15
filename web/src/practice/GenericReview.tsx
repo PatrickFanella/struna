@@ -1,3 +1,4 @@
+import { ConfirmDiscard } from "./ConfirmDiscard.tsx";
 import { hasIncompleteTiming, playedMinutes } from "./sessionTimer.ts";
 import { sessionChecklist } from "./sessionScope.ts";
 import { useEffect, useState } from "react";
@@ -46,6 +47,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
     let stored: string | null = null;
     try {
       stored = sessionStorage.getItem(REVIEW_DRAFT_KEY);
+      if (stored && (JSON.parse(stored).partial === true) !== (session.partial === true)) stored = null;
     } catch {
       /* storage unavailable */
     }
@@ -53,7 +55,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
   });
   useEffect(() => {
     try {
-      sessionStorage.setItem(REVIEW_DRAFT_KEY, JSON.stringify({ startedAt: session.startedAt, form: f }));
+      sessionStorage.setItem(REVIEW_DRAFT_KEY, JSON.stringify({ startedAt: session.startedAt, partial: session.partial === true, form: f }));
     } catch {
       /* storage unavailable */
     }
@@ -68,6 +70,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
       live = false;
     };
   }, [session.pain]);
+  const [discarding, setDiscarding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   /** Sets a field; the next instruction follows along until the player writes their own. */
@@ -107,6 +110,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
         wentWell: f.wentWell,
         struggled: f.struggled,
         pain,
+        partial: session.partial === true,
         ...(session.recording ? { recording: session.recording } : {}),
         notes: f.notes,
         next: f.next,
@@ -118,7 +122,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
       onWritten(file);
       const summary = [f.struggled.trim(), f.notes.trim()].filter(Boolean).join(" ") || "no details given";
       // An off-day extra is not counted and must not move the plan's next instruction; a pain stop is still reported.
-      if (pain || !session.cross) void coachAction(pain ? "pain" : "session-logged", { log: file, summary: `${summary} (log: ${file})` });
+      if (pain || (!session.cross && !session.partial)) void coachAction(pain ? "pain" : "session-logged", { log: file, summary: `${summary} (log: ${file})` });
     } catch (err) {
       setError(String((err as Error).message ?? err));
     } finally {
@@ -128,7 +132,9 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
 
   return (
     <form className="review greview" onSubmit={submit}>
-      <h1>{session.pain ? "Stopped: pain or tension" : "How did it go?"}</h1>
+      {discarding && <ConfirmDiscard onCancel={() => setDiscarding(false)} onDiscard={onDiscard} />}
+      {session.partial && <p className="notice">Partial session · does not count toward plan progress. Minutes reflect active playing time.</p>}
+      <h1>{session.partial ? "Partial session review" : session.pain ? "Stopped: pain or tension" : "How did it go?"}</h1>
       <p className="instr">{session.pain ? painNote(coach) : "Mostly taps, and nothing is required. The coach reads this before it plans your next session."}</p>
       <div className="field">
         <p className="grp">This session included</p>
@@ -161,7 +167,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
       <button className="btn primary full" disabled={busy}>{busy ? "Writing the log" : "Write the log"}</button>
       <div className="row2 reviewfoot">
         <button type="button" className="btn quiet" onClick={onBack}>Back to the session</button>
-        <button type="button" className="btn quiet" onClick={() => confirm("Discard this session without writing a log?") && onDiscard()}>Discard session</button>
+        <button type="button" className="btn quiet" onClick={() => setDiscarding(true)}>Discard session</button>
       </div>
     </form>
   );
