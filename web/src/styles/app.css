@@ -284,8 +284,11 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .pane-coach .chathd h2,.pane-coach .chathd .sheetdone{display:none}
 .pane .matnote{padding:12px}
 .emptypane{align-items:center;justify-content:center}
-.panemenu{position:absolute;top:100%;right:8px;z-index:20;display:flex;flex-direction:column;min-width:240px;max-width:min(90vw,360px);max-height:60vh;overflow:auto;padding:6px;background:var(--page);border:1px solid var(--edge);border-radius:var(--r)}
-.panemenu button{text-align:left;padding:8px 10px;border:0;border-radius:6px;background:transparent;color:var(--ink);font-size:14px}
+.panemenu{position:fixed;z-index:40;display:flex;flex-direction:column;width:min(360px,calc(100vw - 24px));overflow:auto;overscroll-behavior:contain;padding:6px;background:var(--page);border:1px solid var(--edge);border-radius:var(--r)}
+.panemenu button{flex:none;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left;padding:10px;border:0;border-radius:6px;background:transparent;color:var(--ink);font-size:14px}
+.panemenu button span,.panemenu button small{display:block}
+.panemenu button span{font-weight:700}
+.panemenu button small{margin-top:4px;color:var(--muted);font-size:12px}
 .panemenu button:hover,.panemenu button:focus-visible{background:var(--wash)}
 .panemenu .grp{margin:8px 10px 2px;font-size:12px}
 .panetabs{display:flex;gap:6px;overflow-x:auto}

@@ -1,0 +1,11 @@
+# Issue 18: wrapping pane picker
+
+The picker now renders in a viewport-positioned portal, outside pane overflow clipping. Full titles and secondary file/source details wrap, long lists scroll, and first-choice focus plus Arrow Up/Down, Home and End support keyboard selection. Escape and outside dismissal restore the exact Add/Change opener. Finder dismissal uses that opener as well; replacement has a nearby opener fallback when the original node is removed.
+
+Validation: `pnpm typecheck`, `pnpm test` (297 passing), `pnpm build` (existing chunk-size advisory), and the scratch-only `scripts/smoke-controls.ts` issue 18 mode. Final scratch smoke: 148 assertions passed.
+
+Screenshots/checks: `/tmp/struna-issue18-20261115f`. Files use width and theme in their names; `checks.json` contains interaction assertions. Viewports are 320×700, 390×844, 1003×814 and 502×407 (the layout equivalent of 200% zoom at the desktop dimensions; native browser zoom was not driven). Each checks light, dark and Device with an emulated light system preference. The fixture has 30 materials, a representative tune title and a synthetic long path/title; the historical PDF's exact original resource inventory was not available in this assignment.
+
+Assertions cover complete text bounds, viewport edges, internal scrolling, title-before-source text, keyboard/touch-style pointer choice, selected content, Escape/outside focus restoration and replacement via keyboard. No external browser requests or live providers are permitted; each run owns fresh home/state/cache and stand-in CLI directories.
+
+During smoke development, an unscoped heading locator matched multiple headings; an outside-click target was covered by the intentionally tall picker. Both assertions now target the actual interaction. Rapid keyboard transitions also exposed deferred focus restoration stealing focus from a newly opened picker; restoration now runs in a layout effect after replacement. At the 502×407 layout, the pre-existing session bar overlaps the pane header, preventing pointer activation of Change. Keyboard activation and picker choices work there. This session reader-space limitation is outside this issue and remains for the parent agent's layout changes. No human screen-reader or real-device evidence is claimed.
