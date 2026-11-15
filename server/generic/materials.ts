@@ -56,7 +56,7 @@ const b64 = (s: string) => Buffer.from(s).toString("base64url");
 /** The id of a studio file, from its path inside `materials/`. */
 export const fileId = (rel: string) => `f.${b64(rel)}`;
 const folderId = (n: number, rel: string) => `d${n}.${b64(rel)}`;
-const linkId = (url: string) => `l.${createHash("sha1").update(url).digest("hex").slice(0, 16)}`;
+export const linkId = (url: string) => `l.${createHash("sha1").update(url).digest("hex").slice(0, 16)}`;
 export const srcOf = (id: string) => `/api/materials/file?id=${encodeURIComponent(id)}`;
 const titleOf = (name: string) => {
   const ext = extOf(name);
@@ -298,6 +298,11 @@ export async function listMaterials(s: Pick<Studio, "home" | "libraryDirs">, opt
       saved.note = [str(e.note, 1000), str(e.level, 200)].filter(Boolean).join(" · ");
       saved.inPlan ||= inPlan;
     } else own.push(linkItem(s.home, e, linksAdded, inPlan));
+  }
+  // Plan-only links must also have a durable Materials destination.
+  for (const url of plan.urls) if (!own.some((i) => i.url === url)) {
+    try { if (!["http:", "https:"].includes(new URL(url).protocol)) continue; } catch { continue; }
+    own.push(linkItem(s.home, { url, title: plan.names.get(url) || url }, linksAdded, true));
   }
   for (const item of own) {
     const name = plan.names.get(item.path ?? "") || plan.names.get(item.url ?? "");

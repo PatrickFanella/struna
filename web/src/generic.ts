@@ -62,6 +62,7 @@ export type MaterialItem = {
 
 /** An entry of the plan's material list, resolved by `/api/today`. */
 export type MaterialRef = {
+  itemId?: string;
   label: string;
   key: string;
   kind: MaterialKind;

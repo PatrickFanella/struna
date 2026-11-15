@@ -21,6 +21,7 @@ import { refPaneItem } from "../materials/item.ts";
 import { recordPass, emptyPasses, type Checkpoint, type PassState } from "./checkpoints.ts";
 import { SessionDialog, ConfirmDiscard } from "./ConfirmDiscard.tsx";
 import { stopTimer } from "./sessionTimer.ts";
+import { StageMaterialLink } from "./StageMaterialLink.tsx";
 import { TempoRow } from "./TempoRow.tsx";
 
 export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
@@ -381,7 +382,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
                 }} /> {activity.title}
               </label>)}
             </fieldset>}
-            {stage.material && <p className="srcnote">Material: {stage.material.label}{stage.material.missing ? " — missing; choose another resource or check the plan reference." : ""}</p>}
+            {stage.material && <StageMaterialLink material={stage.material} />}
             {stageTempo && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={() => {
               metronome.set({ bpm: stageTempo.bpm });
               setState((s) => ({ ...s, stageTempos: { ...s.stageTempos, [tempoKey]: { bpm: stageTempo.bpm, source: stageTempo.source } } }));

@@ -601,3 +601,7 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .session-dialog::backdrop { background:rgb(0 0 0 / .5); }
 .exit-actions { display:flex; flex-wrap:wrap; gap:10px; }
 .danger { color:var(--red, #b64639); }
+
+.stage-materials { margin:4px 0 12px; padding-left:20px; }
+.stage-materials li { overflow-wrap:anywhere; }
+.stage-material-link { display:inline-flex; align-items:center; min-height:44px; }

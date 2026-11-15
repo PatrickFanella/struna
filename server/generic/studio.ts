@@ -8,7 +8,7 @@ import { resolveInside } from "../files.ts";
 import { localDate } from "../logs.ts";
 import { kindOf } from "./fetch.ts";
 import { type GenericLog, isCounted, readLogs } from "./logs.ts";
-import { fileId, srcOf, youtubeId } from "./materials.ts";
+import { fileId, linkId, listMaterials, srcOf, youtubeId } from "./materials.ts";
 import type { GenericStats, Level, MaterialKind, Plan, PlanMaterial, PlanPhase, PlanSession, PlanStage, Profile } from "./types.ts";
 
 export type Studio = { home: string; db: DatabaseSync; timeZone: string; libraryDirs: string[]; web: boolean; appName: string };
@@ -368,7 +368,7 @@ export async function readPlan(s: Studio): Promise<{ plan: Plan | null; errors: 
 // ---------------------------------------------------------------- today
 
 export type Stage = { key: string; title: string; minutes: number; output: string; instruction: string; material?: MaterialRef; targetBpm?: number };
-export type MaterialRef = { label: string; key: string; kind: MaterialKind; src: string | null; url?: string; youtube?: string; missing?: true; note?: string };
+export type MaterialRef = { itemId?: string; label: string; key: string; kind: MaterialKind; src: string | null; url?: string; youtube?: string; missing?: true; note?: string };
 export type GenericToday = {
   /** The date in the app's time zone, which log dates and the plan's "started" use. */
   today: string;
@@ -393,9 +393,14 @@ export type GenericToday = {
 export const materialSrc = (file: string) => srcOf(fileId(file.replace(/^materials\//, "")));
 
 async function resolveMaterials(home: string, plan: Plan): Promise<MaterialRef[]> {
+  const listed = await listMaterials({ home, libraryDirs: [] }, { limit: 100000 });
   return Promise.all(
     plan.materials.map(async (m, i): Promise<MaterialRef> => {
       const ref: MaterialRef = { label: m.label, key: m.file ?? m.url ?? `label-${i}`, kind: m.file ? kindOf(m.file) : m.url ? "link" : "other", src: null };
+      const item = listed.items.find((i) => m.file ? i.path === m.file : i.url === m.url);
+      if (item) { ref.itemId = item.id; ref.label = item.shortTitle || item.title; }
+      else if (m.file) ref.itemId = fileId(m.file.replace(/^materials\//, ""));
+      else if (m.url) ref.itemId = linkId(m.url);
       if (m.note) ref.note = m.note;
       if (m.url) {
         ref.url = m.url;

@@ -62,7 +62,9 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
       dispatchEvent(new HashChangeEvent("hashchange"));
     } else location.hash = id ? materialHash(id) : "#materials";
   };
+  const fromPractice = history.state?.materialFromPractice === true;
   const backToList = () => {
+    if (fromPractice) { history.back(); return; }
     setConfirm(null);
     if (history.state?.materialFromList) history.back();
     else setOpenId(null);
@@ -335,7 +337,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
   if (detail && (!opened || opened.id !== openId)) {
     const missing = route.type === "missing" || openError;
     return <div className="viewer matviewer">
-      <button className="linkbtn" onClick={backToList}>Back to materials</button>
+      <button className="linkbtn" onClick={backToList}>{fromPractice ? "Back to practice" : "Back to materials"}</button>
       <h1>{missing ? "Material unavailable" : "Opening material"}</h1>
       <p className="srcnote" role="status">{missing ? openError || "This material address is invalid. Return to Materials to choose an item." : "Loading your material…"}</p>
       {openError && <button className="btn outline" onClick={() => void load()}>Try again</button>}
@@ -346,7 +348,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
     const url = webUrl(opened.url);
     return (
       <div className="viewer matviewer">
-        <button className="linkbtn" onClick={backToList}>Back to materials</button>
+        <button className="linkbtn" onClick={backToList}>{fromPractice ? "Back to practice" : "Back to materials"}</button>
         <h1>{materialName(opened)}</h1>
         {materialName(opened) !== opened.title && <p className="srcnote">{opened.title}</p>}
         <p className="srcnote">

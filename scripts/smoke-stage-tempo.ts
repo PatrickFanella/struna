@@ -55,6 +55,11 @@ try {
     assert.doesNotMatch(await page.locator("#scope-custom-quick").innerText(), /Tune practice/);
     assert.match(await page.locator("#scope-custom-full").innerText(), /Tune practice · 10 min/);
     assert.equal(await page.locator("#scope-custom-short").innerText(), "Technique · 6 min");
+    await page.getByRole("link", { name: "Open Baseline roll", exact: true }).first().click();
+    await page.getByRole("heading", { name: "Baseline roll", exact: true, level: 1 }).waitFor();
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("struna.session")), null);
+    await page.getByRole("button", { name: "Back to practice", exact: true }).click();
+    await page.getByRole("button", { name: /^Quick/ }).waitFor();
     await page.evaluate(() => sessionStorage.setItem("struna.material", JSON.stringify({ key: "extra:before", label: "Extra before start", kind: "link", src: null, url: "https://example.invalid/extra" })));
     await page.reload();
     await page.getByRole("button", { name: /^Quick/ }).click();

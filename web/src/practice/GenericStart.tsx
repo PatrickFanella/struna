@@ -1,3 +1,4 @@
+import { StageMaterialLink } from "./StageMaterialLink.tsx";
 import { durationSummary } from "./sessionScope.ts";
 import { useEffect, useState } from "react";
 
@@ -138,7 +139,7 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
 
       {b && (
         <>
-          <h1>Next</h1>
+          <h1>{b.goal || "Next"}</h1>
           <p className="instr">{today.next.text ? cap(today.next.text) : "No instruction yet. Start a session and see how it goes."}</p>
           <p className="srcnote">{today.next.source === "log" ? "From your last practice log" : "From your plan"}{today.phase?.summary ? `. This phase: ${today.phase.summary}` : ""}</p>
         </>
@@ -149,6 +150,7 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
           <div key={k.id} className="session-choice">
             <button className={`btn ${i === 0 ? "primary" : "outline"} full`} aria-describedby={`scope-${k.id}`} onClick={() => onStart(k.id)}>{kindLabel(k)}</button>
             <p className="srcnote" id={`scope-${k.id}`}>{durationSummary(k.stages)}</p>
+            <ul className="stage-materials">{k.stages.filter((st) => st.material).map((st) => <li key={st.key}><span>{st.title}: </span><StageMaterialLink material={st.material!} /></li>)}</ul>
           </div>
         ))}
         <button className="btn quiet full" onClick={onTune}><Icon id="i-fork" />Tune first</button>
