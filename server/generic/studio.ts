@@ -105,6 +105,8 @@ export const PLAN_LIMITS = {
   stageTitle: 120,
   stageMinutes: 120,
   task: 2000,
+  minBpm: 30,
+  maxBpm: 300,
   materials: 100,
   materialLabel: 200,
   note: 1000,
@@ -136,7 +138,7 @@ export const PLAN_SCHEMA = `{
       "id": "lower-case key such as full, short, quick (letter first, then letters, digits, dashes; at most 31; not \\"extra\\"); unique",
       "label": "string, required, at most ${L.label}",
       "stages": [        // 1 to ${L.stages}
-        { "key": "lower-case key, unique within this kind", "title": "string, required, at most ${L.stageTitle}", "minutes": 5, "task": "what to do, one or two sentences, required, at most ${L.task}" }
+        { "key": "lower-case key, unique within this kind", "title": "string, required, at most ${L.stageTitle}", "minutes": 5, "task": "what to do, one or two sentences, required, at most ${L.task}", "material": { "file": "materials/exercise.md" }, "targetBpm": 80 }
       ]                  // minutes: whole number 1 to ${L.stageMinutes}
     }
   ],
@@ -146,6 +148,7 @@ export const PLAN_SCHEMA = `{
   "next": "the instruction for the next session, at most ${L.next}",
   "extras": ["optional off-day activities, at most ${L.extras}, each at most ${L.extra}"]
 }
+Stage material and targetBpm are optional. material has exactly one file (same rules as materials[].file) or http(s) url; targetBpm is a whole number ${L.minBpm} to ${L.maxBpm}. Never derive tempo from prose.
 Every key in a phase's "focus" must be a stage key used by at least one session kind.`;
 
 function validDate(v: string): boolean {
@@ -260,11 +263,25 @@ export function validatePlan(v: unknown): { plan: Plan | null; errors: string[] 
       else if (keys.has(key)) err(`${q}.key "${key}" is used by an earlier stage of this session kind; keys must be unique within a kind`);
       keys.add(key);
       if (L.key.test(key)) stageKeys.add(key);
+      let material: PlanStage["material"];
+      if (st.material !== undefined) {
+        const m = obj(st.material, `${q}.material`);
+        if (m) {
+          const file = str(m, "file", `${q}.material.file`, L.file);
+          const url = str(m, "url", `${q}.material.url`, L.url);
+          if (Boolean(file) === Boolean(url)) err(`${q}.material needs exactly one file or url`);
+          if (file && fileProblem(file)) err(`${q}.material.file ${fileProblem(file)}`);
+          if (url && urlProblem(url)) err(`${q}.material.url ${urlProblem(url)}`);
+          material = file ? { file } : { url };
+        }
+      }
       stages.push({
         key,
         title: str(st, "title", `${q}.title`, L.stageTitle, true),
         minutes: int(st, "minutes", `${q}.minutes`, 1, L.stageMinutes),
         task: str(st, "task", `${q}.task`, L.task, true),
+        ...(material ? { material } : {}),
+        ...(st.targetBpm !== undefined ? { targetBpm: int(st, "targetBpm", `${q}.targetBpm`, L.minBpm, L.maxBpm) } : {}),
       });
     });
     sessions.push({ id: kid, label, stages });
@@ -350,7 +367,7 @@ export async function readPlan(s: Studio): Promise<{ plan: Plan | null; errors: 
 
 // ---------------------------------------------------------------- today
 
-export type Stage = { key: string; title: string; minutes: number; output: string; instruction: string };
+export type Stage = { key: string; title: string; minutes: number; output: string; instruction: string; material?: MaterialRef; targetBpm?: number };
 export type MaterialRef = { label: string; key: string; kind: MaterialKind; src: string | null; url?: string; youtube?: string; missing?: true; note?: string };
 export type GenericToday = {
   /** The date in the app's time zone, which log dates and the plan's "started" use. */
@@ -494,6 +511,14 @@ export async function genericToday(s: Studio, now = new Date()): Promise<Generic
   const next: GenericToday["next"] = fromLog ? { text: latest.next!, source: "log" } : { text: plan.next, source: "plan" };
 
   const minutesOf = (k: PlanSession) => k.stages.reduce((a, st) => a + st.minutes, 0);
+  const stageMaterials = new Map<string, MaterialRef>();
+  for (const k of plan.sessions) for (const st of k.stages) {
+    if (!st.material) continue;
+    const key = st.material.file ?? st.material.url!;
+    const label = plan.materials.find((m) => (m.file ?? m.url) === key)?.label ?? key.split("/").at(-1)!;
+    const [resolved] = await resolveMaterials(s.home, { ...plan, materials: [{ label, ...st.material }] });
+    stageMaterials.set(key, resolved!);
+  }
   const sessions = plan.sessions.map((k) => ({
     id: k.id,
     label: k.label,
@@ -502,7 +527,7 @@ export async function genericToday(s: Studio, now = new Date()): Promise<Generic
       // Only the phase's own keys: a stage keyed "constructor" must not pick up Object.prototype.
       const parts = [st.task, Object.hasOwn(phase.focus, st.key) ? phase.focus[st.key]! : ""];
       if (i === 0 && next.text) parts.push(`Today: ${next.text}`);
-      return { key: st.key, title: st.title, minutes: st.minutes, output: st.task, instruction: parts.filter(Boolean).join("\n\n") };
+      return { key: st.key, title: st.title, minutes: st.minutes, output: st.task, instruction: parts.filter(Boolean).join("\n\n"), ...(st.material ? { material: stageMaterials.get(st.material.file ?? st.material.url!)! } : {}), ...(st.targetBpm !== undefined ? { targetBpm: st.targetBpm } : {}) };
     }),
   }));
   // The shortest kind is the "floor" of the old counts; with one kind there is no floor.
