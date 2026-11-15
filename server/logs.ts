@@ -103,7 +103,7 @@ ${next}
  * Write a new log under `<practiceDir>/Logs/`. Never opens an existing file:
  * each candidate name is created with `wx`, so a clash moves on to `(2)`, `(3)`…
  */
-export async function writeSessionLog(practiceDir: string, review: SessionReview, now: Date, timeZone: string, submissionId?: string): Promise<{ file: string }> {
+export async function writeSessionLog(practiceDir: string, review: SessionReview, now: Date, timeZone: string, submissionId?: string): Promise<{ file: string; replayed?: boolean }> {
   const date = localDate(now, timeZone);
   return publishLog(join(practiceDir, "Logs"), renderLog(review, date), (n) => n === 1 ? `Practice Log - ${date}.md` : `Practice Log - ${date} (${n}).md`, submissionId);
 }

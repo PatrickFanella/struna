@@ -52,7 +52,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
     material,
     target: "",
     startTempo: String(session.startBpm),
-    cleanTempo: session.checkpoints?.at(-1)?.bpm?.toString() ?? "",
+    cleanTempo: session.checkpoints?.filter((c) => c.materialLabel === material).at(-1)?.bpm?.toString() ?? "",
     subdivision: session.subdivision as number,
     threePass: (session.metThree ? "met" : "not met") as "met" | "not met",
     recall: "page-dependent" as Recall,
@@ -62,7 +62,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
     next: today.next.text,
     observation: "",
     };
-    try { return restoreReviewDraft(sessionStorage.getItem(REVIEW_DRAFT_KEY), session.startedAt, fresh); } catch { return fresh; }
+    try { const restored = restoreReviewDraft(sessionStorage.getItem(REVIEW_DRAFT_KEY), session.startedAt, fresh); return { ...restored, pain: session.pain ? "yes" : restored.pain }; } catch { return fresh; }
   });
   useEffect(() => {
     try { sessionStorage.setItem(REVIEW_DRAFT_KEY, JSON.stringify({ startedAt: session.startedAt, form: f })); } catch { /* unavailable storage */ }
@@ -115,7 +115,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
     setError("");
     try {
       const pain = f.pain === "yes";
-      const { file } = await api.post<{ file: string }>("/api/sessions", {
+      const { file, replayed } = await api.post<{ file: string; replayed?: boolean }>("/api/sessions", {
         submissionId: session.submissionId,
         blockTitle: blockLogName(b),
         blockId: b.id,
@@ -142,7 +142,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
             : {}),
       });
       const clean = Number(f.cleanTempo);
-      if (f.material && clean >= 30 && clean <= 300 && !pain) {
+      if (!replayed && f.material && clean >= 30 && clean <= 300 && !pain) {
         await api.put("/api/tempos", { fragment: f.material, bpm: clean, subdivision: subLog(f.subdivision) }).catch(() => {});
       }
       onWritten(file);
