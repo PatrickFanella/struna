@@ -106,10 +106,7 @@ export function App() {
       <header className="top">
         <div className="wrap">
           <span className="name">
-            <span className="brandmark" aria-hidden="true">
-              <img className="mark-light" src="/brand/mark-primary.svg" width="28" height="28" alt="" />
-              <img className="mark-dark" src="/brand/mark-dark.svg" width="28" height="28" alt="" />
-            </span>
+            <span className="brandmark" aria-hidden="true" />
             {info.name.toLowerCase() === "struna" ? "struna" : info.name}
           </span>
           <nav className="topnav" aria-label="Sections">

@@ -1,0 +1,36 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Install offline sandbox and media test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap ffmpeg unzip
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: node node_modules/playwright-core/cli.js install --with-deps chromium
+      - run: node scripts/verify-visual-system.ts /tmp/struna-visual-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-system-evidence
+          path: /tmp/struna-visual-evidence
+          if-no-files-found: ignore

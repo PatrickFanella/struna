@@ -6,7 +6,7 @@
     "path": "studio/brands/struna/GUIDE.md",
     "sha256": "c5d340b6c81ae6bbe97c93eb10507eda79220aa4576f69b3d589687c3b7641d0"
   },
-  "scope": "App integration requested by the owner; no social publication or deployment. Studio remains the source owner.",
+  "scope": "Historical Studio export retained unchanged. The app-owned warm/structured adaptation v1 implements roadmap #77 and #89 without changing the source repository.",
   "assets": [
     {
       "source": "studio/brands/struna/tokens.css",
@@ -152,5 +152,69 @@
         "height": 512
       }
     }
-  ]
+  ],
+  "app_direction": {
+    "version": 1,
+    "approved": "2026-11-15",
+    "authority": "https://github.com/PatrickFanella/struna/issues/77",
+    "mark_geometry": "https://github.com/PatrickFanella/struna/issues/89",
+    "license": "CC0-1.0 for new original app vectors and derived icons; exported fonts retain their OFL licenses",
+    "regenerate": "node scripts/build-app-icons.ts",
+    "assets": [
+      {
+        "target": "web/public/brand/app-apple-touch-icon.png",
+        "sha256": "adedbffe361ee73ddb0f5081bfa7569566938901f301d2743bd744a2bab117dc",
+        "bytes": 3841,
+        "source": "app-mark.svg via scripts/build-app-icons.ts"
+      },
+      {
+        "target": "web/public/brand/app-favicon-16.svg",
+        "sha256": "fdabbb4bb204713c2c8a1b09a2c784d9794e4d961088f8194295c1734634dab8",
+        "bytes": 592,
+        "source": "app-mark.svg via scripts/build-app-icons.ts"
+      },
+      {
+        "target": "web/public/brand/app-favicon.png",
+        "sha256": "f6d2936d28689da62bfef5fcbee7cc0267960e046ee17f83fa404d7619a00613",
+        "bytes": 920,
+        "source": "app-mark.svg via scripts/build-app-icons.ts"
+      },
+      {
+        "target": "web/public/brand/app-favicon.svg",
+        "sha256": "fdabbb4bb204713c2c8a1b09a2c784d9794e4d961088f8194295c1734634dab8",
+        "bytes": 592,
+        "source": "app-mark.svg via scripts/build-app-icons.ts"
+      },
+      {
+        "target": "web/public/brand/app-icon-512.png",
+        "sha256": "8010eb06b99a82e09ea831c8931b7545b955d1bb5c0d9ec797a8f83f323493c0",
+        "bytes": 14903,
+        "source": "app-mark.svg via scripts/build-app-icons.ts"
+      },
+      {
+        "target": "web/public/brand/app-icon-maskable-512.png",
+        "sha256": "8010eb06b99a82e09ea831c8931b7545b955d1bb5c0d9ec797a8f83f323493c0",
+        "bytes": 14903,
+        "source": "app-mark.svg via scripts/build-app-icons.ts"
+      },
+      {
+        "target": "web/public/brand/app-icon.svg",
+        "sha256": "fdabbb4bb204713c2c8a1b09a2c784d9794e4d961088f8194295c1734634dab8",
+        "bytes": 592,
+        "source": "app-mark.svg via scripts/build-app-icons.ts"
+      },
+      {
+        "target": "web/public/brand/app-mark.svg",
+        "sha256": "318dc949fd12899421630079c0044f3a02ef8e76d37320b70933b87b6c1ec4b0",
+        "bytes": 530,
+        "source": "original editable vector; owner-approved geometry"
+      },
+      {
+        "target": "web/public/brand/practice-illustration.svg",
+        "sha256": "170217376a886fc23dbc0566f70024772174c23ff9f628ff4b400b3a49d78905",
+        "bytes": 1484,
+        "source": "original editable vector created for issue #89"
+      }
+    ]
+  }
 }

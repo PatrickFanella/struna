@@ -1,5 +1,6 @@
-/* Struna: “The string”. Studio owns struna.css; this file maps it to the app.
-   See docs/struna-design.md and docs/struna-assets.json for source and hashes. */
+/* App-owned warm/structured direction, approved in roadmap #77 (2026-11-15).
+   Preserve the historical Studio export in struna.css; adapt only this mapping.
+   The owner selected the cream/green palette and local Jost/Atkinson faces. */
 @import "./struna.css";
 @import "./fonts.css";
 
@@ -8,13 +9,26 @@
   font-synthesis:none;
   --wedge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 10'%3E%3Cpath d='M1.5 1.5 16.5 5 1.5 8.5' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --chk:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.3 4.8 9 10 3' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  --page:var(--struna-bg); --panel:var(--struna-panel); --ink:var(--struna-ink);
-  --muted:var(--struna-muted); --edge:var(--struna-edge); --rule:var(--struna-rule); --wash:var(--struna-wash);
-  --ring:var(--struna-ring); --ring-ink:var(--struna-ring-ink); --err:var(--struna-err);
-  --focus:var(--ring-ink); --on-ink:var(--page);
-  --on-ring:#1A1714; /* Dark ink stays readable inside bronze fills in both modes. */
+  /* light-dark follows color-scheme, including the existing Device preference. */
+  --vanilla:#FFFAF0; --dark-ink:#26314A; --forest:#315E4D;
+  --apricot:#F5B08C; --butter:#FFE099; --pale-green:#E9EFDF; --soft-pink:#F8E0D7;
+  --page:light-dark(var(--vanilla),#1B2433); --panel:light-dark(#FFFFFF,#253246);
+  --ink:light-dark(var(--dark-ink),#F5F0E5); --muted:light-dark(#596278,#BEC6D1);
+  --edge:light-dark(#7B847E,#8998A6); --rule:light-dark(#D7DDD2,#465569);
+  --wash:light-dark(var(--pale-green),#344A43);
+  --primary:light-dark(var(--forest),#A3D2BB); --on-primary:light-dark(#FFFFFF,#1B2433);
+  --ring:light-dark(var(--butter),#DFC17A); --ring-ink:light-dark(var(--forest),#A3D2BB);
+  --err:light-dark(#A03735,#FFB4AC); --focus:light-dark(var(--forest),var(--butter));
+  --on-ink:var(--page); --on-ring:#26314A;
+  --accent-peach:light-dark(var(--apricot),#754B3C);
+  --accent-butter:light-dark(var(--butter),#625432);
+  --accent-green:var(--wash); --accent-pink:light-dark(var(--soft-pink),#67434B);
   --display:var(--struna-font-display); --sans:var(--struna-font-body); --mono:var(--struna-font-label);
-  --r:8px; --gap:16px; --col:760px; --sp:14px;
+  /* Controls, source music and feature/illustration surfaces have separate roles. */
+  --r:14px; --r-reading:6px; --r-feature:22px; --r-illustration:24px;
+  --space-reading:12px; --space-feature:20px;
+  --shadow-layer:0 4px 16px light-dark(#26314A1A,#00000040);
+  --gap:16px; --col:760px; --sp:14px;
   /* The brand's reading scale stays consistent across devices; touch controls stay large. */
   --fs-meta:14px; --fs-h1:30px; --fs-instr:18px; --fs-label:16px; --fs-clock:36px; --fs-bpm:34px;
   --btn-h:52px; --fs-btn:16px; --dot:24px; --ib-h:44px; --fs-nav:14px; --icon-nav:24px;

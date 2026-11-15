@@ -55,7 +55,7 @@ label.set:focus-within{outline:3px solid var(--focus);outline-offset:2px}
 .themepick .grp{margin:0}
 .themepick .seg{display:flex;flex:0 1 auto;flex-wrap:wrap;min-width:0;max-width:100%;gap:4px}
 .themepick .seg button{flex:1 0 auto;min-width:min-content;max-width:100%;height:auto;min-height:42px;padding:8px 14px;overflow-wrap:anywhere}
-.notice{background:var(--panel);border:1px solid var(--rule);border-left:4px solid var(--ink);border-radius:var(--r);padding:12px 14px;margin:0 0 var(--sp);font-size:var(--fs-label);line-height:1.4}
+.notice{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-feature);padding:var(--space-feature);margin:0 0 var(--sp);font-size:var(--fs-label);line-height:1.4}
 .notice p{margin:0 0 8px}.notice p:last-child{margin:0}
 .notice .btn{padding:0 18px;height:44px;font-size:var(--fs-label)}
 code{font-family:var(--mono);font-size:.9em}
@@ -270,7 +270,7 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 /* Panes */
 .workspace{position:relative;display:flex;flex-direction:column;flex:1;min-height:0;gap:6px}
 .panes{display:grid;gap:10px;flex:1;min-height:0}
-.pane{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.pane{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--panel);border:1px solid var(--rule);border-radius:var(--r-reading);overflow:hidden}
 .panehd{position:relative;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 12px;border-bottom:1px solid var(--rule)}
 .panetitle{flex:1;min-width:0;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .paneacts{display:flex;gap:6px}
@@ -593,7 +593,7 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .session-dialog { color:var(--ink); background:var(--panel); border:1px solid var(--rule); border-radius:12px; width:min(480px, calc(100% - 24px)); max-height:calc(100dvh - 24px); overflow:auto; padding:20px; }
 .session-dialog::backdrop { background:rgb(0 0 0 / .5); }
 .exit-actions { display:flex; flex-wrap:wrap; gap:10px; }
-.danger { color:var(--red, #b64639); }
+.danger { color:var(--err); }
 
 .stage-materials { margin:4px 0 12px; padding-left:20px; }
 .stage-materials li { overflow-wrap:anywhere; }

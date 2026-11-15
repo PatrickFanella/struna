@@ -4,10 +4,10 @@
   "description": "A practice room for guitar you host yourself.",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#ECE8E1",
-  "background_color": "#ECE8E1",
+  "theme_color": "#FFFAF0",
+  "background_color": "#FFFAF0",
   "icons": [
-    { "src": "/brand/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/brand/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/brand/app-icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/brand/app-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

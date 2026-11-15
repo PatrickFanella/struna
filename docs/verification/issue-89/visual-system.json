@@ -1,0 +1,943 @@
+{
+  "scratch": true,
+  "cases": [
+    {
+      "width": 320,
+      "height": 700,
+      "choice": "light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 320,
+      "height": 700,
+      "choice": "dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 320,
+      "height": 700,
+      "choice": "device-light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 320,
+      "height": 700,
+      "choice": "device-dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "choice": "light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "choice": "dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "choice": "device-light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "choice": "device-dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "choice": "light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "choice": "dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "choice": "device-light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "choice": "device-dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 820,
+      "height": 1180,
+      "choice": "light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 820,
+      "height": 1180,
+      "choice": "dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 820,
+      "height": 1180,
+      "choice": "device-light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 820,
+      "height": 1180,
+      "choice": "device-dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 1153,
+      "height": 814,
+      "choice": "light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 1153,
+      "height": 814,
+      "choice": "dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 1153,
+      "height": 814,
+      "choice": "device-light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 1153,
+      "height": 814,
+      "choice": "device-dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "choice": "light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "choice": "dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "choice": "device-light",
+      "page": "rgb(255, 250, 240)",
+      "ink": "rgb(38, 49, 74)",
+      "scheme": "light",
+      "ratios": {
+        "ink/page": 12.454788807470909,
+        "ink/panel": 12.957992731273304,
+        "muted/page": 5.862379059154167,
+        "muted/panel": 6.0992335085538905,
+        "on-primary/primary": 7.397389220323769,
+        "on-ring/ring": 10.103682211921981,
+        "err/panel": 6.790402363563722,
+        "ring-ink/page": 7.110122869835958,
+        "ink/accent-peach": 7.078346123455113,
+        "ink/accent-butter": 10.103682211921981,
+        "ink/accent-green": 11.030874521423339,
+        "ink/accent-pink": 10.264465908797623,
+        "focus/page": 7.110122869835958,
+        "focus/panel": 7.397389220323769,
+        "edge/panel": 3.8574803967417797,
+        "edge/page": 3.7076810171707013
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "choice": "device-dark",
+      "page": "rgb(27, 36, 51)",
+      "ink": "rgb(245, 240, 229)",
+      "scheme": "dark",
+      "ratios": {
+        "ink/page": 13.720345533880993,
+        "ink/panel": 11.382658024714676,
+        "muted/page": 9.049710633605391,
+        "muted/panel": 7.5078110176294075,
+        "on-primary/primary": 9.276746153228745,
+        "on-ring/ring": 7.4333271623866235,
+        "err/panel": 7.62390578105238,
+        "ring-ink/page": 9.276746153228745,
+        "ink/accent-peach": 6.533790392335417,
+        "ink/accent-butter": 6.521199757588843,
+        "ink/accent-green": 8.374048702688736,
+        "ink/accent-pink": 7.447262152071998,
+        "focus/page": 12.15828398476845,
+        "focus/panel": 10.086742234314412,
+        "edge/panel": 4.3771414456752975,
+        "edge/page": 5.276086917039911
+      },
+      "fonts": [
+        "Jost:400",
+        "Atkinson Hyperlegible Next:400",
+        "Atkinson Hyperlegible Next:700",
+        "Spline Sans Mono:400"
+      ],
+      "overflow": false,
+      "mark": "url(\"http://127.0.0.1:45959/brand/app-mark.svg\")",
+      "primaryRadius": "14px",
+      "focus": {
+        "style": "solid",
+        "width": "3px"
+      }
+    }
+  ],
+  "pageErrors": [],
+  "limits": "Local Chromium only; no native zoom, Safari, screen-reader speech or hardware audio qualification."
+}

@@ -1,67 +1,49 @@
-# Struna in the app
+# Struna app visual foundation
 
-The app uses Struna’s “The string” direction from `subcult-tv/studio/brands/struna/`. The owner requested this integration on November 14, 2026. Studio remains the owner of the guide, palette, type and mark; this repository owns the implementation. The source pack still records pending owner review. This change applies it to the app; it does not approve social posts or deploy a website.
+Version 1, November 15, 2026. Implements [roadmap #77](https://github.com/PatrickFanella/struna/issues/77) and [visual foundation #89](https://github.com/PatrickFanella/struna/issues/89). The owner-approved direction blends welcoming first-use surfaces with quiet, structured music reading. This foundation changes shared visual roles and identity assets; Today, onboarding, phone/tablet layouts, Materials, review and tools remain their own follow-up issues.
 
-Source: [Struna guide at revision 8561286](https://github.com/subculture-collective/subcult-tv/blob/856128658b937d0b8e342e3ac0e7fbee180799ac/studio/brands/struna/GUIDE.md), introduced by [PR #86](https://github.com/subculture-collective/subcult-tv/pull/86). [struna-assets.json](struna-assets.json) records the exact source revision, selected paths, SHA-256 hashes and destinations. All 16 exported files are unchanged copies, with resolved Git LFS bytes. The source checkout was read without checking out or pulling its main branch.
+## Ownership and provenance
 
-## Palette and meaning
+The historical Studio export at revision `856128658b937d0b8e342e3ac0e7fbee180799ac` remains unchanged. [struna-assets.json](struna-assets.json) retains all 16 source paths, resolved-byte SHA-256 values and destinations, including fonts and OFL licenses. The original Studio marks remain historical exported files; the app no longer references them. This is an app-owned adaptation, not an update or approval of the separate Studio brand pack.
 
-[The copied Studio tokens](../web/src/styles/struna.css) are imported by [the app mapping](../web/src/styles/tokens.css). The theme follows the device until the player chooses Light or Dark; the existing stored preference stays in use.
+[App tokens](../web/src/styles/tokens.css) import the historical export for font-family definitions and map app roles directly to the new palette. Never edit the copied `struna.css` to adapt the product. New app assets have a separate versioned section in the asset manifest. No private study images or temporary mockup files are required to build the app.
 
-| App role | Studio role | Use |
+## Palette and accessible roles
+
+| Approved color | Value | App role |
 | --- | --- | --- |
-| `page`, `panel` | `bg`, `panel` | Page, fields, reading surfaces and panes |
-| `ink`, `muted` | `ink`, `muted` | Primary text, labels and metadata |
-| `edge`, `rule`, `wash` | `edge`, `rule`, `wash` | Control outlines, dividers and neutral selection |
-| `ring` | `ring` | Filled clean-pass checks only |
-| `ring-ink` | `ring_ink` | Clean-pass suggestion text and the next tempo |
-| `focus` | `ring_ink` | Visible keyboard focus, as specified by the guide |
-| `err` | `err` | Miss text, recording state, pain stops and error text |
+| Vanilla | `#FFFAF0` | Light page |
+| Dark ink | `#26314A` | Light text; text on warm accents |
+| Forest | `#315E4D` | Primary light controls, mark, focus, confirmed clean-tempo suggestion |
+| Apricot | `#F5B08C` | Illustration and future feature accent |
+| Butter | `#FFE099` | Filled clean-pass checks and illustration accent |
+| Pale green | `#E9EFDF` | Selected/quiet surface and illustration |
+| Soft pink | `#F8E0D7` | Illustration and future feature accent |
 
-Bronze does not indicate the current stage, a metronome beat, a selected string, an unread reply or upload progress. Those states use ink and neutral outlines. A miss is worded in the error colour, with no red fill. The tempo helper still suggests +3 BPM after three clean passes, repetition after one miss and −4 BPM after the second.
+White text on forest measures 7.40:1; dark ink on vanilla measures 12.45:1. Soft accent fills use dark ink, never white labels. Text, error, muted, focus and control-edge roles are checked by the visual verification script rather than assumed from the palette. State still has text, shape or selection semantics; color alone never reports a pass, pain exit or current control.
 
-Clean-pass fills have a dark check (`#1A1714`) in both themes and a `ring_ink` outline. This keeps the check readable on bronze in dark mode and gives the light fill a boundary above 3:1. Bronze fill itself is not suitable for text on the light background.
+Dark mode is a complete app mapping: navy page `#1B2433`, panel `#253246`, warm ink `#F5F0E5`, muted `#BEC6D1`, visible edge `#8998A6`, green selection `#344A43`, mint primary `#A3D2BB` with navy labels, butter focus and pale coral errors. Peach, butter and pink become deeper accent surfaces with light ink. Primary fill changes in dark mode so its boundary remains visible against dark panels. Source PDF/image/video content retains its own appearance.
 
-## Type, layout and motion
+The existing Light/Dark/Device preference and storage compatibility remain. CSS `light-dark()` resolves app colors through `color-scheme`; explicit overrides win over device changes. The app already targets modern browsers for its music engines; this foundation requires `light-dark()` support. Browser theme-color metadata matches vanilla/navy according to the device; explicit app color selection is a content theme and does not promise a matching installed OS chrome tint.
 
-Fonts load from `/brand/fonts/`, with OFL licences beside them. No Google Fonts connection is needed.
+## Type and surface roles
 
-- Jost 400: the lowercase `struna` wordmark, headings, clock, BPM and numeric controls.
-- Atkinson Hyperlegible Next 400 and 700: instructions, buttons, forms, logs and coach messages.
-- Spline Sans Mono 400: small labels, codes and fixed-width text, including text tablature.
+Fonts are served locally from `/brand/fonts/`, with licenses alongside them. Jost 400 carries the lowercase wordmark, headings, BPM and clock. Atkinson Hyperlegible Next 400/700 carries prose, instructions, forms and controls. Spline Sans Mono 400 remains for codes and tablature. Font synthesis is disabled. Do not simulate a new font weight or mirror text.
 
-The normal scale is labels 12 px, small text 14 px, body 16 px, instructions 18 px, h2 24 px, h1 30 px, BPM 34 px and clock 36 px. The existing compact session headings and phone clock retain smaller sizes to leave room for the lesson. The standalone metronome and tuner keep larger readouts for use on a stand. EPUB documents receive the local body font and current ink colour inside their own frames; PDF and image source content keeps its original appearance.
+Controls use `--r:14px`; dense source-reading surfaces use `--r-reading:6px` with `--space-reading:12px`; feature notices/checklists use `--r-feature:22px` and `--space-feature:20px`. Illustration sources use 24px corners. Keep the original tab/score alignment and the current playing geometry. Source pages and tab text must never be rounded or decorated in a way that hides notes. Use `--shadow-layer` only on genuinely overlaid menus; flat reading surfaces need no decorative shadow. The existing focus rule supplies a 3px outline with 2px offset. Decorative animations/transitions are disabled under reduced motion; no new decorative animation was added.
 
-The existing practice workspace, material panes, navigation, forms and responsive layout remain the product structure. Controls keep touch-sized targets; a narrow-header adjustment fits the mark and tool buttons at 320 px. Panels use the existing simple outlines with an 8 px base radius. Existing panel and menu motion keeps its reduced-motion path. No decorative motion or new shadows were added. Warm neutral colours come from the owner-selected pack.
+The cream/green combination is owner-selected, as recorded in #77; it is not a generic replacement theme. The fonts, palette, radii, absence of decorative shadows and motion follow that explicit direction. The original illustration depicts a rounded guitar and notes; it does not copy the supplied inspiration screenshots. It stays available for Today/onboarding follow-ups and is deliberately absent from active playing.
 
-## Identity assets
+## Mark, browser icons and reusable sources
 
-The header uses the original primary and dark Octave S SVGs with 15% clear space. The wordmark is lowercase; custom `STRUNA_APP_NAME` values remain available. The default app name and page title are Struna. New storage keys, API headers, package and service templates use `struna`. Existing configuration and stored data remain readable through the compatibility paths documented in the README.
+[app-mark.svg](../web/public/brand/app-mark.svg) preserves the exact original study path and string geometry supplied in #89. Only the path group has `translate(28 0) scale(-1 1)`, making its curve read as S. The wordmark remains adjacent lowercase text in Jost and is never transformed. The SVG uses `currentColor`; the header applies it as a mask in the theme's primary color, so a single source works in both themes. At narrow widths it scales proportionally from 28×34 to 24×29px.
 
-Browser tabs use the hand-tuned 16 px SVG and the larger favicon assets. The manifest uses the supplied 512 px normal and maskable PNGs; Apple touch uses the supplied 180 px PNG. The manifest is app metadata, with no service worker or offline-cache claim. Packet artwork, social templates, reference studies and private Studio material are excluded from the app build.
+[practice-illustration.svg](../web/public/brand/practice-illustration.svg) is an original editable illustration for later Today/onboarding work. Both new vectors and derived icons are dedicated under CC0-1.0, with provenance in SVG metadata and the asset manifest. Imported font licenses remain unchanged.
 
-## Updating the exported files
+[build-app-icons.ts](../scripts/build-app-icons.ts) derives a fixed vanilla/forest icon from the canonical mark. Run `node scripts/build-app-icons.ts` with local Chromium (or set `CHROMIUM`) and refresh app-asset hashes in the manifest. It uses no network or running app. The generator keeps all foreground geometry within the maskable safe circle. `app-icon.svg` is the editable composition; SVG/48px PNG favicons, 180px Apple touch and 512px normal/maskable manifest PNGs use that same orientation. Browser icons contain no wordmark to mirror. The manifest is metadata only, with no service-worker/offline claim.
 
-Start with the revision and source/target list in `struna-assets.json`. Read the new Studio guide and review the requested selection before updating it. Read each selected file from the chosen Git revision, resolve binary pointers with `git lfs smudge` in the source repository, and compare the resolved bytes to that revision’s `asset-manifest.json`. Copy only the listed destinations. Keep the imported `struna.css` unchanged; product adaptations belong in `tokens.css` and the component styles. Record the new revision and hashes together.
+## Verification and limits
 
-Do not pull or switch the Studio checkout merely to export files: social jobs also use it. Regenerate a changed brand only in Studio using its own generator and instructions. The old [Method book mockup](design-system.html) remains a historical layout study, not the current token source.
+Run `pnpm typecheck`, `pnpm test`, `pnpm build`, then `node scripts/verify-visual-system.ts` for scratch-only Chromium checks. The script creates original open-string material, disables real coach executables, uses isolated home/state/cache/vault/media roots, binds an available loopback port and closes its own server/browser. It checks 24 combinations of the six roadmap viewport sizes and light/dark/Device, loaded local fonts, mark source, text/control contrast, keyboard focus, preference persistence and page overflow. It saves JSON and selected screenshots. Existing Studio smoke uses stand-in providers and exercises practice/review, materials and coach settings independently.
 
-## Checking the integration
-
-Run `pnpm build` and `pnpm test`. The existing `scripts/capture.ts` can capture fixture-backed practice, review, tuner, metronome, coach, library and tabs at desktop, phone and iPad sizes in both themes. `scripts/smoke-generic.ts` exercises setup, practice, materials and coach settings with a stand-in CLI; set `STRUNA_TIMEZONE=UTC` for this smoke run because its repair-plan fixture uses UTC dates.
-
-Review loaded fonts, explicit theme overrides, keyboard focus, clean-pass and miss states, icon dimensions and narrow-screen overflow. Check every exported hash against `struna-assets.json` and ensure the build contains only the selected brand assets. A local build and fixture browser run do not establish production deployment or physical-device behaviour.
-
-Local verification completed November 15, 2026 UTC:
-
-- `pnpm build`: passed, including TypeScript. Vite still reports the existing large PDF/alphaTab bundle warning.
-- `pnpm test`: all 290 tests passed.
-- Studio smoke with `STRUNA_TIMEZONE=UTC`: all checks passed, including phone/iPad setup, sessions, materials and coach settings with stand-in CLIs.
-- Personal practice smoke: passed clean-pass tempo change, take recording, log creation and the return to today, using scratch folders and disabled real coach CLIs.
-- Browser conformance: passed at 320, 390, 820 and 1440 px in both modes for loaded fonts, marks, persisted theme overrides, clean/miss states, keyboard focus, horizontal overflow and reduced motion.
-- EPUB check: a generated fixture loaded local Atkinson regular/bold and the correct ink colour in both themes.
-- Asset checks: all 16 source hashes matched; PNG dimensions, SVG parsing, resolved LFS bytes, selected public files and CSS token references passed.
-
-Measured bronze text contrast is 5.33:1 in light mode and 8.19:1 in dark mode. Dark checks against bronze fills measure 5.61:1 and 7.01:1. Screenshots use fixture content. These results cover local Chromium; production and physical Safari/device behaviour were not checked.
-
-The repository-wide naming follow-up makes GitHub `PatrickFanella/struna` the primary source, uses `STRUNA_*` configuration and the public mode name `studio`, and renames the service templates. Legacy variables, saved state, browser settings and access credentials remain readable. The README documents precedence and the boundary between templates and installed services.
+[Issue #89 verification](verification/issue-89.md) records the actual commands and evidence. The repository had no check workflow at this baseline; the new CI workflow runs the required suite/build and this scratch visual check on PRs. Native 200% zoom, real Safari/device, assistive speech and hardware audio remain distinct later qualification in #109/#110. These foundation checks do not establish new account isolation, real provider support or production deployment.
