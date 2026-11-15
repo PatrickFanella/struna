@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readFileSync, writeFileSync, readdirSync, linkSync, renameSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, linkSync, renameSync, unlinkSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { testHosted } from "./test-server.ts";
 import { openDb } from "../db.ts";
@@ -136,4 +136,36 @@ test("unjournaled archive pairs and foreign material paths cannot gain plan writ
   assert.equal((await h.call("/api/plan-candidates",a)).status,503);
   assert.equal(readFileSync(path,"utf8"),before);
  }finally{await h.close();}
+});
+
+test("settled Apply journal leftovers recover without changing final archives or a newer plan", async () => {
+ for (const state of ["applied","pending"]) {
+  const h=await testHosted({run:async function*({planBase}){yield JSON.stringify({reply:"Preview",planJson:JSON.stringify({...JSON.parse(planBase!),id:"next-owned-plan",next:"New task"})});}});
+  try {
+   const a=await h.signIn("A"),b=await h.signIn("B");
+   for(const p of [a,b])await h.call("/api/profile",p,"PUT",{name:p===a?"A":"B"});
+   const home=join(h.root,"accounts",a.account,"workspace"),bPath=join(h.root,"accounts",b.account,"workspace/plan/plan.json"),bBefore=readFileSync(bPath,"utf8");
+   await(await h.call("/api/chat",a,"POST",{provider:"openai",message:"replace",proposePlan:true})).text();
+   const p=(await(await h.call("/api/plan-candidates",a)).json()).proposals[0];
+   const db=openDb(join(h.root,"accounts",a.account,"state"));
+   const row=db.prepare("SELECT * FROM plan_proposals WHERE id=?").get(p.id)!;
+   const archive=join(home,"plan/archive",String(row.archive));
+   const source=join(home,"plan",`.archive-${p.id}.json`),next=join(home,"plan",`.candidate-${p.id}.json`);
+   writeFileSync(source,String(row.base));linkSync(source,archive);writeFileSync(next,String(row.candidate));
+   if(state==="pending")unlinkSync(archive); // Rollback removed its archive before persisting pending.
+   db.prepare("UPDATE plan_proposals SET state=? WHERE id=?").run(state,p.id);
+   const current=state==="applied"?JSON.stringify({...JSON.parse(String(row.candidate)),next:"Later independent plan edit"}):String(row.base);
+   writeFileSync(join(home,"plan/plan.json"),current);
+   // Simulate both committed and rollback journal updates before their cleanup, with a retained pair.
+   assert.equal((await h.call("/api/app",a)).status,200);
+   assert.equal((await h.call("/api/plan-candidates",a)).status,200);
+   assert.equal(readFileSync(join(home,"plan/plan.json"),"utf8"),current);
+   if(state==="applied")assert.equal(readFileSync(archive,"utf8"),row.base);
+   else assert.equal(existsSync(archive),false);
+   assert.ok(!readdirSync(join(home,"plan")).includes(`.archive-${p.id}.json`));
+   assert.ok(!readdirSync(join(home,"plan")).includes(`.candidate-${p.id}.json`));
+   assert.equal(readFileSync(bPath,"utf8"),bBefore);
+   db.close();
+  }finally{await h.close();}
+ }
 });

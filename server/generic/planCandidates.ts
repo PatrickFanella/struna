@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { link, lstat, mkdir, open, readFile, realpath, rename, rm, unlink, writeFile } from "node:fs/promises";
+import { link, lstat, mkdir, open, readFile, readdir, realpath, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { HttpError, readJson, route, send } from "../http.ts";
 import { resolveInside } from "../files.ts";
@@ -106,6 +106,14 @@ export function planCandidates(s: Studio, options: { assertActive?: (() => void)
     async recover(cleanStaging = true) {
       await safeDirs();
       for (const p of s.db.prepare("SELECT * FROM plan_proposals WHERE state='applying'").all() as Proposal[]) await recoverOne(p);
+      // A crash may occur after a journal state update but before temporary-file cleanup.
+      // Remove only server-named files backed by a settled journal row; keep final archives
+      // and the current plan, which may already belong to a later successful operation.
+      for (const name of await readdir(join(s.home, "plan"))) {
+        const id = /^\.(?:candidate|archive)-([a-f0-9-]{36})\.json$/.exec(name)?.[1];
+        const p = id ? row(id) : undefined;
+        if (p && p.state !== "applying") await cleanup(p.id);
+      }
       if (cleanStaging) await rm(staging, { recursive: true, force: true });
       expire();
     },
