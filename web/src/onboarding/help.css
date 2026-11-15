@@ -1,0 +1,5 @@
+.task-help { margin: .5rem 0; padding: .5rem .75rem; border: 1px solid var(--rule); border-radius: 12px; font-size: .875rem; }
+.task-help summary { cursor: pointer; font-weight: 600; }
+.task-help p { margin: .5rem 0; max-width: 65ch; }
+.task-help summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.session .task-help { grid-column: 1 / -1; }

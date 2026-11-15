@@ -1,3 +1,4 @@
+import { TaskHelp } from "../onboarding/TaskHelp.tsx";
 import { useEffect, useRef } from "react";
 import type { Tool } from "../App.tsx";
 import { MetronomePanel } from "./Metronome.tsx";
@@ -32,6 +33,7 @@ export function ToolsSheet({ tool, onSwitch, onClose }: { tool: Tool; onSwitch: 
         </div>
         <button className="sheetdone" onClick={onClose}>Done</button>
       </div>
+      <TaskHelp key={tool} task={tool} />
       {tool === "tuner" ? <TunerPanel onMetronome={() => onSwitch("metronome")} /> : <MetronomePanel />}
     </section>
   );

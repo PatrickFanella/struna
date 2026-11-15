@@ -1,3 +1,4 @@
+import { TaskHelp } from "../onboarding/TaskHelp.tsx";
 import { stageControls } from "./stageControls.ts";
 import type { Tool } from "../App.tsx";
 import { activeElapsed, hasIncompleteTiming, moveStage, pauseTimer, startStageBreak, finishStageBreak, type StageBreak } from "./sessionTimer.ts";
@@ -488,6 +489,7 @@ export function Session({ today, state, setState, items, material, onFinish, onD
         </span>}
         <button className="linkbtn stoppain" onClick={() => void requestEnd(true)}>Stop: pain or tension</button>
       </div>
+      {showTools && <TaskHelp task="recording" />}
       {requesting && <p role="status">Waiting for microphone permission. <button className="linkbtn" onClick={() => void stopTake()}>Cancel microphone request</button></p>}
       {finalizing && <p role="status">Finishing the recording…</p>}
       <SessionStatus timerRunning={state.resumedAt !== null} recording={recording !== null} take={take !== null} saving={saving} saved={state.recording !== null} error={recError} />

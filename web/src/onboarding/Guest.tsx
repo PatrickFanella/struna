@@ -1,3 +1,4 @@
+import { TaskHelp } from "./TaskHelp.tsx";
 import { useEffect, useState } from "react";
 import { freshGuest, GUEST_KEY, guestExercise, readGuest, type GuestState } from "./guest.ts";
 import { getTheme, setTheme, type ThemeChoice } from "../theme.ts";
@@ -40,7 +41,7 @@ export function Guest() {
         <p className="srcnote">{state.mode === "explore" ? "Exploring without a guitar" : "A short practice, with no timer or score to beat"}</p>
         <h1>{exercise.title}</h1><p>{state.mode === "explore" ? "Read the instruction below, trace the pattern with a finger and count slowly aloud. You are exploring the exercise; this will not be recorded as guitar practice." : "Take about two minutes, or stop sooner if you need. You decide when you are finished."}</p>
         <p>{exercise.instruction}</p><pre className="guest-music">{exercise.music}</pre>
-        <p className="srcnote">Tab lines run from the thinnest string (e) at the top to the thickest (E) at the bottom. 0 means an open string; other numbers name a fret. Stop if you feel pain or persistent tension.</p>
+        <TaskHelp task="reading" />
         <button className="btn primary full" onClick={() => setState((s) => ({ ...s, step: "reflection" }))}>{state.mode === "explore" ? "Finish exploring" : "Finish practice"}</button>
         <button className="btn quiet" onClick={() => setState((s) => ({ ...s, step: "welcome" }))}>Edit my choices</button>
       </>}
