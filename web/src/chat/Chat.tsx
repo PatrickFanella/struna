@@ -381,7 +381,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
   // The settings changed a coach: the module already asked again; show its answer.
   useEffect(() => {
     if (!generic) return;
-    const on = () => void loadProviders().then((p) => p && setStatus(p));
+    const on = () => void loadProviders().then(setStatus);
     addEventListener(PROVIDERS_CHANGED, on);
     return () => removeEventListener(PROVIDERS_CHANGED, on);
   }, [generic]);

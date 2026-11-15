@@ -61,6 +61,20 @@ try {
  await page.getByText("Saved; not tested",{exact:true}).waitFor();
  await page.getByRole("button",{name:"Test connection (uses your API account)",exact:true}).click();
  await page.getByText("Tested successfully",{exact:true}).waitFor();
+ // Revalidation can invalidate a previously ready key; both settings and Coach must notice.
+ stub.rejectNext(401);
+ await page.getByRole("button",{name:"Test connection (uses your API account)",exact:true}).click();
+ await page.getByRole("alert").filter({hasText:"OpenAI refused this key"}).waitFor();
+ await page.getByText("Saved; not tested",{exact:true}).waitFor();
+ assert.equal(await page.getByRole("button",{name:"Return to my question",exact:true}).count(),0);
+ await page.getByRole("button",{name:"Back to the conversation",exact:true}).click();
+ assert.equal(await page.getByRole("textbox",{name:"Message",exact:true}).inputValue(),question);
+ const afterFailedRetest=stub.requests.length;
+ await page.getByRole("button",{name:"Send",exact:true}).click();
+ await page.getByRole("heading",{name:"Connect your OpenAI API key"}).waitFor();
+ assert.equal(stub.requests.length,afterFailedRetest,"failed retest must return to setup without sending");
+ await page.getByRole("button",{name:"Test connection (uses your API account)",exact:true}).click();
+ await page.getByText("Tested successfully",{exact:true}).waitFor();
  const status=await(await h.call("/api/providers",a)).text();assert.ok(!status.includes("dummy-browser-player-key"));
  assert.ok(!(await page.evaluate(()=>JSON.stringify({...localStorage,...sessionStorage}))).includes("dummy-browser-player-key"));
  await page.keyboard.press("Tab");
@@ -77,7 +91,7 @@ try {
  await page.getByText("Connect your OpenAI API key",{exact:true}).last().waitFor();
  assert.equal((await(await h.call("/api/providers/openai",a)).json()).connected,false);
  assert.equal(errors.length,0,JSON.stringify(errors));
- receipts.push({width,height,theme,zoom,geometry,skip:true,savedNotTested:true,invalidRecovery:true,tested:true,draftReturn:true,explicitSend:true,disconnect:true,redacted:true});
+ receipts.push({width,height,theme,zoom,geometry,skip:true,savedNotTested:true,invalidRecovery:true,failedRetestRefresh:true,tested:true,draftReturn:true,explicitSend:true,disconnect:true,redacted:true});
  await context.close();
  }
  writeFileSync(resolve(out,"receipts.json"),JSON.stringify(receipts,null,2));console.log(JSON.stringify({out,cases:receipts.length}));

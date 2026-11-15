@@ -24,10 +24,10 @@ Provider permission/cost-copy and credential-handling review, a deliberate real-
 
 ## Final build
 
-After the review fixes, typecheck, all 362 tests and production build pass. The 28-case matrix passed after the tested-state/concurrency fixes; a final phone/light and desktop/dark rerun passed on these bytes after the remaining cleanup:
+After the hosted review fix, typecheck, all 362 tests and production build pass. All 28 connection cases and the hosted isolation browser gate pass on these bytes. Each connection case now also covers a refused retest after a successful test: settings and Coach both lose readiness, Return is hidden, Send returns to setup without a provider request, the question survives and revalidation recovers. A failed status refresh clears local readiness, and manual reload also refreshes the Coach cache:
 
 | File | SHA-256 |
 | --- | --- |
-| dist/index.html | 8433178a6373bcba84b5762e3d9f2c9e44ce76c14c1f35eaa3829574d8b2f853 |
-| dist/assets/index-BN6pBXBf.js | 35d3c70d428468c5bda81ee23e129851196f885b13c1e309e8d15a0fc3ef1a45 |
+| dist/index.html | e26192d9628b5debe93df66dd6bcce37192171956ab754d145a22b30a35d2391 |
+| dist/assets/index-z5gNYenq.js | bec099c0a97f311f911c343d0b5b424278902e576ab7189e07226f244c86abea |
 | dist/assets/index-BcH9Mm3n.css | c21a823773f8188fec2c9649c0fedc4e73d6d0a454865ff49ff46359c98ab49a |

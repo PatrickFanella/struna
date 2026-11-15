@@ -11,13 +11,20 @@ export function ConnectAI({ onDone, onSkip }: { onDone?: (() => void) | undefine
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const actions = useRef<HTMLDivElement>(null);
-  const load = () => api.get<ConnectionStatus>("/api/providers/openai").then(s => { setStatus(s); setModel(s.model ?? ""); }, () => setError("Could not load your AI connection. Retry, or keep practicing."));
+  const load = () => api.get<ConnectionStatus>("/api/providers/openai").then(s => {
+    setStatus(s); setModel(s.model ?? ""); setError("");
+  }, () => { setStatus(null); setError("Could not load your AI connection. Retry, or keep practicing."); }).finally(() => dispatchEvent(new Event(PROVIDERS_CHANGED)));
   useEffect(() => { void load(); }, []);
   async function change(run: () => Promise<ConnectionStatus>) {
     setBusy(true); setError("");
-    try { const s = await run(); setStatus(s); dispatchEvent(new Event(PROVIDERS_CHANGED)); requestAnimationFrame(() => actions.current?.querySelector<HTMLButtonElement>("button")?.focus()); }
-    catch (e) { setError((e as Error).message); }
-    finally { setKey(""); setBusy(false); }
+    try { const s = await run(); setStatus(s); requestAnimationFrame(() => actions.current?.querySelector<HTMLButtonElement>("button")?.focus()); }
+    catch (e) {
+      setError((e as Error).message);
+      // A refused retest invalidates readiness on the server, even though the request failed.
+      setStatus(null);
+      await api.get<ConnectionStatus>("/api/providers/openai").then(setStatus, () => {});
+    }
+    finally { setKey(""); setBusy(false); dispatchEvent(new Event(PROVIDERS_CHANGED)); }
   }
   return <div className="coachprov">
     <h3>Connect your OpenAI API key</h3>
