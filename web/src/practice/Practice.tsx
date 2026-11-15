@@ -279,7 +279,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
         bpm={m.bpm}
         material={material?.label ?? ""}
         onBack={() => {
-          setSession(({ reviewing: _, ...s }) => ({ ...s, pain: false, resumedAt: null }));
+          setSession(({ reviewing: _, partial: _partial, ...s }) => ({ ...s, pain: false, resumedAt: null }));
           setPhase({ name: "session" });
         }}
         onDiscard={() => {
@@ -316,9 +316,10 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       setState={setSession}
       items={items}
       material={material?.label ?? ""}
-      onFinish={() => {
+      onDiscard={() => { end(); setPhase({ name: "start" }); }}
+      onFinish={(partial) => {
         // Studio mode remembers that the review is open, so a reload (or a discarded tab) comes back to it.
-        setSession((s) => ({ ...stopTimer(s, Date.now()), ...(generic ? { reviewing: true as const } : {}) }));
+        setSession((s) => ({ ...stopTimer(s, Date.now()), ...(partial ? { partial: true as const } : {}), ...(generic ? { reviewing: true as const } : {}) }));
         setPhase({ name: "review" });
       }}
       closeTools={closeTools}

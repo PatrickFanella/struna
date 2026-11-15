@@ -162,6 +162,31 @@ try {
       await page.getByRole("button", { name: /Finish/ }).press("Enter");
       await page.getByRole("status").filter({ hasText: "Minutes played includes only recovered timing" }).waitFor();
     }
+    await page.evaluate((raw) => {
+      const saved = JSON.parse(raw!); delete saved.reviewing;
+      saved.stage = 0; saved.resumedAt = null; saved.elapsedBefore = 0; saved.activeBefore = 65000;
+      sessionStorage.setItem("struna.session", JSON.stringify(saved));
+    }, beforeReview);
+    await page.reload();
+    const beforeExit = await page.evaluate(() => JSON.parse(sessionStorage.getItem("struna.session")!));
+    await page.getByRole("button", { name: "End session", exact: true }).click();
+    await page.getByRole("dialog", { name: "End session?", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Resume session", exact: true }).click();
+    const afterResume = await page.evaluate(() => JSON.parse(sessionStorage.getItem("struna.session")!));
+    assert.deepEqual(afterResume.checkpoints, beforeExit.checkpoints);
+    assert.deepEqual(afterResume.panes, beforeExit.panes);
+    assert.equal(afterResume.activeBefore, beforeExit.activeBefore);
+    await page.getByRole("button", { name: "End session", exact: true }).click();
+    await page.getByRole("button", { name: "Discard session", exact: true }).click();
+    await page.getByRole("dialog", { name: "Discard this unsaved session?", exact: true }).waitFor();
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Review partial session", exact: true }).click();
+    assert.equal(await page.getByLabel("Minutes played", { exact: true }).inputValue(), "1");
+    await page.reload();
+    await page.getByRole("heading", { name: "Partial session review", exact: true }).waitFor();
+    await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-partial.png`), fullPage: true });
+    await page.getByRole("button", { name: "Write the log", exact: true }).click();
+    await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
     await context.close();
   }
   for (const name of await readdir(join(home, "logs"))) {

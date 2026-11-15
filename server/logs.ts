@@ -17,6 +17,7 @@ export type SessionReview = {
   recall: "memory" | "cue map" | "page-dependent";
   recording?: { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
   pain: boolean;
+  partial?: boolean;
   improvement: string;
   failure: string;
   next: string;
@@ -65,6 +66,7 @@ Current block: [[001 Projects/Threads/Guitar/Practice/Current Practice Block|Cur
 
 - **Block:** ${one(r.blockTitle)} (\`${one(r.blockId)}\`)
 - **Session:** ${r.type}, ${r.length}
+- **Partial session:** ${r.partial ? "yes (not counted)" : "no"}
 - **Material and exact fragment:** ${one(r.material)}
 - **Target:** ${one(r.target)}
 - **Starting tempo:** ${one(r.startTempo, "___")} BPM, ${one(r.subdivision)}
