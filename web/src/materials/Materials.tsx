@@ -176,7 +176,7 @@ export function Materials({ active, hash }: { active: boolean; hash: string }) {
   useEffect(() => {
     if (!active) return;
     const before = screenContext.get();
-    const mine = { view: "materials", ...(opened ? { fragment: materialName(opened) } : {}) };
+    const mine = { coach: { view: "Materials" as const, ...(opened ? { materialKey: `mat:${opened.id}` } : {}) }, view: "materials", ...(opened ? { fragment: materialName(opened) } : {}) };
     screenContext.set(mine);
     return () => {
       if (screenContext.get() === mine) screenContext.set(before);

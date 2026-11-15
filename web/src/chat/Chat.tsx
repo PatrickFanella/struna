@@ -1,8 +1,9 @@
+import type { CoachContext, CoachSelection } from "../../../shared/coach-context.ts";
 import { PlanCandidates } from "./PlanCandidates.tsx";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import Markdown from "react-markdown";
 
-import { accountHeaders, api } from "../api.ts";
+import { accountHeaders, api, invalidateAccount } from "../api.ts";
 import type { ActionId, Prompt } from "../generic.ts";
 import { useApp } from "../mode.ts";
 import { addedMaterials, type FindTurn, type MaterialsSnapshot } from "../materials/find.ts";
@@ -17,7 +18,7 @@ type Provider = ProviderId;
 type Conv = { id: string; provider: Provider; title: string; updated: string };
 type Status = ProviderStatus;
 /** Each queued request resolves its own outcome, including requests dropped before sending. */
-type Queued = { text: string; auto?: ActionId; find?: boolean; done: (result: FindTurn) => void };
+type Queued = { text: string; context?: CoachSelection | undefined; auto?: ActionId; find?: boolean; done: (result: FindTurn) => void };
 const NAMES: Record<string, string> = { claude: "Claude", codex: "ChatGPT" };
 /** The studio mode's names for the host logins, also when they are turned off and not in the list (as in server/generic/providers.ts CATALOG). */
 const HOST_LABELS: Record<string, string> = { claude: "Claude plan (this computer)", codex: "ChatGPT plan (this computer)" };
@@ -45,6 +46,7 @@ const state = {
 };
 /** A typed message belongs to the conversation, not a particular mounted panel. */
 let draftText = "";
+let accountChanged = false;
 const listeners = new Set<() => void>();
 const emit = () => {
   state.version++;
@@ -85,6 +87,7 @@ function loadProviders(fresh = false): Promise<Status | null> {
 }
 
 if (typeof addEventListener === "function") addEventListener("struna:account-changed", () => {
+  accountChanged = true;
   state.busy?.abort(); dropQueue(); state.messages = []; state.conversation = null;
   state.draft = null; draftText = ""; state.more = false; state.settings = false; providers = null; emit();
 });
@@ -105,7 +108,7 @@ function dropQueue() {
 }
 
 /** Collect terminal status and, for a find request, the actual Materials additions. */
-async function send(text: string, auto?: ActionId, find = false): Promise<FindTurn> {
+async function send(text: string, auto?: ActionId, find = false, context?: CoachSelection): Promise<FindTurn> {
   const abort = new AbortController();
   state.busy = abort;
   let ok = true;
@@ -131,15 +134,17 @@ async function send(text: string, auto?: ActionId, find = false): Promise<FindTu
       before = await snapshot();
       addedMaterials(before, before); // Refuse an incomplete baseline before sending a turn.
     }
+    if (accountChanged || abort.signal.aborted) throw new DOMException("Stopped", "AbortError");
     sent = true;
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { ...accountHeaders(), "x-struna": "1", "content-type": "application/json" },
-      body: JSON.stringify({ provider: state.provider, message: text, ...(state.conversation ? { conversation: state.conversation } : {}), ...(auto ? { auto } : {}), screen: screenContext.get() }),
+      body: JSON.stringify({ provider: state.provider, message: text, ...(state.conversation ? { conversation: state.conversation } : {}), ...(auto ? { auto } : {}), screen: screenContext.get(), ...(context ? { context } : {}) }),
       signal: abort.signal,
     });
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
+      if (accountHeaders()["x-struna-session"] && [401, 409].includes(res.status) && (res.status === 401 || /account changed/.test(err.error ?? ""))) { invalidateAccount(); dispatchEvent(new Event("struna:account-changed")); }
       complete = true;
       throw new Error(err.error ?? res.statusText);
     }
@@ -147,7 +152,7 @@ async function send(text: string, auto?: ActionId, find = false): Promise<FindTu
     let buf = "";
     for (;;) {
       const { value, done } = await reader.read();
-      if (done) break;
+      if (done || accountChanged || abort.signal.aborted) break;
       buf += value;
       let i: number;
       while ((i = buf.indexOf("\n\n")) >= 0) {
@@ -157,7 +162,9 @@ async function send(text: string, auto?: ActionId, find = false): Promise<FindTu
         const data = /^data: (.*)$/m.exec(block)?.[1];
         if (!ev || !data) continue;
         const d = JSON.parse(data);
-        if (ev === "conversation") state.conversation = d.id;
+        if (accountChanged || abort.signal.aborted) break;
+        if (ev === "context") update(m => m.map((row, index) => index === m.length - 2 && row.role === "user" ? { ...row, text: `${text}\n\nContext sent:\n${d.summary}` } : row));
+        else if (ev === "conversation") state.conversation = d.id;
         else if (ev === "delta" || ev === "notice" || ev === "error") {
           if (ev === "error") { ok = false; problem = d.message ?? "The Coach reported an error"; }
           update((m) => applyEvent(m, ev, d));
@@ -181,8 +188,9 @@ async function send(text: string, auto?: ActionId, find = false): Promise<FindTu
     problem = String((e as Error).message ?? e);
     // No request was sent if the initial snapshot or readiness check failed.
     if (find && !sent) complete = true;
-    if ((e as Error).name !== "AbortError") update((m) => [...m, { role: "error", text: String((e as Error).message ?? e) }]);
+    if (!accountChanged && (e as Error).name !== "AbortError") update((m) => [...m, { role: "error", text: String((e as Error).message ?? e) }]);
   } finally {
+    if (!accountChanged && (!ok || !complete) && !auto && !draftText) draftText = text;
     state.busy = null;
     update((m) =>
       m
@@ -204,11 +212,12 @@ async function pump() {
     if (!providers) await loadProviders();
     for (let next = state.queue.shift(); next; next = state.queue.shift()) {
       emit();
+      if (accountChanged) { next.done({ ok: false, complete: true, additions: null, problem: "Your account changed. Reload before continuing." }); dropQueue(); break; }
       if (accountHeaders()["x-struna-session"] && !readiness(await loadProviders(), state.provider).ok) {
         draftText = next.text; state.settings = true; openCoach(); emit();
         next.done({ ok: false, complete: true, additions: null, problem: "Connect your AI or keep practicing" }); dropQueue(); break;
       }
-      const result = await send(next.text, next.auto, next.find);
+      const result = await send(next.text, next.auto, next.find, next.context);
       next.done(result);
       if (!result.ok && state.queue.length) {
         dropQueue();
@@ -239,10 +248,11 @@ export function openCoach(): void {
  */
 function enqueue(text: string, opts: { auto?: ActionId; open?: boolean; find?: boolean } = {}): Promise<FindTurn> {
   const t = text.trim();
+  if (accountChanged) return Promise.resolve({ ok: false, complete: true, additions: null, problem: "Your account changed. Reload before continuing." });
   if (!t) return Promise.resolve({ ok: false, complete: true, additions: null, problem: "The request is blank" });
   if (accountHeaders()["x-struna-session"] && opts.auto) return Promise.resolve({ ok: false, complete: true, additions: null, problem: "Choose Send in Coach to use your API account" });
   state.more = false;
-  const result = new Promise<FindTurn>((done) => state.queue.push({ text: t, ...(opts.auto ? { auto: opts.auto } : {}), ...(opts.find ? { find: true } : {}), done }));
+  const result = new Promise<FindTurn>((done) => state.queue.push({ text: t, ...(accountHeaders()["x-struna-session"] && screenContext.get().coach ? { context: structuredClone(screenContext.get().coach!) } : {}), ...(opts.auto ? { auto: opts.auto } : {}), ...(opts.find ? { find: true } : {}), done }));
   emit();
   if (opts.open) openCoach();
   void pump();
@@ -303,11 +313,11 @@ function usePrompt(p: Prompt): void {
   else void askCoach(filled.text, { open: true });
 }
 
-function Chips({ prompts, more }: { prompts: Prompt[]; more?: (() => void) | undefined }) {
+function Chips({ prompts, more, disabled = false }: { prompts: Prompt[]; more?: (() => void) | undefined; disabled?: boolean | undefined }) {
   return (
     <div className="chips promptchips">
       {prompts.map((p) => (
-        <button key={p.id} type="button" aria-disabled={Boolean(state.busy) || state.queue.length > 0} onClick={() => usePrompt(p)}>
+        <button key={p.id} type="button" aria-disabled={disabled || Boolean(state.busy) || state.queue.length > 0} onClick={() => { if (!disabled) usePrompt(p); }}>
           <small>{promptAction(p)} · {promptPurpose(p)}</small>
           <span>{p.label}</span>
         </button>
@@ -323,9 +333,10 @@ function Chips({ prompts, more }: { prompts: Prompt[]; more?: (() => void) | und
  */
 export function PromptChips({ screen, compact }: { screen: string; compact?: boolean }) {
   useChat();
+  const ctx = useSyncExternalStore(screenContext.subscribe, screenContext.get);
   const { prompts } = usePrompts();
   if (!prompts.length) return null;
-  const list = promptsFor(prompts, screen, screenContext.get()).slice(0, compact ? 3 : 6);
+  const list = promptsFor(prompts, screen, ctx).slice(0, 2);
   if (!list.length) return null;
   return (
     <div className="askcoach">
@@ -353,7 +364,7 @@ function PromptSheet({ prompts, screen, sheetRef }: { prompts: Prompt[]; screen:
           </section>
         ) : null;
       })}
-      <p className="srcnote">Draft fills the message box for you to review. Send submits the request immediately. Plan change requests are drafted; sending them stages proposed plan changes for your review. Only Apply changes Today. Materials, notes and profile edits still take effect directly.</p>
+      <p className="srcnote">Draft fills the message box for you to review. Send submits the request immediately. Plan change requests are drafted. Hosted Coach currently gives advice only and cannot change your plan; local Studio can stage changes for Apply.</p>
     </div>
   );
 }
@@ -364,6 +375,17 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
   const hosted = useApp().mode === "hosted";
   const generic = useApp().mode === "studio" || hosted;
   const { prompts } = usePrompts();
+  const ctx = useSyncExternalStore(screenContext.subscribe, screenContext.get);
+  const [contextRetry, setContextRetry] = useState(0);
+  const [preview, setPreview] = useState<{ selection: CoachSelection; context?: CoachContext; error?: string } | null>(null);
+  useEffect(() => {
+    if (!hosted || !open || !ctx.coach) return;
+    let live = true;
+    const selection = ctx.coach;
+    void api.post<CoachContext>("/api/chat/context", selection).then(context => { if (live) setPreview({ selection, context }); }, e => { if (live) setPreview({ selection, error: (e as Error).message }); });
+    return () => { live = false; };
+  }, [hosted, open, ctx, contextRetry]);
+  const contextReady = !hosted || (!!ctx.coach && preview?.selection === ctx.coach && !!preview.context);
   const text = draftText;
   const [list, setList] = useState<Conv[] | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
@@ -428,14 +450,14 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
     const t = text.trim();
-    if (!t || state.busy || state.queue.length) return;
+    if (!t || state.busy || state.queue.length || !contextReady) return;
     if (hosted && !readiness(status, state.provider).ok) { state.settings = true; emit(); return; }
     draftText = "";
     emit();
     void askCoach(t);
   };
   const st = status?.[state.provider as "claude" | "codex"];
-  const screen = screenId(screenContext.get().view);
+  const screen = screenId(ctx.view);
   const offered = prompts.length ? promptsFor(prompts, screen, screenContext.get()) : [];
   const showSettings = generic && state.settings && !list;
   const showMore = state.more && prompts.length > 0 && !list && !showSettings;
@@ -514,6 +536,12 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
             <span>{current ? providerSummary(current, status?.host).status : status ? "Unavailable here" : "Checking readiness"}</span>
           </div>
         )}
+        {hosted && !state.settings && <details className="coach-context" open>
+          <summary>Practice context for your next Send</summary>
+          <p className="srcnote">{preview?.selection === ctx.coach ? preview?.error || preview?.context?.summary || "Preparing context…" : "Preparing context…"}</p>
+          {preview?.selection === ctx.coach && preview?.error && <button className="linkbtn" onClick={() => setContextRetry(n => n + 1)}>Retry practice context</button>}
+          <p className="srcnote">Only Send shares this with your provider. Clean tempos and reflections are player reports, not audio analysis.</p>
+        </details>}
         <div className="chatbar">
           <button className="linkbtn" onClick={() => (showSettings ? setSettings(false) : showMore ? setMore(false) : list ? setList(null) : void showList())} aria-expanded={Boolean(list)}>{list || showMore || showSettings ? "Back to the conversation" : "Conversations"}</button>
           {onPin && <button className="linkbtn coach-pin" onClick={onPin}>Pin beside music</button>}
@@ -562,17 +590,17 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
             <CoachProviders onDone={() => setSettings(false)} onSkip={() => { setSettings(false); onClose?.(); }} />
           </div>
         ) : showMore ? (
-          <PromptSheet prompts={prompts} screen={screen} sheetRef={sheet} />
+          <PromptSheet prompts={contextReady ? prompts : []} screen={screen} sheetRef={sheet} />
         ) : (
           <div className="chatlog" ref={log} aria-live="polite">
             {generic && !hosted && <PlanCandidates />}
             {state.messages.length === 0 && (
               <div className="chatempty">
-                <p>{hosted ? "AI coaching is optional. Send shares your question and recent conversation with your OpenAI API account. Coach cannot read files or change your plan. Your practice tools work without it." : generic
+                <p>{hosted ? "AI coaching is optional. Send shares your question, the displayed context and recent conversation with your OpenAI API account. Coach cannot read material contents, hear recordings or change your plan. Your practice tools work without it." : generic
                   ? "Ask about today's session, a song, a chord, or what to practise next. The coach sees your plan, the stage you are on and the tempo, and can propose plan changes. Review the before/after preview and choose Apply to change Today."
                   : "Ask about today's session, a passage, or a block review. The coach sees the current block, stage and tempo."}</p>
                 {!coaches && st && !st.ok && <p className="notice">{NAMES[state.provider]} is not signed in on {status?.host ?? "Kvant"}: {st.detail}</p>}
-                {offered.length > 0 && !noCoach && <Chips prompts={offered.slice(0, 2)} more={() => setMore(true)} />}
+                {offered.length > 0 && !noCoach && <Chips prompts={offered.slice(0, 2)} disabled={!contextReady} more={() => setMore(true)} />}
               </div>
             )}
             {state.messages.map((m, i) => (
@@ -602,7 +630,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
         )}
         {!list && !showMore && !showSettings && !retired && !noCoach && !notReady && offered.length > 0 && state.messages.length > 0 && (
           <div className="promptrow">
-          <Chips prompts={offered.slice(0, 2)} more={() => setMore(true)} />
+          <Chips prompts={offered.slice(0, 2)} disabled={!contextReady} more={() => setMore(true)} />
           </div>
         )}
         {!list && !showMore && !showSettings && !retired && noCoach && (
@@ -637,7 +665,7 @@ export function ChatPanel({ open, onClose, onPin }: { open: boolean; onClose?: (
             {state.busy ? (
               <button type="button" className="btn outline" onClick={stop}>Stop</button>
             ) : (
-              <button className="btn outline" disabled={!text.trim()}>Send</button>
+              <button className="btn outline" disabled={!contextReady || !text.trim()}>Send</button>
             )}
           </form>
         )}

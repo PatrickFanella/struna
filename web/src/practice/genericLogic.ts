@@ -178,6 +178,17 @@ export function restoreReviewDraft<T extends object>(raw: string | null, started
 }
 
 export type ReviewMeasurement = { materialKey: string; materialLabel: string; bpm: string };
+export type ReviewContext = { reflection: string; measurements: ReviewMeasurement[] };
+
+/** Review edits, including a blank, override checkpoints for the selected material. */
+export function reviewTempo(key: string | undefined, rows: ReviewMeasurement[], refs: { key: string; itemId?: string }[]): number | undefined {
+  if (!key) return undefined;
+  const identity = refs.find(m => m.itemId && `mat:${m.itemId}` === key)?.key ?? key.replace(/^plan:/, "");
+  const value = rows.find(m => m.materialKey === identity)?.bpm.trim();
+  const bpm = value ? Number(value) : NaN;
+  return Number.isInteger(bpm) && bpm >= 20 && bpm <= 400 ? bpm : undefined;
+}
+
 
 /** Use only scoped materials and confirmed checkpoints, never the current click or the whole plan. */
 export function reviewMeasurements(stages: Stage[], session: Pick<SessionState, "checkpoints" | "addedActivities" | "today">, saved?: unknown): ReviewMeasurement[] {

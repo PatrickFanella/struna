@@ -145,3 +145,16 @@ test("review uses only scoped materials and the latest confirmed checkpoint, wit
   assert.deepEqual(reviewMeasurements(stages, {}, [{ bpm: "88" }, null]), reviewMeasurements(stages, {}));
   assert.equal(reviewMeasurements(stages, {}, null).length, 2);
 });
+
+test("Coach review tempo uses corrected, new or blank review values across material aliases", async () => {
+  const { reviewTempo } = await import("./genericLogic.ts");
+  const refs=[{key:"materials/roll.md",itemId:"file-roll"}];
+  const row={materialKey:"materials/roll.md",materialLabel:"Roll",bpm:"60"};
+  for(const key of ["plan:materials/roll.md","mat:file-roll","materials/roll.md"]) {
+    assert.equal(reviewTempo(key,[row],refs),60);
+    assert.equal(reviewTempo(key,[{...row,bpm:""}],refs),undefined);
+    assert.equal(reviewTempo(key,[{...row,bpm:"84"}],refs),84);
+  }
+  for(const bpm of ["not a tempo","19","401","60.5"]) assert.equal(reviewTempo("plan:materials/roll.md",[{...row,bpm}],refs),undefined);
+  assert.equal(reviewTempo("mat:foreign",[row],refs),undefined);
+});

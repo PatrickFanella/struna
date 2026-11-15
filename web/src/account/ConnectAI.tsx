@@ -30,7 +30,7 @@ export function ConnectAI({ onDone, onSkip }: { onDone?: (() => void) | undefine
     <h3>Connect your OpenAI API key</h3>
     <p>AI coaching is optional. Your OpenAI API account pays for model usage; a ChatGPT subscription alone does not supply this API key. Your practice tools work without it.</p>
     <p className="srcnote">Only OpenAI API keys are supported here. Subscription sign-in, other providers and custom endpoints are unavailable.</p>
-    <p className="srcnote">When you choose Send, OpenAI receives your question and recent messages in this private conversation. Coach cannot read your files or change your plan. Practice context is not sent automatically. Saving a key makes no provider request.</p>
+    <p className="srcnote">When you choose Send, OpenAI receives your question, the displayed practice context and recent messages in this private conversation. Material names, stage, click setting, player-confirmed tempos and any displayed reflection accompany that Send. Coach cannot read material contents, hear recordings or change your plan. Opening or drafting sends nothing to OpenAI. Saving a key makes no provider request.</p>
     <p role="status">{status?.detail ?? "Checking your connection…"}</p>
     <form className="provform" onSubmit={e => { e.preventDefault(); void change(() => api.put("/api/providers/openai", { ...(key ? { key } : {}), model: model.trim() })); }}>
       <label className="field">{status?.connected ? "Replace API key (leave blank to keep it)" : "OpenAI API key"}

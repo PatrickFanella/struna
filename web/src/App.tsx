@@ -152,7 +152,7 @@ export function App() {
       <main>
         <div className="wrap">
           <section className={`view${section === "practice" && !tool ? " on" : ""}`} aria-label="Practice">
-            <Practice openTool={setTool} closeTools={() => setTool(null)} openChat={openCoach} />
+            <Practice active={section === "practice"} openTool={setTool} closeTools={() => setTool(null)} openChat={openCoach} />
           </section>
           {has("library") && (
             <section className={`view${section === "library" && !tool ? " on" : ""}`} aria-label="Library">

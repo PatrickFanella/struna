@@ -8,12 +8,13 @@ import { api } from "../api.ts";
 import { coachAction } from "../chat/actions.tsx";
 import { sessionKind, type Today } from "../types.ts";
 import { coachReady } from "../chat/Chat.tsx";
-import { type Difficulty, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, reviewMeasurements } from "./genericLogic.ts";
+import { type Difficulty, type ReviewContext, nextDraft, REVIEW_DRAFT_KEY, restoreReviewDraft, reviewMeasurements } from "./genericLogic.ts";
 import { Choice, Text } from "./Review.tsx";
 import type { SessionState } from "./Session.tsx";
 
 /** The studio mode's review: a short form, nothing required, that writes the session log. */
-export function GenericReview({ today, session, material, onWritten, onBack, onDiscard }: {
+export function GenericReview({ today, session, material, onWritten, onBack, onDiscard, onContext }: {
+  onContext?: ((context: ReviewContext) => void) | undefined;
   today: Today;
   session: SessionState;
   bpm: number;
@@ -61,6 +62,10 @@ export function GenericReview({ today, session, material, onWritten, onBack, onD
       /* storage unavailable */
     }
   }, [f, session.startedAt]);
+  useEffect(() => {
+    const reflection = [`It felt: ${f.difficulty}`, `Pain or tension: ${f.pain}`, f.wentWell && `Went well: ${f.wentWell}`, f.struggled && `Hard: ${f.struggled}`, f.notes && `Notes: ${f.notes}`].filter(Boolean).join("\n").slice(0, 6000);
+    onContext?.({ reflection, measurements: f.measurements });
+  }, [f, onContext]);
   // Whether a coach is signed in, so the pain note does not promise a lighter plan nobody will write.
   const [coach, setCoach] = useState<boolean | null>(null);
   useEffect(() => {
