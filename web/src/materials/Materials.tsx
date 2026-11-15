@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../api.ts";
 import { coachAction } from "../chat/actions.tsx";
-import { askCoach } from "../chat/Chat.tsx";
+import { findMaterialsWithCoach, openCoach, openCoachSettings } from "../chat/Chat.tsx";
 import type { Changed, MaterialItem, MaterialKind, Prompt } from "../generic.ts";
 import { megabytes } from "../library/item.ts";
 import { useApp } from "../mode.ts";
@@ -10,7 +10,9 @@ import { LIBRARY_MATERIAL_KEY } from "../practice/Practice.tsx";
 import { screenContext } from "../screen.ts";
 import { FileBody } from "../workspace/Workspace.tsx";
 import { AddPanel, type AddWay } from "./Add.tsx";
-import { fillInput, FILTER_KINDS, hostOf, KIND_LABEL, materialPaneItem, nameList, SOURCE_LABEL, uploadProblem, webUrl } from "./item.ts";
+import { externalLabel, materialName, materialProvider, fillInput, FILTER_KINDS, hostOf, KIND_LABEL, materialPaneItem, nameList, uploadProblem, webUrl } from "./item.ts";
+import { findOutcome, type FindOutcome } from "./find.ts";
+import { materialHash, materialListState, materialRoute } from "./route.ts";
 import { readItem, uploadFile } from "./upload.ts";
 
 export { materialPane } from "./item.ts";
@@ -31,8 +33,8 @@ async function findPrompt(input: string): Promise<string> {
 }
 
 function facts(i: MaterialItem): string {
-  const where = i.source === "link" || (i.url && !i.src) ? hostOf(i.url ?? "") : SOURCE_LABEL[i.source];
-  return [where, i.url && i.src ? `saved from ${hostOf(i.url)}` : ""].filter(Boolean).join(", ");
+  const where = materialProvider(i);
+  return [where, i.level ?? "", i.url && i.src ? `saved from ${hostOf(i.url)}` : ""].filter(Boolean).join(", ");
 }
 
 const hasFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes("Files");
@@ -40,20 +42,46 @@ const hasFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes("
 const ADDED_QUIET_MS = 45_000;
 
 /** The player's own materials: uploads, web links, pasted text, the coach's lesson sheets and any library folders. */
-export function Materials({ active }: { active: boolean }) {
+export function Materials({ active, hash }: { active: boolean; hash: string }) {
   const app = useApp();
-  const [q, setQ] = useState("");
-  const [kind, setKind] = useState<MaterialKind | null>(null);
-  const [filters, setFilters] = useState(false);
+  const [q, setQ] = useState(() => materialListState(history.state).q);
+  const [kind, setKind] = useState<MaterialKind | null>(() => materialListState(history.state).kind);
+  const [filters, setFilters] = useState(() => materialListState(history.state).filters);
   const [data, setData] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const route = materialRoute(hash);
+  const openId = route.type === "item" ? route.id : null;
+  const detail = route.type !== "list";
+  const [openError, setOpenError] = useState("");
+  const restoreScroll = useRef<number | null>(null);
+  const setOpenId = (id: string | null) => {
+    if (id && detail) {
+      history.replaceState(history.state, "", materialHash(id));
+      dispatchEvent(new HashChangeEvent("hashchange"));
+    } else location.hash = id ? materialHash(id) : "#materials";
+  };
+  const backToList = () => {
+    setConfirm(null);
+    if (history.state?.materialFromList) history.back();
+    else setOpenId(null);
+  };
+  const openItem = (i: MaterialItem) => {
+    const list = { q, kind, filters, scroll: window.scrollY };
+    history.replaceState({ ...history.state, materialList: list }, "");
+    history.pushState({ materialList: list, materialFromList: true }, "", materialHash(i.id));
+    dispatchEvent(new HashChangeEvent("hashchange"));
+    setNotice("");
+    window.scrollTo(0, 0);
+  };
   const [opened, setOpened] = useState<MaterialItem | null>(null);
   const [add, setAdd] = useState<AddWay | null>(null);
   const [finding, setFinding] = useState(false);
   const [want, setWant] = useState("");
+  const [findStatus, setFindStatus] = useState<FindOutcome | null>(null);
+  const [searching, setSearching] = useState(false);
+  const findingNow = useRef(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -97,18 +125,39 @@ export function Materials({ active }: { active: boolean }) {
     return () => removeEventListener("struna:changed", on);
   }, [load]);
 
-  // The open item follows the list, so a saved copy or a new title shows without reopening it.
+  // Resolve independently of the filtered/capped list, after the normal API access checks.
   useEffect(() => {
-    if (!openId) return setOpened(null);
-    const fresh = data?.items.find((i) => i.id === openId);
-    if (fresh) setOpened(fresh);
-  }, [openId, data]);
+    setOpened(null);
+    setOpenError("");
+    if (!active || !openId) return;
+    let live = true;
+    void api.get<MaterialItem>(`/api/materials/item?id=${encodeURIComponent(openId)}`).then(
+      item => { if (live) setOpened(item); },
+      () => { if (live) setOpenError("This material could not be opened. It may have been removed, or access may have changed."); },
+    );
+    return () => { live = false; };
+  }, [active, openId, data]);
+
+  useEffect(() => {
+    if (!active || detail) return;
+    const list = materialListState(history.state);
+    setQ(list.q);
+    setKind(list.kind);
+    setFilters(list.filters);
+    restoreScroll.current = list.scroll;
+  }, [hash, active]);
+  useEffect(() => {
+    if (!active || detail || !data || loading || restoreScroll.current === null) return;
+    const top = restoreScroll.current;
+    const frame = requestAnimationFrame(() => { window.scrollTo(0, top); restoreScroll.current = null; });
+    return () => cancelAnimationFrame(frame);
+  }, [active, detail, data, loading]);
 
   // The coach's context: which screen, and the item that is open.
   useEffect(() => {
     if (!active) return;
     const before = screenContext.get();
-    const mine = { view: "materials", ...(opened ? { fragment: opened.title } : {}) };
+    const mine = { view: "materials", ...(opened ? { fragment: materialName(opened) } : {}) };
     screenContext.set(mine);
     return () => {
       if (screenContext.get() === mine) screenContext.set(before);
@@ -206,10 +255,21 @@ export function Materials({ active }: { active: boolean }) {
   const find = async (e: React.FormEvent) => {
     e.preventDefault();
     const input = want.trim();
-    if (!input) return;
-    void askCoach(await findPrompt(input), { open: true });
-    setWant("");
-    setFinding(false);
+    if (!input || findingNow.current || !app.web || findStatus?.state === "unknown") return;
+    findingNow.current = true;
+    setSearching(true);
+    setFindStatus(null);
+    try {
+      const result = findOutcome(await findMaterialsWithCoach(await findPrompt(input)));
+      setFindStatus(result);
+      if (result.additions.length) { setQ(""); setKind(null); }
+      await load();
+    } catch (e) {
+      setFindStatus({ state: "error", message: `Search could not start: ${(e as Error).message}. Your query is kept.`, additions: [] });
+    } finally {
+      findingNow.current = false;
+      setSearching(false);
+    }
   };
 
   const canDelete = (i: MaterialItem) => i.source !== "folder";
@@ -219,7 +279,7 @@ export function Materials({ active }: { active: boolean }) {
   // The copy says "drop files anywhere on this screen": while the list shows, the whole window takes them.
   const send = useRef(sendFiles);
   send.current = sendFiles;
-  const listing = active && !opened;
+  const listing = active && !detail;
   useEffect(() => {
     if (!listing) return;
     const enter = (e: DragEvent) => {
@@ -272,13 +332,23 @@ export function Materials({ active }: { active: boolean }) {
       <button className="linkbtn" onClick={() => setConfirm(i.id)}>Delete</button>
     );
 
-  if (opened) {
+  if (detail && (!opened || opened.id !== openId)) {
+    const missing = route.type === "missing" || openError;
+    return <div className="viewer matviewer">
+      <button className="linkbtn" onClick={backToList}>Back to materials</button>
+      <h1>{missing ? "Material unavailable" : "Opening material"}</h1>
+      <p className="srcnote" role="status">{missing ? openError || "This material address is invalid. Return to Materials to choose an item." : "Loading your material…"}</p>
+      {openError && <button className="btn outline" onClick={() => void load()}>Try again</button>}
+    </div>;
+  }
+  if (detail && opened) {
     const pane = materialPaneItem(opened);
     const url = webUrl(opened.url);
     return (
       <div className="viewer matviewer">
-        <button className="linkbtn" onClick={() => (setOpenId(null), setConfirm(null))}>Back to materials</button>
-        <h1>{opened.title}</h1>
+        <button className="linkbtn" onClick={backToList}>Back to materials</button>
+        <h1>{materialName(opened)}</h1>
+        {materialName(opened) !== opened.title && <p className="srcnote">{opened.title}</p>}
         <p className="srcnote">
           {[KIND_LABEL[opened.kind], facts(opened), opened.size ? megabytes(opened.size) : "", opened.inPlan ? "in your plan" : ""].filter(Boolean).join(", ")}
           {opened.note ? `. ${opened.note}` : ""}
@@ -287,7 +357,7 @@ export function Materials({ active }: { active: boolean }) {
         <div className="vacts">
           <button className="btn outline" onClick={() => practice(opened)}>Use in practice</button>
           {canSave(opened) && <button className="linkbtn" disabled={busy === opened.id} onClick={() => void saveCopy(opened)}>{busy === opened.id ? "Saving a copy" : "Save a copy"}</button>}
-          {url && opened.src && <a className="linkbtn" href={url} target="_blank" rel="noreferrer noopener">Open the original</a>}
+          {url && opened.src && <a className="linkbtn" href={url} target="_blank" rel="noreferrer noopener">{externalLabel(url, opened.provider)}</a>}
           {opened.src && <a className="linkbtn" href={opened.src} download={opened.path?.split(/[/:]/).pop() ?? opened.title}>Download</a>}
           {canDelete(opened) && deleteAsk(opened)}
         </div>
@@ -306,7 +376,7 @@ export function Materials({ active }: { active: boolean }) {
       <div className="mathd">
         <h1>Materials</h1>
         <div className="mathdacts">
-          {app.web && <button className="btn quiet" aria-expanded={finding} onClick={() => (setFinding(!finding), setAdd(null))}>Find online</button>}
+          <button className="btn quiet" aria-expanded={finding} onClick={() => (setFinding(!finding), setAdd(null))}>Find online</button>
           <button className="btn outline" aria-expanded={add !== null} onClick={() => (setAdd(add ? null : "upload"), setFinding(false))}>Add</button>
         </div>
       </div>
@@ -316,12 +386,21 @@ export function Materials({ active }: { active: boolean }) {
         <form className="addpanel findform" onSubmit={find} aria-label="Find materials online">
           <label className="field">
             <span className="grp">What do you want to learn or play?</span>
-            <input className="input" type="text" autoFocus placeholder="A song, a style, a technique" value={want} onChange={(e) => setWant(e.target.value)} maxLength={300} />
+            <input className="input" type="text" autoFocus placeholder="A song, a style, a technique" value={want} onChange={(e) => { setWant(e.target.value); if (findStatus?.state !== "unknown") setFindStatus(null); }} disabled={searching} maxLength={300} />
           </label>
-          <p className="srcnote">The coach searches the web, checks what it finds, and adds the best few here with a note on who each suits.</p>
+          <p className="srcnote">The Coach will search online and may add results directly to Materials. Your existing materials stay in the list.</p>
+          {!app.web && <p className="notice">Online search is turned off for this instance. Add a link or file yourself, or ask the operator to enable web access.</p>}
+          {searching && <p className="srcnote" role="status">Searching for “{want.trim()}”. This request waits for any current Coach turn, then checks Materials for additions.</p>}
+          {findStatus && <p className="notice" role="status">{findStatus.message}</p>}
+          {(findStatus || !app.web) && <div className="row2">
+            <button className="linkbtn" type="button" onClick={openCoach}>Open Coach conversation</button>
+            <button className="linkbtn" type="button" onClick={openCoachSettings}>Coach settings</button>
+            <button className="linkbtn" type="button" onClick={() => (setFinding(false), setAdd("link"))}>Add a link yourself</button>
+          </div>}
           <div className="row2">
-            <button className="btn quiet" type="button" onClick={() => setFinding(false)}>Cancel</button>
-            <button className="btn outline" type="submit" disabled={!want.trim()}>Ask the coach</button>
+            <button className="btn quiet" type="button" onClick={() => setFinding(false)}>Close</button>
+            <button className="btn outline" type="submit" disabled={!want.trim() || searching || !app.web || findStatus?.state === "unknown"}>Find and add materials</button>
+            {findStatus?.state === "error" && <button className="linkbtn" type="submit" disabled={searching || !want.trim()}>Retry</button>}
           </div>
         </form>
       )}
@@ -410,12 +489,14 @@ export function Materials({ active }: { active: boolean }) {
       <ul className="items">
         {items.map((i) => (
           <li key={i.id} className="item matitem">
-            <button className="itemopen" onClick={() => (setNotice(""), setOpenId(i.id), setOpened(i))}>
+            <button className="itemopen" onClick={() => openItem(i)}>
               <span className={`thumb kind-${i.kind}`} aria-hidden="true">{KIND_LABEL[i.kind]}</span>
               <span className="itemtext">
-                <span className="itemtitle">{i.title}</span>
+                <span className="itemtitle">{materialName(i)}</span>
+                {materialName(i) !== i.title && <span className="itemnote">{i.title}</span>}
                 <span className="itemfacts">
                   <span>{facts(i)}</span>
+                  {findStatus?.additions.some(added => added.id === i.id) && <span className="inplan">Added during this search</span>}
                   {i.inPlan && <span className="inplan">In your plan</span>}
                   {i.size ? <span className="num">{megabytes(i.size)}</span> : null}
                 </span>
