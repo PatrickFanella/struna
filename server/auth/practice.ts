@@ -1,3 +1,4 @@
+import { accountCoach, type HostedReply } from "./coach.ts";
 import { hostedRecordingRoutes } from "../recordings.ts";
 import { materialsRoutes } from "../generic/materials.ts";
 import { chmodSync, lstatSync, mkdirSync, readdirSync, realpathSync } from "node:fs";
@@ -13,7 +14,7 @@ import type { AppInfo } from "../generic/types.ts";
 export type PracticeIdentity = { account: string; session: string; csrf: string; assertActive?: () => void };
 
 /** Only server-verified opaque ids reach this resolver. No owner defaults or cached handles. */
-export function hostedPractice(root: string, excluded: string[], timeZone: string) {
+export function hostedPractice(root: string, excluded: string[], timeZone: string, options: { run?: HostedReply } = {}) {
   root = resolve(root);
   mkdirSync(root, { recursive: true, mode: 0o700 });
   root = realpathSync(root);
@@ -22,6 +23,7 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
     const other = (() => { try { return realpathSync(path); } catch { return path; } })();
     if (root === other || root.startsWith(other + sep) || other.startsWith(root + sep)) throw new Error("Hosted root must be separate from owner data");
   }
+  const coach = accountCoach(options.run);
   const contexts = new WeakMap<IncomingMessage, Studio>();
   const router = createRouter();
   genericRoutes((req) => {
@@ -62,11 +64,13 @@ export function hostedPractice(root: string, excluded: string[], timeZone: strin
   const info = (identity: PracticeIdentity): Promise<AppInfo> => withStudio(identity, async (s) => ({ ...await genericAppInfo(s, {}), mode: "hosted", sections: ["practice", "materials"], account: identity.account, session: identity.session, csrf: identity.csrf }));
   return {
     info,
+    revoke: coach.revoke,
     async handle(req: IncomingMessage, res: ServerResponse, url: URL, identity: PracticeIdentity) {
       const privateRouter = createRouter();
       // Registrations close over this request’s verified workspace, never a global owner.
-      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings")) {
+      if (url.pathname.startsWith("/api/materials") || url.pathname.startsWith("/api/recordings") || /^\/api\/(?:conversations|prompts|chat)(?:\/|$)/.test(url.pathname)) {
         return await withStudio(identity, async (s) => {
+          coach.register(s, identity, privateRouter.route);
           hostedRecordingRoutes({ mediaRoot: s.home, db: s.db, assertActive: identity.assertActive }, privateRouter.route);
           materialsRoutes(s, { cacheDir: join(root, "accounts", identity.account, "cache"), assertActive: identity.assertActive }, privateRouter.route);
           const found = privateRouter.match(req.method === "HEAD" ? "GET" : req.method ?? "GET", url.pathname);

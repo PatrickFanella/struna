@@ -2,7 +2,7 @@ import { PlanCandidates } from "./PlanCandidates.tsx";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import Markdown from "react-markdown";
 
-import { api } from "../api.ts";
+import { accountHeaders, api } from "../api.ts";
 import type { ActionId, Prompt } from "../generic.ts";
 import { useApp } from "../mode.ts";
 import { addedMaterials, type FindTurn, type MaterialsSnapshot } from "../materials/find.ts";
@@ -84,6 +84,11 @@ function loadProviders(fresh = false): Promise<Status | null> {
   return providers;
 }
 
+if (typeof addEventListener === "function") addEventListener("struna:account-changed", () => {
+  state.busy?.abort(); dropQueue(); state.messages = []; state.conversation = null;
+  state.draft = null; draftText = ""; state.more = false; state.settings = false; providers = null; emit();
+});
+
 // A coach was set up, changed or removed in the settings: ask again next time.
 if (typeof addEventListener === "function") addEventListener(PROVIDERS_CHANGED, () => void loadProviders(true));
 
@@ -129,7 +134,7 @@ async function send(text: string, auto?: ActionId, find = false): Promise<FindTu
     sent = true;
     const res = await fetch("/api/chat", {
       method: "POST",
-      headers: { "x-struna": "1", "content-type": "application/json" },
+      headers: { ...accountHeaders(), "x-struna": "1", "content-type": "application/json" },
       body: JSON.stringify({ provider: state.provider, message: text, ...(state.conversation ? { conversation: state.conversation } : {}), ...(auto ? { auto } : {}), screen: screenContext.get() }),
       signal: abort.signal,
     });

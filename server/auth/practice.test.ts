@@ -54,7 +54,7 @@ test("two hosted players have separate profiles, plans, logs, tempos and leases,
       assert.equal(info.account, p.account); assert.equal(info.profile, true); assert.equal(info.mode, "hosted");
       const html = await (await fetch(base, { headers: { cookie: p.cookie } })).text();
       assert.match(html, new RegExp(p.account)); assert.ok(!html.includes(p === a ? b.account : a.account));
-      for (const path of ["/api/conversations", "/api/providers", "/api/library", "/api/plan-candidates", "/api/file/owner"]) assert.equal((await call(path, p)).status, 503);
+      for (const path of ["/api/providers", "/api/library", "/api/plan-candidates", "/api/file/owner"]) assert.equal((await call(path, p)).status, 503);
       const db = join(root, "accounts", p.account, "state", "struna.sqlite");
       assert.equal(statSync(db).mode & 0o777, 0o600);
       assert.equal(statSync(join(root, "accounts", p.account)).mode & 0o777, 0o700);
