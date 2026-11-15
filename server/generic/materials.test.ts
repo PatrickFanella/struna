@@ -88,7 +88,7 @@ test("the list has studio files and library files with kinds, and marks what the
   const r = await list();
   assert.equal(r.truncated, undefined);
   const titles = r.items.map((i) => `${i.source}:${i.title}:${i.kind}`).sort();
-  assert.deepEqual(titles, ["folder:Minor Swing:pdf", "folder:Riff:tab", "folder:clip:video", "studio:Blues in A:pdf", "studio:First chords:text", "studio:page:other"]);
+  assert.deepEqual(titles, ["folder:Minor Swing:pdf", "folder:Riff:tab", "folder:clip:video", "link:Lesson:link", "studio:Blues in A:pdf", "studio:First chords:text", "studio:page:other"]);
   const blues = r.items.find((i) => i.title === "Blues in A")!;
   assert.equal(blues.path, "materials/Blues in A.pdf");
   assert.equal(blues.inPlan, true);
@@ -105,7 +105,7 @@ test("the list has studio files and library files with kinds, and marks what the
   assert.deepEqual((await list("?q=lessons")).items.map((i) => i.title), ["First chords"]);
   const cut = await list("?limit=2");
   assert.equal(cut.items.length, 2);
-  assert.equal(cut.total, 6);
+  assert.equal(cut.total, 7);
 });
 
 test("files are served with ranges and safe types; nothing outside the folders is reachable", async () => {

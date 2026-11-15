@@ -297,7 +297,10 @@ test("plan materials resolve inside the home; missing files and links out are ma
       { label: "Your songbook" },
     ],
   });
-  const m = (await genericToday(s)).materials;
+  const resolved = (await genericToday(s)).materials;
+  assert.equal(resolved[0]!.itemId, `f.${Buffer.from("Blues in A.pdf").toString("base64url")}`);
+  assert.ok(resolved[4]!.itemId?.startsWith("l."));
+  const m = resolved.map(({ itemId: _, ...rest }) => rest);
   assert.deepEqual(m[0], { label: "Blues", key: "materials/Blues in A.pdf", kind: "pdf", src: materialSrc("materials/Blues in A.pdf"), note: "Page 2" });
   assert.equal(m[0]!.src, `/api/materials/file?id=f.${Buffer.from("Blues in A.pdf").toString("base64url")}`);
   assert.deepEqual(m[1], { label: "Riff", key: "materials/sheets/riff.md", kind: "text", src: materialSrc("materials/sheets/riff.md") });
