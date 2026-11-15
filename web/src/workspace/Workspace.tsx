@@ -360,7 +360,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
               </header>
               <div className="panebody">
                 {p.content.type === "coach" ? (
-                  <ChatPanel open />
+                  <ChatPanel open={visible} />
                 ) : p.content.type === "tab" ? (
                   <TabPlayer src={`/api/tabs/${p.content.tabId}/file`} title={paneTitle(p.content)} />
                 ) : (

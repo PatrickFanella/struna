@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import Markdown from "react-markdown";
 
 import { api } from "../api.ts";
@@ -297,6 +297,7 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
   const input = useRef<HTMLTextAreaElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const shown = useRef(false);
+  const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -335,22 +336,17 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     state.draft = null;
     setText(draft);
     setList(null);
-    setTimeout(() => {
-      input.current?.focus();
-      input.current?.setSelectionRange(draft.length, draft.length);
+    const timer = setTimeout(() => {
+      if (!input.current?.checkVisibility() || input.current.closest("[inert]")) return;
+      input.current.focus();
+      input.current.setSelectionRange(draft.length, draft.length);
     }, 60);
+    return () => clearTimeout(timer);
   }, [open, state.version]);
 
   useEffect(() => {
     log.current?.scrollTo({ top: log.current.scrollHeight });
   }, [state.version]);
-
-  useEffect(() => {
-    if (!open || !onClose) return;
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    addEventListener("keydown", esc);
-    return () => removeEventListener("keydown", esc);
-  }, [open, onClose]);
 
   const showList = async () => setList(await api.get<Conv[]>("/api/conversations"));
   const submit = (e?: React.FormEvent) => {
@@ -400,14 +396,16 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
     shown.current = true;
     if (first && !onClose) return;
     const t = setTimeout(() => {
+      if (!body.current?.checkVisibility() || body.current.closest("[inert]")) return;
       if (showMore) sheet.current?.querySelector<HTMLButtonElement>("button")?.focus();
-      else if (!list) input.current?.focus();
+      else if (showSettings || list) body.current.querySelector<HTMLButtonElement>(".chatbar button")?.focus();
+      else input.current?.focus();
     }, 50);
     return () => clearTimeout(t);
-  }, [open, showMore, Boolean(list)]);
+  }, [open, showMore, showSettings, Boolean(list)]);
 
   return (
-    <div className="chatbody">
+    <div className="chatbody" ref={body}>
         <div className="chathd">
           <h2>Coach</h2>
           {generic ? (
@@ -556,13 +554,42 @@ export function ChatPanel({ open, onClose }: { open: boolean; onClose?: (() => v
   );
 }
 
+/** The native modal owns background inertness; the panel stays mounted to retain drafts and requests. */
 export function Chat({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useLayoutEffect(() => {
+    const el = dialog.current;
+    if (!open || !el) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    el.showModal();
+    return () => {
+      el.close();
+      const target = opener?.isConnected && opener.checkVisibility() && !opener.closest("[inert]")
+        ? opener : document.querySelector<HTMLButtonElement>(".top .acts button:last-of-type");
+      target?.focus();
+    };
+  }, [open]);
   return (
-    <div className={`chatwrap${open ? " open" : ""}`} aria-hidden={!open}>
-      <div className="scrim" onClick={onClose} />
-      <aside className="chat" role="dialog" aria-label="Coach" aria-modal="true">
+    <div className={`chatwrap${open ? " open" : ""}`}>
+      <dialog ref={dialog} className="chat" aria-label="Coach" aria-modal="true" onCancel={(e) => {
+        e.preventDefault();
+        close.current();
+      }} onClick={(e) => {
+        if (e.target !== e.currentTarget) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) close.current();
+      }} onKeyDownCapture={(e) => {
+        if (e.key !== "Tab") return;
+        const controls = [...e.currentTarget.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea, [tabindex]")]
+          .filter((x) => x.tabIndex >= 0 && !x.matches(":disabled") && x.checkVisibility() && !x.closest("[inert]"));
+        const at = controls.indexOf(document.activeElement as HTMLElement);
+        e.preventDefault();
+        controls[(at + (e.shiftKey ? -1 : 1) + controls.length) % controls.length]?.focus();
+      }}>
         <ChatPanel open={open} onClose={onClose} />
-      </aside>
+      </dialog>
     </div>
   );
 }
