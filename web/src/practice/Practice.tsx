@@ -33,6 +33,7 @@ function loadSession(): SessionState | null {
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as SessionState;
+    if (!s.submissionId) { s.submissionId = crypto.randomUUID(); sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
     return { ...s, panes: Array.isArray(s.panes) ? s.panes : [] };
   } catch {
     return null;
@@ -220,6 +221,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       addedActivities: extra ? [{ key: extra.key, title: extra.label }] : [],
       cross: cross ?? null,
       startedAt: Date.now(),
+      submissionId: crypto.randomUUID(),
       stage: 0,
       elapsedBefore: 0,
       activeBefore: 0,
@@ -267,7 +269,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     return (
       <div className="start">
         <h1>Log written</h1>
-        <p className="srcnote" role="status">Session log saved</p>
+        <p className="srcnote" role="status">Session log saved</p><p>Your observations are saved. Choose what comes next when you are ready.</p>
         <p className="instr">{phase.file}</p>
         {!!phase.warnings?.length && <div className="notice" role="status"><p>The log is saved. Tempo suggestions need attention:</p><ul>{phase.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul></div>}
         <p className="srcnote">{generic ? "In the logs folder of your studio. The app never changes it again; the coach reads it to plan what comes next." : "In Practice/Logs in the vault. The app never edits it again; commit it when you review."}</p>
@@ -275,6 +277,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
           setPhase({ name: "start" });
           load();
         }}>Back to today</button>
+        <button className="btn outline full" onClick={openChat}>Review with Coach</button>
       </div>
     );
   }
@@ -368,7 +371,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       onDiscard={() => { end(); setPhase({ name: "start" }); }}
       onFinish={(partial) => {
         // Studio mode remembers that the review is open, so a reload (or a discarded tab) comes back to it.
-        setSession((s) => ({ ...stopTimer(s, Date.now()), ...(partial ? { partial: true as const } : {}), ...(generic ? { reviewing: true as const } : {}) }));
+        setSession((s) => ({ ...stopTimer(s, Date.now()), ...(partial ? { partial: true as const } : {}), reviewing: true as const }));
         setPhase({ name: "review" });
       }}
       closeTools={closeTools}

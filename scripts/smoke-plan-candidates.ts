@@ -78,7 +78,7 @@ try {
   await propose();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage(); await page.goto(`${base}/?token=${token}#practice`);
-  await page.locator(".session-choice button").first().click();
+  await page.locator(".practice-choice > .btn").first().click();
   await page.getByRole("button", { name: "Coach", exact: true }).click();
   await page.locator(".plan-proposal").waitFor();
   assert.equal(await page.getByRole("button", { name: "Apply plan change", exact: true }).isDisabled(), true);

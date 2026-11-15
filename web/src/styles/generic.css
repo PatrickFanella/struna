@@ -66,4 +66,4 @@
 .secondary-nav summary{padding:12px 8px;cursor:pointer}
 .secondary-nav>div{position:absolute;right:0;top:100%;z-index:20;min-width:160px;padding:8px;background:var(--panel);border:1px solid var(--edge);border-radius:var(--r)}
 .secondary-nav a{display:block;padding:12px;color:var(--ink)}
-@media(max-width:699px){.top .acts>.ib:last-child{display:none}}
+

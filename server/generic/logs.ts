@@ -1,4 +1,5 @@
-import { mkdir, open, readdir, readFile } from "node:fs/promises";
+import { publishLog } from "../session-log.ts";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { parseFrontMatter, str } from "../frontmatter.ts";
@@ -245,24 +246,7 @@ export async function readLogs(home: string): Promise<GenericLog[]> {
  * Write a new log under `<home>/logs/`. Never opens an existing file: each candidate
  * name is created with `wx`, so a second session that day becomes `-2`, then `-3`…
  */
-export async function writeGenericLog(home: string, review: GenericReview, now: Date, timeZone: string): Promise<{ file: string }> {
+export async function writeGenericLog(home: string, review: GenericReview, now: Date, timeZone: string, submissionId?: string): Promise<{ file: string; replayed?: boolean }> {
   const date = localDate(now, timeZone);
-  const dir = join(home, "logs");
-  await mkdir(dir, { recursive: true });
-  const body = renderGenericLog(review, date, now.toISOString());
-  for (let n = 1; n < 1000; n++) {
-    const file = n === 1 ? `${date}.md` : `${date}-${n}.md`;
-    try {
-      const fh = await open(join(dir, file), "wx", 0o664);
-      try {
-        await fh.writeFile(body);
-      } finally {
-        await fh.close();
-      }
-      return { file };
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-    }
-  }
-  throw new HttpError(409, "too many logs for one day");
+  return publishLog(join(home, "logs"), renderGenericLog(review, date, now.toISOString()), (n) => n === 1 ? `${date}.md` : `${date}-${n}.md`, submissionId);
 }

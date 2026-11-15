@@ -136,7 +136,7 @@ export function App() {
             </button>
             <button className="ib" aria-pressed={chat} onClick={openCoach}>
               <Icon id="i-chat" />
-              AI Coach
+              Coach
               {generic && unread && !chat && <span className="unread" role="status" aria-label="New reply from the coach" />}
             </button>
           </span>

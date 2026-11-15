@@ -1,5 +1,6 @@
+import { REVIEW_DRAFT_KEY, restoreReviewDraft } from "./genericLogic.ts";
 import { ConfirmDiscard } from "./ConfirmDiscard.tsx";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { api } from "../api.ts";
 import { SUBDIVISIONS } from "../audio/metronome.ts";
@@ -46,20 +47,26 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
   const b = today.block!;
   const week = b.weeks[today.position.week - 1];
   const subLog = (v: number) => SUBDIVISIONS.find((s) => s.value === v)!.log;
-  const [f, setF] = useState({
+  const [f, setF] = useState(() => {
+    const fresh = {
     material,
     target: "",
     startTempo: String(session.startBpm),
-    cleanTempo: String(bpm),
+    cleanTempo: session.checkpoints?.at(-1)?.bpm?.toString() ?? "",
     subdivision: session.subdivision as number,
     threePass: (session.metThree ? "met" : "not met") as "met" | "not met",
     recall: "page-dependent" as Recall,
     pain: session.pain ? "yes" : "no",
     improvement: "",
     failure: "",
-    next: `Start at ${bpm} BPM, ${subLog(session.subdivision)}, with ${material}; listen for `,
+    next: today.next.text,
     observation: "",
+    };
+    try { return restoreReviewDraft(sessionStorage.getItem(REVIEW_DRAFT_KEY), session.startedAt, fresh); } catch { return fresh; }
   });
+  useEffect(() => {
+    try { sessionStorage.setItem(REVIEW_DRAFT_KEY, JSON.stringify({ startedAt: session.startedAt, form: f })); } catch { /* unavailable storage */ }
+  }, [f, session.startedAt]);
   const [discarding, setDiscarding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [drafting, setDrafting] = useState(false);
@@ -109,6 +116,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
     try {
       const pain = f.pain === "yes";
       const { file } = await api.post<{ file: string }>("/api/sessions", {
+        submissionId: session.submissionId,
         blockTitle: blockLogName(b),
         blockId: b.id,
         type: session.cross ? "cross-training" : today.position.type,
@@ -150,7 +158,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
       {discarding && <ConfirmDiscard onCancel={() => setDiscarding(false)} onDiscard={onDiscard} />}
       {session.partial && <p className="notice">Partial session · does not count toward plan progress. Minutes reflect active playing time.</p>}
       <h1>{session.partial ? "Partial session review" : session.pain ? "Stopped: pain or tension" : "Session review"}</h1>
-      <p className="instr">{session.pain ? "Stop playing. Note what you felt; the log flags it and this session will not count." : "Mostly taps. Anything left blank is written as not recorded."}</p>
+      <p className="instr">{session.pain ? "Stop playing. Note what you felt; the log flags it and this session will not count." : "Your reflection is optional. Confirm clean tempo only if you measured it; audio has not been assessed."}</p>
       <div className="draftrow">
         <button type="button" className="btn outline" disabled={drafting} onClick={() => void askCoach()}>{drafting ? "The coach is drafting" : "Ask the coach to fill this in"}</button>
         <span className="srcnote">It fills the blank fields from this session's tempos, passes and notes. It did not hear you play, so check it.</span>
@@ -169,7 +177,7 @@ export function Review({ today, session, bpm, material, onWritten, onBack, onDis
         <p className="fieldval">{session.recording ? `${session.recording.path} (${session.recording.label})` : "No take recorded"}</p>
       </div>
       <Choice label="Pain, numbness or persistent tension" value={f.pain} options={[["no", "No"], ["yes", "Yes, stop"]]} onChange={set("pain")} />
-      <Text label="One improvement" value={f.improvement} onChange={set("improvement")} />
+      <Text label="What felt better (your reflection)" value={f.improvement} onChange={set("improvement")} />
       <Text label="One limiting failure" value={f.failure} onChange={set("failure")} />
       <Text label="Next instruction" value={f.next} onChange={set("next")} area />
       <Text label="My observation (optional)" value={f.observation} onChange={set("observation")} area />

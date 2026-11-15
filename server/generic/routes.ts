@@ -1,3 +1,4 @@
+import { submissionId } from "../session-log.ts";
 import { planLock } from "./planCandidates.ts";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -66,11 +67,12 @@ export function genericRoutes(s: Studio, opts: { tabs?: boolean } = {}): void {
   route("GET", "/api/today", async (_req, res) => send(res, 200, await genericToday(s)));
 
   route("POST", "/api/sessions", async (req, res) => {
-    const review = parseGenericReview(await readJson(req));
-    const { file } = await writeGenericLog(s.home, review, new Date(), s.timeZone);
+    const body = await readJson(req);
+    const review = parseGenericReview(body);
+    const { file, replayed } = await writeGenericLog(s.home, review, new Date(), s.timeZone, submissionId(body.submissionId));
     // A cache failure must never turn a saved log into a failed save (and a duplicate on retry).
-    const warnings: string[] = [];
-    if (!review.pain) for (const m of review.measurements ?? []) {
+    const warnings: string[] = replayed ? ["This session was already saved. The original log was kept; retry edits were not applied."] : [];
+    if (!replayed && !review.pain) for (const m of review.measurements ?? []) {
       if (m.bpm === null) continue;
       const fragment = `material:${m.materialKey}`;
       if (m.bpm < 30 || m.bpm > 300 || fragment.length > 200) {
