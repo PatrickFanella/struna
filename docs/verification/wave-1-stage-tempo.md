@@ -13,3 +13,5 @@ Checked November 15, 2026 UTC:
 - `node scripts/smoke-stage-tempo.ts`: passed all nine combinations of 320×700, 390×844 and 1003×814 with Light, Dark and Device. Checked stage entry, manual override, revisit, reload and reset. Screenshots: `/tmp/struna-stage-tempo-nVvE18/shots` on Kvant.
 
 The browser run used a scratch studio and disabled providers. No production data, real audio, Safari or physical phone was tested. GitHub currently has no project CI workflow; local checks are not hosted CI evidence.
+
+Hosted review follow-up: personal sessions retain their label-keyed clean-tempo initialization and keep the player’s click through later stages. The personal scratch smoke seeded 84 BPM, applied the clean-pass suggestion to 87 and verified 87 survived progression. The Studio smoke now selects Coach before entering a material-bearing stage and checks that the music pane becomes visible, including at phone widths. Both smokes passed; Studio artifacts: `/tmp/struna-stage-tempo-GgmNal`.
