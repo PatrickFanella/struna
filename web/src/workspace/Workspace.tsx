@@ -156,18 +156,25 @@ type Menu = { at: number | "add" } | null;
  * Side-by-side panes: the lesson, its sheet music or a tab, and the coach. Up to three show at
  * once on a wide screen, two on an iPad, one on a phone, with a switcher for the rest.
  */
-export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
+export function Workspace({ panes, setPanes, materials, empty, addSlot, focusRequest, onOpenContent }: {
   panes: PaneState[];
   setPanes: (fn: (p: PaneState[]) => PaneState[]) => void;
   materials: PaneItem[];
   empty?: React.ReactNode;
   /** Where the Add pane control goes (for example the session's stage line); defaults to a bar above the panes. */
   addSlot?: HTMLElement | null;
+  focusRequest?: { itemKey: string; stageKey: string } | undefined;
+  onOpenContent?: (content: PaneContent) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [slots, setSlots] = useState(1);
   const [tall, setTall] = useState(false);
   const [focus, setFocus] = useState(0);
+  useEffect(() => {
+    if (!focusRequest) return;
+    const at = panes.findIndex((p) => p.content.type === "file" && p.content.item.key === focusRequest.itemKey);
+    if (at >= 0) setFocus(at);
+  }, [focusRequest?.itemKey, focusRequest?.stageKey]);
   const [menu, setMenu] = useState<Menu>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   const menuBox = useRef<HTMLDivElement>(null);
@@ -253,6 +260,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
     const contents = await withCompanion(c);
     focusAfterPick.current = true;
     place(contents, at);
+    onOpenContent?.(c);
   };
   useLayoutEffect(() => {
     if (!focusAfterPick.current || menu) return;

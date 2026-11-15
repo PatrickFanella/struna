@@ -98,6 +98,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
         minutes: Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : 0,
         material: f.material,
         target: f.target,
+        activities: sessionChecklist(session.stages ?? kind.stages, session.addedActivities).map((a) => ({ ...a, attempted: session.attemptedActivities?.includes(a.key) ?? false })),
         startTempo: start === null ? "" : String(start),
         cleanTempo: clean === null ? "" : String(clean),
         subdivision: used && (start !== null || clean !== null) ? subdivision : "",
