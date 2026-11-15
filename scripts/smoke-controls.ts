@@ -218,12 +218,13 @@ async function coachModal(page: Page) {
   await page.goto(`${base}/#materials`);
   await page.getByRole("button", { name: "Find online", exact: true }).press("Enter");
   await page.getByRole("textbox", { name: "What do you want to learn or play?", exact: true }).fill("Slow chord changes (stand-in only)");
-  const hiddenContext = page.getByRole("button", { name: "Ask the coach", exact: true });
+  await page.getByRole("button", { name: "Find and add materials", exact: true }).press("Enter");
+  const hiddenContext = page.getByRole("button", { name: "Open Coach conversation", exact: true });
   await hiddenContext.press("Enter");
   await dialog.waitFor();
   await inside();
   await page.keyboard.press("Escape");
-  check(await header.evaluate((e) => e === document.activeElement), "Hidden workspace Coach permits another section's modal and removed-launcher fallback");
+  check(await hiddenContext.evaluate((e) => e === document.activeElement), "Hidden workspace Coach permits Materials modal and restores its current opener");
 }
 async function semantics(page: Page) {
   await page.goto(`${base}/#materials`);

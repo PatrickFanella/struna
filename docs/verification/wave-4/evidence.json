@@ -1,0 +1,130 @@
+{
+  "checkedAt": "2026-11-15 UTC",
+  "applicationCommit": "83d4d04e8f151224e2e15f50485859ac35fdc92f",
+  "overall": "INCOMPLETE: human device/audio/screen-reader evidence remains in issue 29",
+  "node": "v24.22.1",
+  "pnpm": "12.18.0",
+  "automatedBrowser": "Chromium 156.0.8078.79 (Debian Linux)",
+  "sharedBrowser": "Chrome headless shell 157.0.8103.78 (Linux)",
+  "scratchRoot": "/tmp/struna-wave4-5fng6a0g",
+  "checks": [
+    {
+      "name": "controls-28",
+      "status": "PASS",
+      "assertions": 61,
+      "artifacts": "/tmp/struna-wave4-5fng6a0g/controls-28"
+    },
+    {
+      "name": "controls-18",
+      "status": "PASS",
+      "assertions": 157,
+      "artifacts": "/tmp/struna-wave4-5fng6a0g/controls-18"
+    },
+    {
+      "name": "controls-19",
+      "status": "PASS",
+      "assertions": 1470,
+      "artifacts": "/tmp/struna-wave4-5fng6a0g/controls-19-final"
+    },
+    {
+      "name": "controls-20",
+      "status": "PASS",
+      "assertions": 159,
+      "artifacts": "/tmp/struna-wave4-5fng6a0g/controls-20-final"
+    },
+    {
+      "name": "materials-21",
+      "status": "PASS",
+      "browserConfigurations": 16,
+      "resultRecords": 32,
+      "artifacts": "/tmp/struna-wave4-5fng6a0g/materials-21-native",
+      "scratch": "/tmp/struna-materials-lLBD4H"
+    },
+    {
+      "name": "materials-22",
+      "status": "PASS",
+      "browserConfigurations": 16,
+      "resultRecords": 48,
+      "artifacts": "/tmp/struna-wave4-5fng6a0g/materials-22-native",
+      "scratch": "/tmp/struna-materials-NHRlyP"
+    },
+    {
+      "name": "tools-native",
+      "status": "PASS",
+      "browserConfigurations": 16,
+      "artifacts": "/tmp/struna-wave4-5fng6a0g/tools-native"
+    },
+    {
+      "name": "coach-clarity-native",
+      "status": "PASS",
+      "browserConfigurations": 16,
+      "artifacts": "/tmp/struna-wave4-5fng6a0g/coach-clarity-native"
+    },
+    {
+      "name": "unit tests",
+      "status": "PASS",
+      "passed": 338,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/tmp/struna-wave4-tests.log"
+    },
+    {
+      "name": "Studio smoke",
+      "status": "PASS",
+      "checks": 262,
+      "log": "/tmp/struna-wave4-5fng6a0g/logs/studio.log"
+    },
+    {
+      "name": "Full/Short/Quick and discard",
+      "status": "PASS",
+      "browserConfigurations": 12,
+      "artifacts": "/tmp/struna-stage-tempo-dPICq6",
+      "log": "/tmp/struna-wave4-5fng6a0g/logs/stages-complete.log"
+    },
+    {
+      "name": "personal synthetic recording/log",
+      "status": "PASS",
+      "log": "/tmp/struna-wave4-5fng6a0g/logs/personal.log",
+      "artifacts": "/tmp/struna-wave4-5fng6a0g/personal"
+    },
+    {
+      "name": "plan candidate",
+      "status": "PASS",
+      "browserConfigurations": 12,
+      "artifacts": "/tmp/struna-proposals-browser-LoWth8",
+      "log": "/tmp/struna-wave4-5fng6a0g/logs/proposals.log"
+    }
+  ],
+  "harnessSha256": {
+    "scripts/qualification-studio.ts": "2a1b86c962ed6178d6e8742edf1124f6f79cc3d4a892be4418208fb41288101e",
+    "scripts/smoke-stage-tempo.ts": "18ccd70086406b521ac68036312bcccfb19fbc36d6f76c4bc3fc49bb7e0c0635",
+    "scripts/smoke-controls.ts": "448fe701462a57854a18e9ec38b5ab3abab54b4767c696e5aaf147836ea45c50",
+    "scripts/smoke-materials.ts": "385b63cb4abd8bd49962c501a73ef732d6bf9a6dd3b70ea056f7a0d5557ffb14",
+    "scripts/smoke-tools.ts": "86edc245f8f161ae69cdef591e61a1a1fc11dcef26c4355dbad658eced032a0f",
+    "scripts/smoke-coach-clarity.ts": "8a34bdf698a3c97b177e420221b5036340349cd8393d8d96c440b229c5ae2198",
+    "scripts/smoke-generic.ts": "1a277655999e468b1f93aaf33264888d2af3b9b434c66dd8ad07ed8524ed4698",
+    "scripts/smoke-practice.ts": "7c22ea3d71eb40642b185b8728b2f887535d1bcfd33e09de634d13acba0e905f",
+    "scripts/smoke-plan-candidates.ts": "e5d3f6a71c5438dccaa59ab40b855e05c91d770ef98a60bf622fd3eb1f5abaf4"
+  },
+  "screenshotSha256": {
+    "320-light-review.png": "6873e69bf53865b603b2957f6551ae6bf8d8bfb6d5993262166e9e640b645600",
+    "390-dark-reader.png": "9969739578d56fa56a2b597ce1a4c093031488af8f7f8a41fb1dd14e7d85abab",
+    "1003-device-session.png": "73054efc23d541307a5cccf2094f4d00736f59d1cf0357ca2888b5fba0052f23",
+    "native-200-coach.png": "0b54f7f57fb8392748199188a11d4787e8aa13e5f27cdff478f0ea22b4ee5b65",
+    "native-200-materials-no-results.png": "0472ccff6f6d17ed0ebe1ae134f3546b191b90f39a20babb010ecd1fd1ddc704",
+    "shared-browser-no-microphone.png": "8d2d622948242551406a258b9ba442a01a459bcf7015f5e6b33968aa817805b3"
+  },
+  "unverified": [
+    "native phone/Safari",
+    "real screen-reader output",
+    "real instrument/tuner accuracy",
+    "audible hardware metronome",
+    "real recording playback",
+    "live provider inference"
+  ],
+  "androidAttempt": {
+    "status": "UNVERIFIED",
+    "device": "T3_Pixel_API_35 / emulator-5554 / Android 15",
+    "reason": "DEVICE_IN_USE; bounded retry remained busy. No takeover or UI action performed."
+  }
+}

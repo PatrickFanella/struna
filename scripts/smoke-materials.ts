@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { chromium, type Page } from "playwright-core";
+import { chromium, type Page, type Browser, type BrowserContext } from "playwright-core";
 import { starterPlan } from "../server/generic/starter.ts";
 import { normalizeProfile } from "../server/generic/studio.ts";
 
@@ -40,7 +40,7 @@ const server = spawn("node", ["server/index.ts"], {
 let output = "";
 server.stdout.on("data", b => output += b.toString());
 server.stderr.on("data", b => output += b.toString());
-let browser;
+let browser: Browser | undefined;
 const results: string[] = [];
 try {
   // The server reports the ephemeral port; never log its access token.
@@ -52,10 +52,20 @@ try {
   assert.ok(base, "scratch server reports its port");
   const token = readFileSync(join(scratch, "state/access-token"), "utf8").trim();
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"] });
-  for (const [width, height] of [[320, 700], [390, 844], [1003, 814]] as const) {
+  for (const [width, height] of [[320, 700], [390, 844], [1003, 814], [502, 407]] as const) {
     if (process.env.SMOKE_WIDTH && width !== Number(process.env.SMOKE_WIDTH)) continue;
     for (const theme of ["light", "dark", "device-light", "device-dark"] as const) {
-      const context = await browser.newContext({ viewport: { width, height }, colorScheme: theme.endsWith("dark") ? "dark" : "light" });
+      const context: BrowserContext = width === 502
+        ? await chromium.launchPersistentContext(join(scratch, `zoom-${theme}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox"], viewport: { width: 1003, height: 814 }, colorScheme: theme.endsWith("dark") ? "dark" : "light" })
+        : await browser.newContext({ viewport: { width, height }, colorScheme: theme.endsWith("dark") ? "dark" : "light" });
+      if (width === 502) {
+        const settings = await context.newPage(); await settings.goto("chrome://settings/appearance");
+        await settings.evaluate(async () => {
+          const { chrome } = globalThis as unknown as { chrome: { settingsPrivate: { setDefaultZoom: (factor: number) => Promise<void> } } };
+          await chrome.settingsPrivate.setDefaultZoom(2);
+        });
+        await settings.close();
+      }
       await context.addInitScript(t => { if (t.startsWith("device")) localStorage.removeItem("struna.theme"); else localStorage.setItem("struna.theme", t); }, theme);
       await context.addCookies([{ name: `struna_${new URL(base).port}`, value: token, url: base, httpOnly: true, sameSite: "Strict" }]);
       await context.route("**/*", route => new URL(route.request().url()).origin === base ? route.continue() : route.abort());
@@ -63,6 +73,7 @@ try {
       const errors: string[] = [];
       page.on("pageerror", e => errors.push(e.message));
       await page.goto(`${base}/#materials`);
+      if (width === 502) assert.ok(await page.evaluate(() => innerWidth === 501 && devicePixelRatio === 2), "native desktop 200% zoom");
       const row = page.locator(".matitem").filter({ hasText: "Black Mountain Rag" });
       await row.waitFor();
       assert.equal(await row.locator(".itemtitle").textContent(), "Black Mountain Rag");
