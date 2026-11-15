@@ -18,7 +18,7 @@ import { StageBar, stageShort } from "./StageBar.tsx";
 import { SessionStatus } from "./SessionStatus.tsx";
 import { resolveStageTempo, validBpm, type StageTempo, type TempoRecord } from "./stageTempo.ts";
 import { refPaneItem } from "../materials/item.ts";
-import { recordPass, emptyPasses, type Checkpoint, type PassState } from "./checkpoints.ts";
+import { recordPass, emptyPasses, measurementChoices, selectedMeasurement, type Checkpoint, type PassState } from "./checkpoints.ts";
 import { SessionDialog, ConfirmDiscard } from "./ConfirmDiscard.tsx";
 import { stopTimer } from "./sessionTimer.ts";
 import { StageMaterialLink } from "./StageMaterialLink.tsx";
@@ -162,8 +162,8 @@ export function Session({ today, state, setState, items, material, onFinish, onD
   const stage = stages[at]!;
   const tempoKey = `${kind.id}:${stage.key}:${stage.material?.key ?? "unassigned"}`;
   const stageTempo = state.stageTempos?.[tempoKey];
-  const measurementItems = [...new Map([...(stage.material ? [refPaneItem(stage.material)] : []), ...state.panes.flatMap((p) => p.content.type === "file" ? [p.content.item] : []), ...items].filter((i) => !i.missing).map((i) => [i.key, i])).values()];
-  const measured = state.measurementMaterials?.[tempoKey] ?? measurementItems[0];
+  const measurementItems = measurementChoices(stage.material ? refPaneItem(stage.material) : undefined, state.panes.map((p) => p.content), items);
+  const measured = selectedMeasurement(measurementItems, state.measurementMaterials?.[tempoKey]);
   const passKey = `${kind.id}:${stage.key}:${measured?.key ?? "unassigned"}`;
   const passState = state.materialPasses?.[passKey] ?? emptyPasses();
   useEffect(() => {
