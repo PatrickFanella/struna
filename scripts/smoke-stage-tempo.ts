@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import { chromium } from "playwright-core";
+import { parseGenericLog } from "../server/generic/logs.ts";
 import { normalizeProfile } from "../server/generic/studio.ts";
 
 const dir = await mkdtemp(join(tmpdir(), "struna-stage-tempo-"));
@@ -27,6 +28,9 @@ const plan = {
 };
 plan.sessions.push({ id: "custom-full", label: "Full", stages: [...plan.sessions[0]!.stages, { key: "song", title: "Tune practice", minutes: 10, task: "Play a tune." }] });
 plan.sessions.push({ id: "custom-short", label: "Short", stages: [plan.sessions[0]!.stages[1]!] });
+await writeFile(join(home, "materials/tune.md"), "# Black Mountain Rag\n\nSkipped tune fixture.\n");
+plan.materials.push({ label: "Black Mountain Rag", file: "materials/tune.md" });
+Object.assign(plan.sessions[1]!.stages.at(-1)!, { material: { file: "materials/tune.md" } });
 await writeFile(join(home, "plan/plan.json"), JSON.stringify(plan));
 const socket = createServer();
 await new Promise<void>((r) => socket.listen(0, "127.0.0.1", r));
@@ -35,7 +39,7 @@ await new Promise<void>((r) => socket.close(() => r()));
 const base = `http://localhost:${port}`;
 const child = spawn(process.execPath, ["server/index.ts"], { cwd: join(import.meta.dirname, ".."), env: {
   ...process.env, NODE_ENV: "production", STRUNA_MODE: "studio", STRUNA_HOME: home, STRUNA_STATE_DIR: join(dir, "state"), STRUNA_CACHE_DIR: join(dir, "cache"),
-  STRUNA_NO_SCAN: "1", STRUNA_COACH_HOST_LOGINS: "0", CLAUDE_BIN: "/bin/false", CODEX_BIN: "/bin/false", HOST: "127.0.0.1", PORT: String(port),
+  STRUNA_LIBRARY_DIRS: "", STRUNA_TABS_DIR: "", SOCKET_PATH: "", EDGE_SECRET_FILE: "", REQUIRE_USER: "", STRUNA_NO_SCAN: "1", STRUNA_COACH_HOST_LOGINS: "0", CLAUDE_BIN: "/bin/false", CODEX_BIN: "/bin/false", HOST: "127.0.0.1", PORT: String(port),
 }, stdio: "ignore" });
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
 try {
@@ -46,8 +50,18 @@ try {
     await new Promise((r) => setTimeout(r, 100));
   }
   const token = (await readFile(join(dir, "state/access-token"), "utf8")).trim();
-  for (const [width, height] of [[320, 700], [390, 844], [1003, 814]]) for (const theme of ["light", "dark", "device"]) {
-    const context = await browser.newContext({ viewport: { width: width!, height: height! }, permissions: ["microphone"], colorScheme: theme === "dark" ? "dark" : "light" });
+  for (const [width, height] of [[320, 700], [390, 844], [1003, 814], [502, 407]]) for (const theme of ["light", "dark", "device"]) {
+    const context = width === 502
+      ? await chromium.launchPersistentContext(join(dir, `zoom-${theme}`), { executablePath: process.env.CHROMIUM ?? "/usr/bin/chromium", args: ["--no-sandbox", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"], viewport: { width: 1003, height: 814 }, permissions: ["microphone"], colorScheme: theme === "dark" ? "dark" : "light" })
+      : await browser.newContext({ viewport: { width: width!, height: height! }, permissions: ["microphone"], colorScheme: theme === "dark" ? "dark" : "light" });
+    if (width === 502) {
+      const settings = await context.newPage(); await settings.goto("chrome://settings/appearance");
+      await settings.evaluate(async () => {
+        const { chrome } = globalThis as unknown as { chrome: { settingsPrivate: { setDefaultZoom: (factor: number) => Promise<void> } } };
+        await chrome.settingsPrivate.setDefaultZoom(2);
+      });
+      await settings.close();
+    }
     const page = await context.newPage();
     await page.addInitScript((choice) => { if (choice !== "device") localStorage.setItem("struna.theme", choice); }, theme);
     await page.goto(`${base}/?token=${token}#practice`);
@@ -122,7 +136,7 @@ try {
     const reader = page.getByRole("dialog", { name: "Baseline roll", exact: true });
     await reader.waitFor();
     const rect = await reader.boundingBox();
-    assert.ok(rect && rect.height > height! * 0.9 && rect.width > width! * 0.9);
+    assert.ok(rect && rect.height > (width === 502 ? 407 : height!) * 0.9 && rect.width > width! * 0.9);
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-reader.png`), fullPage: false });
     await page.keyboard.press("Escape");
     assert.equal(await page.getByRole("dialog", { name: "Baseline roll", exact: true }).count(), 0);
@@ -157,6 +171,8 @@ try {
     assert.equal(await page.getByLabel("Minutes played", { exact: true }).inputValue(), "1");
     assert.doesNotMatch(await page.locator(".greview").innerText(), /Tune practice/);
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}.png`), fullPage: true });
+    assert.equal(await page.getByLabel("Baseline roll clean BPM (optional)", { exact: true }).inputValue(), "80");
+    assert.equal(await page.getByLabel("Black Mountain Rag clean BPM (optional)", { exact: true }).count(), 0, "omitted tune has no review field");
     await page.getByRole("button", { name: "Write the log", exact: true }).click();
     await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
     if (width === 390 && theme === "light") {
@@ -177,6 +193,7 @@ try {
       await page.getByRole("status").filter({ hasText: "Minutes played includes only recovered timing" }).waitFor();
     }
     await page.evaluate((raw) => {
+      sessionStorage.removeItem("struna.review-draft"); // This injects an independent timing fixture.
       const saved = JSON.parse(raw!); delete saved.reviewing;
       saved.stage = 0; saved.resumedAt = null; saved.elapsedBefore = 0; saved.activeBefore = 65000;
       sessionStorage.setItem("struna.session", JSON.stringify(saved));
@@ -201,16 +218,82 @@ try {
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-partial.png`), fullPage: true });
     await page.getByRole("button", { name: "Write the log", exact: true }).click();
     await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
+    // A full session includes the tune, but skipping its work cannot inherit the roll's BPM.
+    await page.getByRole("button", { name: "Back to today", exact: true }).click();
+    await page.getByRole("button", { name: /^Full/ }).click();
+    await page.getByRole("button", { name: /Next stage/ }).click();
+    if (width! < 720) await page.getByRole("button", { name: "Tools", exact: true }).click();
+    await page.getByRole("button", { name: /Log clean pass/ }).click();
+    await page.getByRole("button", { name: "End session", exact: true }).click();
+    await page.getByRole("button", { name: "Review partial session", exact: true }).click();
+    const roll = page.getByLabel("Baseline roll clean BPM (optional)", { exact: true });
+    const tune = page.getByLabel("Black Mountain Rag clean BPM (optional)", { exact: true });
+    assert.equal(await roll.inputValue(), "80");
+    assert.match(await page.locator(".greview").innerText(), /Technique — attempted/);
+    assert.equal(await tune.inputValue(), "");
+    assert.equal(await page.getByLabel("What went well", { exact: true }).isVisible(), false);
+    await page.getByText("Optional notes", { exact: true }).click();
+    await page.getByLabel("What went well", { exact: true }).fill("Separate review draft retained");
+    const bpm = width === 320 && theme === "light" ? "400" : "88";
+    await roll.fill(bpm);
+    await page.getByRole("button", { name: "Back to the session", exact: true }).click();
+    await page.getByRole("button", { name: "End session", exact: true }).click();
+    await page.getByRole("button", { name: "Review partial session", exact: true }).click();
+    assert.equal(await roll.inputValue(), bpm);
+    await page.getByRole("link", { name: "Materials", exact: true }).click();
+    await page.getByRole("link", { name: "Practice", exact: true }).click();
+    assert.equal(await roll.inputValue(), bpm);
+    await page.reload();
+    assert.equal(await roll.inputValue(), bpm);
+    assert.equal(await tune.inputValue(), "");
+    await page.getByText("Optional notes", { exact: true }).click();
+    assert.equal(await page.getByLabel("What went well", { exact: true }).inputValue(), "Separate review draft retained");
+    await page.getByText("Optional notes", { exact: true }).click();
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    if (width === 502) assert.ok(await page.evaluate(() => innerWidth === 501 && devicePixelRatio === 2));
+    await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-material-review.png`), fullPage: true });
+    await roll.fill("401");
+    await page.getByRole("button", { name: "Write the log", exact: true }).click();
+    await page.getByRole("status").filter({ hasText: "enter a whole BPM from 20 to 400" }).waitFor();
+    await roll.fill(bpm);
+    const countBefore = (await readdir(join(home, "logs"))).length;
+    await page.route("**/api/sessions", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Scratch save failure" }) }));
+    await page.getByRole("button", { name: "Write the log", exact: true }).click();
+    await page.getByRole("status").filter({ hasText: "The log was not written" }).waitFor();
+    assert.equal(await page.getByRole("heading", { name: "Log written", exact: true }).count(), 0);
+    assert.equal((await readdir(join(home, "logs"))).length, countBefore);
+    await page.reload();
+    assert.equal(await roll.inputValue(), bpm);
+    assert.equal(await tune.inputValue(), "");
+    await page.unroute("**/api/sessions");
+    const savedResponse = page.waitForResponse((r) => r.url().endsWith("/api/sessions") && r.request().method() === "POST");
+    await page.getByRole("button", { name: "Write the log", exact: true }).click();
+    const { file } = await (await savedResponse).json();
+    await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
+    if (bpm === "400") await page.getByRole("status").filter({ hasText: "tempo suggestions support 30–300 BPM" }).waitFor();
+    const headers = { "x-struna-token": token };
+    const logs = await fetch(`${base}/api/logs?limit=200`, { headers }).then((r) => r.json()) as any[];
+    const expected = [{ materialKey: "materials/roll.md", materialLabel: "Baseline roll", bpm: Number(bpm) }, { materialKey: "materials/tune.md", materialLabel: "Black Mountain Rag", bpm: null }];
+    assert.deepEqual(logs.find((l) => l.file === file)?.measurements, expected);
+    const saved = parseGenericLog(file, await readFile(join(home, "logs", file), "utf8"));
+    assert.deepEqual(saved.measurements, expected);
+    const tempos = await fetch(`${base}/api/tempos`, { headers }).then((r) => r.json()) as any[];
+    assert.equal(tempos.find((t) => t.fragment === "material:materials/roll.md")?.bpm, bpm === "400" ? 80 : Number(bpm));
+    assert.equal(tempos.some((t) => t.fragment === "material:materials/tune.md"), false);
+    assert.equal(saved.wentWell, "Separate review draft retained");
+    await page.getByRole("button", { name: "Back to today", exact: true }).click();
+    await page.getByText(`Baseline roll: ${bpm} BPM`, { exact: false }).first().waitFor();
     await context.close();
   }
   for (const name of await readdir(join(home, "logs"))) {
     const log = await readFile(join(home, "logs", name), "utf8");
+    if (log.includes("Separate review draft retained")) continue;
     assert.match(log, /Technique: attempted/);
-    assert.match(log, /Extra before start: unmeasured/);
+    assert.match(log, /Extra before start: attempted/);
     assert.match(log, /Workspace addition: unmeasured/);
     assert.doesNotMatch(log, /Tune practice/);
   }
-  console.log(`Stage tempo smoke passed: 9 width/theme cases; artifacts ${dir}`);
+  console.log(`Stage tempo and material review smoke passed: 12 width/theme/native-zoom cases; artifacts ${dir}`);
 } finally {
   await browser.close();
   child.kill("SIGTERM");

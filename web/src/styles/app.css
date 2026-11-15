@@ -611,3 +611,8 @@ main .wrap:has(.view.on .session),main .wrap:has(.view.on .viewerws){max-width:1
 .bpm-entry small { font-size:13px; line-height:1.3; text-align:center; max-width:240px; }
 .bpm-edit-actions { display:flex; gap:12px; }
 .bpm-edit-actions .linkbtn { min-height:44px; font-size:14px; }
+
+.review-measurements { min-width:0; margin:16px 0; padding:12px; border:1px solid var(--edge); border-radius:8px; }
+.review-measurements legend { max-width:100%; font-weight:600; }
+.optional-notes { margin:16px 0; }
+.optional-notes summary { cursor:pointer; min-height:44px; padding:10px 0; }

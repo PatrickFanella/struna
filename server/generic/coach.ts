@@ -71,6 +71,7 @@ ${PLAN_SCHEMA}
 
 Evidence
 - Read the recent files in logs/ before you change the plan or judge progress. Each log has "- **Label:** value" lines (minutes, material, tempos, difficulty, what went well, what was hard, pain) and a "## Next instruction" section.
+- New logs also have a "## Material measurements" JSON section: materialKey is the stable identity, materialLabel is its name, and bpm is a confirmed clean tempo for that material only. null means unmeasured, not zero or a failed attempt. Never copy a roll tempo to a tune or infer a clean tempo from the click; older scalar-tempo logs remain valid. Pain logs do not establish a new safe practice tempo.
 - Move the player on because of what the logs show, never because of dates. One good session is not proof; two or three in a row are.
 - If the logs keep saying "too hard", or days are being missed, make the plan smaller: fewer or shorter stages, slower tempos, easier material, a longer phase. If they keep saying "too easy", raise the demand a step at a time.
 - A beginner may not use a metronome; "not used" in a log is normal, not a failure.

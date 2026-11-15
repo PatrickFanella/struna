@@ -23,6 +23,8 @@ process.env.STRUNA_MEDIA_ROOT = join(tmp, "no-media");
 
 const { access, handle } = await import("../index.ts");
 const { config } = await import("../config.ts");
+const { parseGenericLog } = await import("./logs.ts");
+const { DatabaseSync } = await import("node:sqlite");
 
 let server: Server;
 let base = "";
@@ -188,4 +190,44 @@ test("the prompt, chat-history and recording routes are registered", async () =>
   const { path } = (await r.json()) as any;
   assert.match(path, /^Recordings\/starter-fluent-playing\/\d{4}-\d{2}-\d{2}-baseline\.webm$/);
   assert.equal(await readFile(join(home, path), "utf8"), "take");
+});
+
+
+test("saved measurements agree on disk and API, cache by identity, and never change old logs", async () => {
+  const before = new Map(await Promise.all((await readdir(join(home, "logs"))).map(async (file) => [file, await readFile(join(home, "logs", file), "utf8")] as const)));
+  const measurements = [
+    { materialKey: "materials/roll.md", materialLabel: "Baseline roll", bpm: 80 },
+    { materialKey: "tab:tune", materialLabel: "Black Mountain Rag", bpm: null },
+    { materialKey: "materials/slow.md", materialLabel: "Slow exercise", bpm: 20 },
+    { materialKey: "materials/fast.md", materialLabel: "Fast exercise", bpm: 400 },
+  ];
+  const body = { session: { id: "full", label: "Full" }, measurements };
+  const response = await post("/api/sessions", body);
+  assert.equal(response.status, 200);
+  const { file, warnings } = await response.json() as any;
+  assert.equal(warnings.length, 2);
+  assert.match(warnings.join(" "), /20 BPM saved in the log only/);
+  assert.match(warnings.join(" "), /400 BPM saved in the log only/);
+  assert.deepEqual(parseGenericLog(file, await readFile(join(home, "logs", file), "utf8")).measurements, measurements);
+  assert.deepEqual((await get("/api/logs")).find((l: any) => l.file === file).measurements, measurements);
+  assert.equal((await get("/api/tempos")).find((t: any) => t.fragment === "material:materials/roll.md").bpm, 80);
+  assert.equal((await get("/api/tempos")).some((t: any) => t.fragment === "material:tab:tune"), false);
+  await post("/api/sessions", { ...body, pain: true, measurements: [{ ...measurements[0], bpm: 90 }] });
+  assert.equal((await get("/api/tempos")).find((t: any) => t.fragment === "material:materials/roll.md").bpm, 80);
+  const count = (await readdir(join(home, "logs"))).length;
+  assert.equal((await post("/api/sessions", { ...body, measurements: [{ ...measurements[0], bpm: 401 }] })).status, 400);
+  assert.equal((await readdir(join(home, "logs"))).length, count);
+  for (const [old, text] of before) assert.equal(await readFile(join(home, "logs", old), "utf8"), text);
+});
+
+test("cache write failure reports a saved log without inviting a duplicate save", async () => {
+  const db = new DatabaseSync(join(config.stateDir, "struna.sqlite"));
+  try {
+    db.exec("CREATE TRIGGER refuse_tempos BEFORE INSERT ON tempos BEGIN SELECT RAISE(FAIL, 'scratch cache failure'); END");
+    const response = await post("/api/sessions", { session: { id: "quick", label: "Quick" }, measurements: [{ materialKey: "tab:cache-failure", materialLabel: "Cache test", bpm: 88 }] });
+    assert.equal(response.status, 200);
+    const { file, warnings } = await response.json() as any;
+    assert.match(warnings.join(" "), /saved in the log, but the tempo suggestion cache could not be updated/);
+    assert.equal(parseGenericLog(file, await readFile(join(home, "logs", file), "utf8")).measurements?.[0]?.bpm, 88);
+  } finally { db.exec("DROP TRIGGER IF EXISTS refuse_tempos"); db.close(); }
 });

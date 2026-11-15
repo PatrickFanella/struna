@@ -126,3 +126,22 @@ test("a review draft comes back after a reload, only for the same session", asyn
   assert.equal(restoreReviewDraft(null, 111, first), first);
   assert.equal(restoreReviewDraft(stored, undefined, first), first);
 });
+
+
+test("review uses only scoped materials and the latest confirmed checkpoint, with separate editable blanks", async () => {
+  const { reviewMeasurements } = await import("./genericLogic.ts");
+  const roll = { itemId: "file-roll", key: "materials/roll.md", label: "Baseline roll", kind: "text" as const, src: null, file: "materials/roll.md" };
+  const tune = { key: "tab:tune", label: "Black Mountain Rag", kind: "link" as const, src: null };
+  const stages = [{ key: "technique", title: "Technique", minutes: 6, instruction: "Roll", output: "", material: roll }, { key: "song", title: "Tune", minutes: 10, instruction: "Tune", output: "", material: tune }];
+  const checkpoint = { materialKey: `plan:${roll.key}`, materialLabel: roll.label, stageKey: "technique", sessionKind: "full", bpm: 80, confirmedAt: "2026-11-15T10:00:00Z", context: "clean-pass" as const, pass: 1 };
+  const fresh = reviewMeasurements(stages, { checkpoints: [checkpoint, { ...checkpoint, bpm: 84 }] });
+  assert.deepEqual(fresh, [{ materialKey: roll.key, materialLabel: roll.label, bpm: "84" }, { materialKey: tune.key, materialLabel: tune.label, bpm: "" }]);
+  const edited = fresh.map((m, i) => ({ ...m, bpm: i === 0 ? "" : "96" }));
+  assert.deepEqual(reviewMeasurements(stages, { checkpoints: [checkpoint] }, JSON.parse(JSON.stringify(edited))), edited);
+  assert.equal(reviewMeasurements(stages.slice(0, 1), {}).some((m) => m.materialKey === tune.key), false);
+  assert.deepEqual(reviewMeasurements([], { checkpoints: [checkpoint] }), [{ materialKey: roll.key, materialLabel: roll.label, bpm: "80" }]);
+  assert.deepEqual(reviewMeasurements([], {}), []);
+  assert.deepEqual(reviewMeasurements(stages, { checkpoints: [{ ...checkpoint, materialKey: "mat:file-roll" }], addedActivities: [{ key: "plan:materials/roll.md", title: "Baseline roll" }] }), [{ materialKey: roll.key, materialLabel: roll.label, bpm: "80" }, { materialKey: tune.key, materialLabel: tune.label, bpm: "" }]);
+  assert.deepEqual(reviewMeasurements(stages, {}, [{ bpm: "88" }, null]), reviewMeasurements(stages, {}));
+  assert.equal(reviewMeasurements(stages, {}, null).length, 2);
+});

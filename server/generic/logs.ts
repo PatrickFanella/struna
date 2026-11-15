@@ -5,6 +5,7 @@ import { parseFrontMatter, str } from "../frontmatter.ts";
 import { HttpError } from "../http.ts";
 import { localDate } from "../logs.ts";
 import { value } from "../sessions.ts";
+import type { MaterialMeasurement } from "./types.ts";
 
 export const DIFFICULTY = ["too easy", "about right", "too hard"] as const;
 export type Difficulty = (typeof DIFFICULTY)[number];
@@ -24,6 +25,7 @@ export type GenericReview = {
   /** Digits, or empty when the metronome was not used. */
   startTempo: string;
   cleanTempo: string;
+  measurements?: MaterialMeasurement[];
   subdivision: string;
   difficulty: Difficulty | "";
   wentWell: string;
@@ -51,6 +53,7 @@ export type GenericLog = {
   minutes: number;
   material: string;
   cleanTempo: number | null;
+  measurements?: MaterialMeasurement[];
   difficulty: Difficulty | null;
   wentWell: string;
   struggled: string;
@@ -65,6 +68,20 @@ const KIND_ID = /^[a-z][a-z0-9-]{0,30}$/;
 
 /** A counted session: not stopped for pain and not an off-day extra. */
 export const isCounted = (l: GenericLog) => !l.pain && !l.extra && !l.partial;
+
+/** Strict, additive contract: null means unmeasured; BPMs use the log's full 20–400 range. */
+export function parseMeasurements(input: unknown): MaterialMeasurement[] {
+  if (!Array.isArray(input) || input.length > 128) throw new HttpError(400, "measurements must be an array of at most 128 items");
+  const keys = new Set<string>();
+  return input.map((m) => {
+    if (!m || typeof m !== "object" || typeof m.materialKey !== "string" || !m.materialKey.trim() || m.materialKey.length > 4000 || typeof m.materialLabel !== "string" || !m.materialLabel.trim() || m.materialLabel.length > 300) throw new HttpError(400, "each measurement needs a materialKey and materialLabel");
+    const materialKey = m.materialKey.trim();
+    if (keys.has(materialKey)) throw new HttpError(400, "measurement material keys must be unique");
+    keys.add(materialKey);
+    if (m.bpm !== null && (typeof m.bpm !== "number" || !Number.isInteger(m.bpm) || m.bpm < 20 || m.bpm > 400)) throw new HttpError(400, "measurement bpm must be a whole number, 20 to 400, or null");
+    return { materialKey, materialLabel: m.materialLabel.trim(), bpm: m.bpm };
+  });
+}
 
 export function parseGenericReview(input: any): GenericReview {
   const s = (v: unknown, max = 2000) => (typeof v === "string" || typeof v === "number" ? String(v).slice(0, max) : "");
@@ -128,6 +145,7 @@ export function parseGenericReview(input: any): GenericReview {
     notes: s(input.notes, 4000),
     next: s(input.next, 4000),
     ...(activities ? { activities } : {}),
+    ...(input.measurements !== undefined ? { measurements: parseMeasurements(input.measurements) } : {}),
   };
 }
 
@@ -159,16 +177,14 @@ plan: ${one(r.planId, "none")}
 - **Minutes practised:** ${r.minutes}
 - **Material:** ${one(r.material)}
 - **Target:** ${one(r.target)}
-- **Starting tempo:** ${tempoLine(r.startTempo, r.subdivision)}
-- **Clean tempo:** ${tempoLine(r.cleanTempo, r.subdivision)}
-- **Difficulty:** ${r.difficulty || BLANK}
+${r.measurements ? "" : `- **Starting tempo:** ${tempoLine(r.startTempo, r.subdivision)}\n- **Clean tempo:** ${tempoLine(r.cleanTempo, r.subdivision)}\n`}- **Difficulty:** ${r.difficulty || BLANK}
 - **What went well:** ${one(r.wentWell)}
 - **What was hard:** ${one(r.struggled)}
 - **Pain or tension:** ${r.pain ? "yes" : "no"}
 - **Recording:** ${one(r.recording, "none")}
 - **Notes:** ${one(r.notes, "none")}
 
-${r.activities?.length ? `## Session checklist\n\n${r.activities.map((a) => `- ${one(a.title)}: ${a.attempted ? "attempted" : "unmeasured"}`).join("\n")}\n\n` : ""}## Next instruction
+${r.measurements ? `## Material measurements\n\nClean BPM per material; null means unmeasured.\n\n\`\`\`json\n${JSON.stringify(r.measurements, null, 2)}\n\`\`\`\n\n` : ""}${r.activities?.length ? `## Session checklist\n\n${r.activities.map((a) => `- ${one(a.title)}: ${a.attempted ? "attempted" : "unmeasured"}`).join("\n")}\n\n` : ""}## Next instruction
 
 ${r.next.trim() || BLANK}
 `;
@@ -180,6 +196,12 @@ export function parseGenericLog(file: string, text: string): GenericLog {
     const v = value(body, label);
     return v === BLANK ? "" : v;
   };
+  const heading = /^##\s+Next instruction\s*$/im.exec(body);
+  const measurementSection = /^## Material measurements\n\nClean BPM per material; null means unmeasured\.\n\n```json\n([\s\S]*?)\n```(?=\n)/m.exec(body.slice(0, heading?.index ?? body.length));
+  let measurements: MaterialMeasurement[] | undefined;
+  if (measurementSection) {
+    try { measurements = parseMeasurements(JSON.parse(measurementSection[1]!)); } catch { /* Hand-edited or older logs remain readable. */ }
+  }
   const created = Date.parse(str(data, "created"));
   const sessionLine = value(body, "Session");
   const m = /^([a-z][a-z0-9-]*)\s*(?:\((.*)\))?\s*$/i.exec(sessionLine);
@@ -187,7 +209,6 @@ export function parseGenericLog(file: string, text: string): GenericLog {
   const tempo = /^(\d+)/.exec(value(body, "Clean tempo"))?.[1];
   const difficulty = value(body, "Difficulty").toLowerCase();
   // The app writes this section last, so it runs to the end: a "## " line inside the instruction stays part of it.
-  const heading = /^##\s+Next instruction\s*$/im.exec(body);
   const next = heading ? body.slice(heading.index + heading[0].length).trim() : "";
   return {
     file,
@@ -201,6 +222,7 @@ export function parseGenericLog(file: string, text: string): GenericLog {
     minutes: Math.max(0, Number(/^(\d+)/.exec(value(body, "Minutes practised"))?.[1] ?? 0)),
     material: field("Material"),
     cleanTempo: tempo && Number(tempo) > 0 ? Number(tempo) : null,
+    ...(measurements ? { measurements } : {}),
     difficulty: (DIFFICULTY as readonly string[]).includes(difficulty) ? (difficulty as Difficulty) : null,
     wentWell: field("What went well"),
     struggled: field("What was hard"),
