@@ -6,7 +6,7 @@ export type Block = { id: string; title: string; path: string; started: string; 
 export type SessionType = "decode" | "connect" | "vary" | "prove";
 export type StageKey = "target" | "prepare" | "vocabulary" | "mechanism" | "music" | "review";
 /** `key` is a `StageKey` in personal mode and whatever the plan names it in studio mode. */
-export type Stage = { key: string; title: string; minutes: number; output: string; weekField?: "vocabulary" | "mechanism" | "music"; /** Studio mode: the whole instruction, ready to show. */ instruction?: string };
+export type Stage = { key: string; title: string; minutes: number; output: string; weekField?: "vocabulary" | "mechanism" | "music"; /** Studio mode: the whole instruction, ready to show. */ instruction?: string; material?: MaterialRef; targetBpm?: number };
 /** What `/api/today` returns. The optional fields are the studio mode's extras. */
 export type Today = {
   block: Block | null;
