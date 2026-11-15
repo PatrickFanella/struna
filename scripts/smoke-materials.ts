@@ -10,6 +10,7 @@ import { chromium, type Page } from "playwright-core";
 import { starterPlan } from "../server/generic/starter.ts";
 import { normalizeProfile } from "../server/generic/studio.ts";
 
+const issue = Number(process.argv[3] ?? 13);
 const out = resolve(process.argv[2] ?? "captures/materials-13");
 mkdirSync(out, { recursive: true });
 const scratch = mkdtempSync(join(tmpdir(), "struna-materials-"));
@@ -25,6 +26,7 @@ const entries = [
   { url: "https://publisher.example/rag", title: "Flatpicking Guitar Magazine — November lesson: Black Mountain Rag", provider: "Flatpicking Guitar Magazine", level: "Intermediate", note: "Work through the melody slowly." },
   { url: "https://teacher.example/waltz", title: "Publisher lesson: First Waltz", shortTitle: "First Waltz", provider: "Independent Teacher" },
   { url: "https://legacy.example/lesson", title: "Legacy lesson" },
+  ...Array.from({ length: 20 }, (_, n) => ({ url: `https://teacher.example/lesson-${n}`, title: `Practice lesson ${String(n).padStart(2, "0")}` })),
 ];
 writeFileSync(join(home, "materials/links.json"), JSON.stringify(entries));
 writeFileSync(join(home, "materials/Notes.md"), "# Notes\n\nPlay the melody slowly.");
@@ -73,10 +75,12 @@ try {
       assert.equal(await link.getAttribute("href"), entries[0]!.url);
       assert.equal(await link.getAttribute("target"), "_blank");
       await screenshot(page, `${prefix}-details`);
+      if (issue >= 14) await routeChecks(page, base, prefix);
       // Text zoom equivalent, explicitly distinct from browser chrome zoom.
       await page.evaluate(() => document.documentElement.style.fontSize = "200%");
       await screenshot(page, `${prefix}-text-200`);
       assert.deepEqual(errors, []);
+      if (issue >= 14) results.push(`${prefix}: item reload/paste, text/link routes, list search/kind/scroll, back/forward, missing/malformed recovery`);
       results.push(`${prefix}: source identity, short title, legacy fallback, destination/new tab, no overflow/errors, 200% text`);
       await context.close();
     }
@@ -90,4 +94,66 @@ try {
 async function screenshot(page: Page, name: string) {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${name}: horizontal overflow`);
   await page.screenshot({ path: join(out, `${name}.png`), fullPage: true });
+}
+
+async function routeChecks(page: Page, base: string, prefix: string) {
+  const linkHash = new URL(page.url()).hash;
+  assert.match(linkHash, /^#materials\/item\/l\.[a-f0-9]{16}$/);
+  assert.equal(new URL(page.url()).search, "");
+  await page.reload();
+  await page.getByRole("heading", { name: "Black Mountain Rag", exact: true }).waitFor();
+  await page.goto(`${base}/#materials`);
+  await page.getByRole("searchbox").fill("lesson");
+  await page.getByRole("button", { name: "Kind", exact: true }).click();
+  await page.getByRole("radio", { name: "Link", exact: true }).click();
+  const target = page.locator(".matitem").filter({ hasText: "Practice lesson 19" }).locator(".itemopen");
+  await target.scrollIntoViewIfNeeded();
+  // Let the debounced filter request settle before recording list position.
+  await page.waitForTimeout(400);
+  await target.click();
+  await page.getByRole("heading", { name: "Practice lesson 19", exact: true }).waitFor();
+  const top = await page.evaluate(() => history.state.materialList.scroll);
+  assert.ok(top > 0);
+  await page.reload();
+  await page.getByRole("heading", { name: "Practice lesson 19", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Back to materials" }).click();
+  await listRestored();
+  await page.goForward();
+  await page.getByRole("heading", { name: "Practice lesson 19", exact: true }).waitFor();
+  await page.goBack();
+  await listRestored();
+  await screenshot(page, `${prefix}-restored-list`);
+  await page.getByRole("searchbox").fill("");
+  await page.getByRole("radio", { name: "All", exact: true }).click();
+  await page.locator(".matitem").filter({ hasText: "Notes" }).locator(".itemopen").click();
+  const textHash = new URL(page.url()).hash;
+  await page.reload();
+  await page.locator(".matviewer > h1").filter({ hasText: /^Notes$/ }).waitFor();
+  await page.locator(".matbody .mdoc").getByText("Play the melody slowly.").waitFor();
+  await page.goto(`${base}/#practice`);
+  await page.locator('section[aria-label="Practice"].on').waitFor();
+  // A pasted item URL uses the same authorized browser session.
+  await page.goto(`${base}/${textHash}`);
+  await page.locator(".matviewer > h1").filter({ hasText: /^Notes$/ }).waitFor();
+  const textId = decodeURIComponent(textHash.split("/").at(-1)!);
+  assert.ok((await page.request.delete(`${base}/api/materials/${encodeURIComponent(textId)}`, { headers: { "x-struna": "1" } })).ok());
+  await page.reload();
+  await page.getByRole("heading", { name: "Material unavailable", exact: true }).waitFor();
+  await screenshot(page, `${prefix}-deleted-item`);
+  writeFileSync(join(home, "materials/Notes.md"), "# Notes\n\nPlay the melody slowly.");
+  for (const hash of ["#materials/item/l.0000000000000000", "#materials/item/%", "#materials/item/f.ZGVsZXRlZC5tZA"]) {
+    await page.goto(`${base}/${hash}`);
+    await page.getByRole("heading", { name: "Material unavailable", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Back to materials" }).click();
+    await page.getByRole("heading", { name: "Materials", exact: true }).waitFor();
+  }
+  await screenshot(page, `${prefix}-route-recovery`);
+  await page.goto(`${base}/${linkHash}`);
+  await page.getByRole("heading", { name: "Black Mountain Rag", exact: true }).waitFor();
+  async function listRestored() {
+    await page.getByRole("heading", { name: "Materials", exact: true }).waitFor();
+    assert.equal(await page.getByRole("searchbox").inputValue(), "lesson");
+    assert.equal(await page.getByRole("radio", { name: "Link", exact: true }).getAttribute("aria-checked"), "true");
+    await page.waitForFunction(expected => Math.abs(scrollY - expected) < 3, top);
+  }
 }

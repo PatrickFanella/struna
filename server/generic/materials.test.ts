@@ -413,3 +413,12 @@ test("a link being downloaded is listed as saving", async () => {
     assert.equal(await readFile(join(dir, "materials/links.json"), "utf8"), raw);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test("item lookup is independent of search and rejects unknown IDs", async () => {
+  const list = await listMaterials(studio);
+  const item = list.items[0]!;
+  const response = await fetch(`${base}/api/materials/item?id=${encodeURIComponent(item.id)}`);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json() as Listed).id, item.id);
+  for (const id of ["l.0000000000000000", "../secret.txt", "", "f.ZGVsZXRlZC5tZA"]) assert.equal((await fetch(`${base}/api/materials/item?id=${encodeURIComponent(id)}`)).status, 404);
+});

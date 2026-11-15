@@ -11,6 +11,7 @@ import { screenContext } from "../screen.ts";
 import { FileBody } from "../workspace/Workspace.tsx";
 import { AddPanel, type AddWay } from "./Add.tsx";
 import { externalLabel, materialName, materialProvider, fillInput, FILTER_KINDS, hostOf, KIND_LABEL, materialPaneItem, nameList, uploadProblem, webUrl } from "./item.ts";
+import { materialHash, materialListState, materialRoute } from "./route.ts";
 import { readItem, uploadFile } from "./upload.ts";
 
 export { materialPane } from "./item.ts";
@@ -40,16 +41,39 @@ const hasFiles = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes("
 const ADDED_QUIET_MS = 45_000;
 
 /** The player's own materials: uploads, web links, pasted text, the coach's lesson sheets and any library folders. */
-export function Materials({ active }: { active: boolean }) {
+export function Materials({ active, hash }: { active: boolean; hash: string }) {
   const app = useApp();
-  const [q, setQ] = useState("");
-  const [kind, setKind] = useState<MaterialKind | null>(null);
-  const [filters, setFilters] = useState(false);
+  const [q, setQ] = useState(() => materialListState(history.state).q);
+  const [kind, setKind] = useState<MaterialKind | null>(() => materialListState(history.state).kind);
+  const [filters, setFilters] = useState(() => materialListState(history.state).filters);
   const [data, setData] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const route = materialRoute(hash);
+  const openId = route.type === "item" ? route.id : null;
+  const detail = route.type !== "list";
+  const [openError, setOpenError] = useState("");
+  const restoreScroll = useRef<number | null>(null);
+  const setOpenId = (id: string | null) => {
+    if (id && detail) {
+      history.replaceState(history.state, "", materialHash(id));
+      dispatchEvent(new HashChangeEvent("hashchange"));
+    } else location.hash = id ? materialHash(id) : "#materials";
+  };
+  const backToList = () => {
+    setConfirm(null);
+    if (history.state?.materialFromList) history.back();
+    else setOpenId(null);
+  };
+  const openItem = (i: MaterialItem) => {
+    const list = { q, kind, filters, scroll: window.scrollY };
+    history.replaceState({ ...history.state, materialList: list }, "");
+    history.pushState({ materialList: list, materialFromList: true }, "", materialHash(i.id));
+    dispatchEvent(new HashChangeEvent("hashchange"));
+    setNotice("");
+    window.scrollTo(0, 0);
+  };
   const [opened, setOpened] = useState<MaterialItem | null>(null);
   const [add, setAdd] = useState<AddWay | null>(null);
   const [finding, setFinding] = useState(false);
@@ -97,12 +121,33 @@ export function Materials({ active }: { active: boolean }) {
     return () => removeEventListener("struna:changed", on);
   }, [load]);
 
-  // The open item follows the list, so a saved copy or a new title shows without reopening it.
+  // Resolve independently of the filtered/capped list, after the normal API access checks.
   useEffect(() => {
-    if (!openId) return setOpened(null);
-    const fresh = data?.items.find((i) => i.id === openId);
-    if (fresh) setOpened(fresh);
-  }, [openId, data]);
+    setOpened(null);
+    setOpenError("");
+    if (!active || !openId) return;
+    let live = true;
+    void api.get<MaterialItem>(`/api/materials/item?id=${encodeURIComponent(openId)}`).then(
+      item => { if (live) setOpened(item); },
+      () => { if (live) setOpenError("This material could not be opened. It may have been removed, or access may have changed."); },
+    );
+    return () => { live = false; };
+  }, [active, openId, data]);
+
+  useEffect(() => {
+    if (!active || detail) return;
+    const list = materialListState(history.state);
+    setQ(list.q);
+    setKind(list.kind);
+    setFilters(list.filters);
+    restoreScroll.current = list.scroll;
+  }, [hash, active]);
+  useEffect(() => {
+    if (!active || detail || !data || loading || restoreScroll.current === null) return;
+    const top = restoreScroll.current;
+    const frame = requestAnimationFrame(() => { window.scrollTo(0, top); restoreScroll.current = null; });
+    return () => cancelAnimationFrame(frame);
+  }, [active, detail, data, loading]);
 
   // The coach's context: which screen, and the item that is open.
   useEffect(() => {
@@ -219,7 +264,7 @@ export function Materials({ active }: { active: boolean }) {
   // The copy says "drop files anywhere on this screen": while the list shows, the whole window takes them.
   const send = useRef(sendFiles);
   send.current = sendFiles;
-  const listing = active && !opened;
+  const listing = active && !detail;
   useEffect(() => {
     if (!listing) return;
     const enter = (e: DragEvent) => {
@@ -272,12 +317,21 @@ export function Materials({ active }: { active: boolean }) {
       <button className="linkbtn" onClick={() => setConfirm(i.id)}>Delete</button>
     );
 
-  if (opened) {
+  if (detail && (!opened || opened.id !== openId)) {
+    const missing = route.type === "missing" || openError;
+    return <div className="viewer matviewer">
+      <button className="linkbtn" onClick={backToList}>Back to materials</button>
+      <h1>{missing ? "Material unavailable" : "Opening material"}</h1>
+      <p className="srcnote" role="status">{missing ? openError || "This material address is invalid. Return to Materials to choose an item." : "Loading your material…"}</p>
+      {openError && <button className="btn outline" onClick={() => void load()}>Try again</button>}
+    </div>;
+  }
+  if (detail && opened) {
     const pane = materialPaneItem(opened);
     const url = webUrl(opened.url);
     return (
       <div className="viewer matviewer">
-        <button className="linkbtn" onClick={() => (setOpenId(null), setConfirm(null))}>Back to materials</button>
+        <button className="linkbtn" onClick={backToList}>Back to materials</button>
         <h1>{materialName(opened)}</h1>
         {materialName(opened) !== opened.title && <p className="srcnote">{opened.title}</p>}
         <p className="srcnote">
@@ -411,7 +465,7 @@ export function Materials({ active }: { active: boolean }) {
       <ul className="items">
         {items.map((i) => (
           <li key={i.id} className="item matitem">
-            <button className="itemopen" onClick={() => (setNotice(""), setOpenId(i.id), setOpened(i))}>
+            <button className="itemopen" onClick={() => openItem(i)}>
               <span className={`thumb kind-${i.kind}`} aria-hidden="true">{KIND_LABEL[i.kind]}</span>
               <span className="itemtext">
                 <span className="itemtitle">{materialName(i)}</span>
