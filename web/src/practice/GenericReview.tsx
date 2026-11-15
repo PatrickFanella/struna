@@ -149,6 +149,7 @@ export function GenericReview({ today, session, material, onWritten, onBack, onD
       <Choice label="Pain, numbness or lasting tension" value={f.pain} options={[["no", "No"], ["yes", "Yes, stop"]]} onChange={set("pain")} />
       <div className="field">
         <p className="grp">Recording</p>
+        {session.recording?.src && <audio controls src={session.recording.src} preload="none" />}
         <p className="fieldval">{session.recording ? `${session.recording.path} (${session.recording.label === "weekly" ? "progress" : session.recording.label})` : "No take recorded"}</p>
       </div>
       <details className="optional-notes">

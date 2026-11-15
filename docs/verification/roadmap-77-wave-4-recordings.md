@@ -1,0 +1,5 @@
+# Private account takes (#91)
+
+Hosted take routes use only opaque database-owned filenames in the authenticated workspace. A supplied block ID is metadata, never a directory selector. A stable client retry ID and payload digest serialize retries, including simultaneous ones; a changed retry is an explicit conflict. Limits are 200 MB per upload, ten minutes of declared duration and 1 GB per account. Duration is client-reported, not measured media analysis. Failed writes and revoked uploads remove their temporary file; the client retains the unsaved take for retry.
+
+Scratch tests use synthetic bytes, two offline identities and fresh temporary storage. They cover concurrent identical block/label/format names, cross-account reads/deletes, anonymous and traversal requests, range responses with no-store, duplicate retries, conflicting retries, duration rejection, revocation during upload and deletion. Personal/Studio take tests still run. Saved hosted takes expose playback in practice and review, plus an account-owned list/read/delete API. Actual microphone capture and audible playback remain #110 qualification.
