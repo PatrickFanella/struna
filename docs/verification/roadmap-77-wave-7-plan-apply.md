@@ -23,3 +23,7 @@ All proposal reads, expiry, staging, practice leases, archiving and crash recove
 The original three-button composer was tightened after rendered phone inspection showed too little room to type; the preview request is now a labelled checkbox above the composer. Existing Jost/Atkinson fonts, warm palette, control radii and motion remain in use. No new brand tokens were introduced.
 
 Before public hosted enablement, #108 requires owner review of model write authority and account safety; real-provider capability/cost review and #110 Safari/device/guitar/audio/assistive-speech qualification remain separate. No automatic Apply, provider purchase, support gate or paid credit system was added.
+
+## Hosted CI follow-up
+
+The first combined CI run passed typecheck, all 375 tests, build, visual/reading checks, 24 deletion cases and 28 Apply cases, then timed out waiting for the injected context error in `verify-coach-context.ts` at 320px Device-dark. The same context suite passed on deletion PR #140. Its fixture failed only the first request and immediately restored success; an equivalent Today selection refresh could replace the error before the assertion. The fixture now keeps the outage active until the explicit Retry step. An added Today-refresh check proves a second context request still fails, preserves the draft and keeps Send disabled. All recovery assertions remain. This correction changes test orchestration only.
