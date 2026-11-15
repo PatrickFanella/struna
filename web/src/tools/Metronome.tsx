@@ -1,3 +1,5 @@
+import { BpmInput } from "./BpmInput.tsx";
+import { useStageSuggestion } from "./stageSuggestion.ts";
 import { useRef } from "react";
 
 import { metronome, SUBDIVISIONS, TIME_SIGNATURES } from "../audio/metronome.ts";
@@ -17,6 +19,7 @@ export function BeatDots({ count, beat, className }: { count: number; beat: numb
 
 export function MetronomePanel() {
   const m = useMetronome();
+  const stage = useStageSuggestion();
   const taps = useRef<number[]>([]);
   const sig = TIME_SIGNATURES.find((t) => t.beats === m.beatsPerBar) ?? TIME_SIGNATURES[2]!;
   const [top, bottom] = sig.label.split("/");
@@ -37,7 +40,7 @@ export function MetronomePanel() {
               <span>{top}</span>
               <span>{bottom}</span>
             </span>
-            <span className="big num" aria-live="polite">{m.bpm}</span>
+            <BpmInput bpm={m.bpm} />
           </span>
         </div>
         <p className="bpml">BPM{m.countingIn ? <span>Count-in</span> : null}</p>
@@ -61,6 +64,7 @@ export function MetronomePanel() {
             </div>
           </div>
         </div>
+        {stage ? <p className="srcnote"><button className="linkbtn" onClick={stage.use}>Use stage tempo</button> · {stage.bpm} BPM · {stage.source}</p> : <p className="srcnote">No active stage suggestion. Choose a tempo below.</p>}
         <p className="grp">Tempo</p>
         <div className="r3">
           <button className="num" aria-label="2 BPM slower" onClick={() => metronome.set({ bpm: m.bpm - 2 })}>−2</button>
