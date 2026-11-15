@@ -118,6 +118,18 @@ async function panePicker(page: Page) {
     check(await page.locator(".pane:visible .mdoc").filter({ hasText: "Exercise 3" }).innerText() === "Exercise 3\n\nPlay slowly.", "Keyboard replacement opens selected resource");
     await fits(page);
   }
+  while (await page.locator(".pane").count() < 4) {
+    const n = await page.locator(".pane").count();
+    await add.press("Enter");
+    await menu.getByRole("menuitem").nth(10 + n).press("Enter");
+    await menu.waitFor({ state: "detached" });
+  }
+  check(await page.locator(".pane:visible [aria-haspopup='menu']").evaluateAll((els) => els.some((e) => e === document.activeElement)), "Adding fourth pane restores focus to visible control after Add disappears");
+  await page.locator(".pane:visible [aria-haspopup='menu']").last().press("Enter");
+  await menu.getByRole("menuitem").nth(25).press("Enter");
+  await menu.waitFor({ state: "detached" });
+  check(await page.locator(".pane:visible [aria-haspopup='menu']").evaluateAll((els) => els.some((e) => e === document.activeElement)), "Replacing fourth pane restores focus to visible replacement control");
+
 }
 try {
   for (let i = 0; ; i++) {
