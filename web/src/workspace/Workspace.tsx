@@ -62,7 +62,7 @@ function LinkBody({ item }: { item: PaneItem }) {
         {item.note && <p className="matnote">{item.note}</p>}
         {url && (
           <p className="linkacts">
-            <a className={yt ? "linkbtn" : "btn outline"} href={url} target="_blank" rel="noreferrer noopener">{yt ? "Open on YouTube" : "Open in a new tab"}</a>
+            <a className={yt ? "linkbtn" : "btn outline"} href={url} target="_blank" rel="noreferrer noopener">{`Open lesson on ${item.provider || (yt ? "YouTube" : hostOf(url))} (new tab)`}</a>
             <span className="linkhost">{hostOf(url)}</span>
           </p>
         )}
@@ -165,6 +165,40 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   addSlot?: HTMLElement | null;
 }) {
   const box = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const expandedPane = useRef<HTMLElement | null>(null);
+  const readerOpener = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const dialog = expandedPane.current;
+    if (!expanded || !dialog) return;
+    const siblings: { el: HTMLElement; inert: boolean }[] = [];
+    for (let node: HTMLElement | null = dialog; node?.parentElement; node = node.parentElement) {
+      for (const el of node.parentElement.children) if (el !== node && el instanceof HTMLElement) {
+        siblings.push({ el, inert: el.inert });
+        el.inert = true;
+      }
+      if (node.parentElement === document.body) break;
+    }
+    const overflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    dialog.querySelector<HTMLButtonElement>(".reader-close")?.focus();
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setExpanded(null); }
+      if (e.key === "Tab") {
+        const controls = [...dialog.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, iframe, video[controls], audio[controls], [tabindex]')].filter((el) => el.tabIndex >= 0 && !el.closest('[hidden], [inert]') && !el.matches(":disabled") && el.getClientRects().length > 0);
+        const first = controls[0], last = controls.at(-1);
+        if (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { e.preventDefault(); last?.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { e.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener("keydown", key, true);
+    return () => {
+      document.removeEventListener("keydown", key, true);
+      siblings.forEach(({ el, inert }) => { el.inert = inert; });
+      document.documentElement.style.overflow = overflow;
+      if (readerOpener.current?.isConnected) readerOpener.current.focus({ preventScroll: true });
+    };
+  }, [expanded]);
   const [slots, setSlots] = useState(1);
   const [tall, setTall] = useState(false);
   const [focus, setFocus] = useState(0);
@@ -173,10 +207,13 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   const menuBox = useRef<HTMLDivElement>(null);
   const focusAfterPick = useRef(false);
   const [menuPosition, setMenuPosition] = useState({ top: 12, left: 12, maxHeight: 300 });
+  const restoreMenuFocus = () => {
+    const controls = [opener.current, ...box.current?.querySelectorAll<HTMLButtonElement>("[aria-haspopup='menu']") ?? []];
+    controls.find((el) => el?.isConnected && el.checkVisibility() && !el.disabled)?.focus();
+  };
   const dismissMenu = () => {
     setMenu(null);
-    if (opener.current?.isConnected) opener.current.focus();
-    else box.current?.querySelector<HTMLButtonElement>("[aria-haspopup='menu']")?.focus();
+    restoreMenuFocus();
   };
   const toggleMenu = (button: HTMLButtonElement, at: number | "add") => {
     opener.current = button;
@@ -254,8 +291,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   useLayoutEffect(() => {
     if (!focusAfterPick.current || menu) return;
     focusAfterPick.current = false;
-    if (opener.current?.isConnected) opener.current.focus();
-    else box.current?.querySelector<HTMLButtonElement>("[aria-haspopup='menu']")?.focus();
+    restoreMenuFocus();
   }, [panes, menu]);
   const close = (i: number) => {
     setMenu(null);
@@ -322,7 +358,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   );
 
   return (
-    <div className="workspace" ref={box}>
+    <div className={`workspace${expanded ? " reader-expanded" : ""}`} ref={box}>
       {panes.length > slots && (
         <div className="wsbar">
           <div className="panetabs" role="tablist" aria-label="Open panes">
@@ -347,14 +383,19 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
           // Every open pane stays mounted, so a video keeps its place and loop while another pane has the room.
           const visible = i >= start && i < start + slots;
           return (
-            <section key={p.id} className={`pane pane-${p.content.type}`} aria-label={paneTitle(p.content)} hidden={!visible}>
+            <section key={p.id} className={`pane pane-${p.content.type}${expanded === p.id ? " expanded-reader" : ""}`} ref={expanded === p.id ? expandedPane : undefined} role={expanded === p.id ? "dialog" : undefined} aria-modal={expanded === p.id ? true : undefined} aria-label={paneTitle(p.content)} hidden={!visible && expanded !== p.id}>
               <header className="panehd">
                 <span className="panetitle">{paneTitle(p.content)}</span>
                 <span className="paneacts">
-                  <button className="tool" aria-haspopup="menu" aria-expanded={menu?.at === i} onClick={(e) => toggleMenu(e.currentTarget, i)} aria-label={`Change what ${paneShort(p.content)} shows`}>Change</button>
+                  {p.content.type !== "coach" && (expanded === p.id ?
+                    <button className="tool reader-close" onClick={() => setExpanded(null)}>Close reader</button> :
+                    <button className="tool" onClick={(e) => { readerOpener.current = e.currentTarget; setFocus(i); setExpanded(p.id); }}>Expand reader</button>)}
+                  <span className="pane-manage" hidden={expanded === p.id}>
+                    <button className="tool" aria-haspopup="menu" aria-expanded={menu?.at === i} onClick={(e) => toggleMenu(e.currentTarget, i)} aria-label={`Change what ${paneShort(p.content)} shows`}>Change</button>
                   <button className="tool iconbtn" onClick={() => close(i)} aria-label={`Close ${paneTitle(p.content)}`}>
                     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
                   </button>
+                  </span>
                 </span>
                 {menu && menu.at === i && menuBody(menu.at)}
               </header>

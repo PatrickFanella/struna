@@ -110,3 +110,14 @@ export function fillAction(text: string, vars: Record<string, string> = {}): str
   const fallback: Record<string, string> = { names: "some new material", log: "the newest file in logs/", days: "several", summary: "no details given" };
   return text.replace(/\{(names|log|days|summary)\}/g, (_m, key: string) => vars[key]?.trim() || fallback[key]!);
 }
+
+/** Explicit button behavior: plan changes are drafted even without a text placeholder. */
+export function promptAction(p: Prompt): "Draft" | "Send" {
+  return p.text.includes("{input}") || p.purpose === "plan-change" || p.custom ? "Draft" : "Send";
+}
+
+/** Request intent only: providers retain their current file permissions. */
+export function promptPurpose(p: Prompt): string {
+  if (p.custom) return "Custom request";
+  return ({ advice: "Advice", "plan-change": "Plan change", "session-length": "Session length", materials: "Materials" })[p.purpose ?? "advice"];
+}

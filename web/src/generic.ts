@@ -40,6 +40,10 @@ export type MaterialKind = "pdf" | "video" | "audio" | "image" | "tab" | "text" 
 export type MaterialItem = {
   id: string;
   title: string;
+  /** Optional musical name; title remains the original source title. */
+  shortTitle?: string;
+  provider?: string;
+  level?: string;
   kind: MaterialKind;
   source: "studio" | "link" | "folder";
   /** Relative to the studio home ("materials/x.pdf") or, for `folder`, "<n>:<relative path>". */
@@ -72,11 +76,14 @@ export type PromptGroup = "plan" | "session" | "material" | "find" | "learn" | "
 
 /** A prompt the player can pick in the coach panel. */
 export type Prompt = {
+  /** What the request asks for; this is not a file-access restriction. */
+  purpose?: "advice" | "plan-change" | "session-length" | "materials";
   id: string;
   label: string;
   /**
    * The message. `{material}`, `{stage}`, `{bpm}` and `{level}` are filled from the screen.
-   * A text ending in `{input}` is put in the message box for the player to finish, not sent.
+   * A text containing `{input}`, a plan-change request or a custom prompt is drafted.
+   * Other requests are sent only by a button explicitly labeled Send.
    */
   text: string;
   group: PromptGroup;

@@ -39,3 +39,7 @@
 /* Review: the metronome choice sits beside the minutes, bottoms aligned. */
 .greview .row2{align-items:end}
 .greview .row2 .field{min-width:0}
+
+.session-choice .srcnote { margin: 6px 0 12px; }
+.session-checklist { border: 1px solid var(--edge); border-radius: 8px; padding: 10px; margin: 10px 0; }
+.session-checklist label { display: block; padding: 5px 0; }

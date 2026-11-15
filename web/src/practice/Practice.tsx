@@ -1,3 +1,4 @@
+import { stopTimer } from "./sessionTimer.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Tool } from "../App.tsx";
@@ -119,7 +120,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
   const material = firstFile?.type === "file" ? firstFile.item : null;
 
   useEffect(() => {
-    const stages = session && today ? sessionKind(today, session.kind).stages : [];
+    const stages = session && today ? (session.stages ?? sessionKind(today, session.kind).stages) : [];
     const stage = session ? stages[Math.min(session.stage, stages.length - 1)] : undefined;
     const setup = generic && today !== null && (today.profile === null || editing);
     screenContext.set({
@@ -150,7 +151,7 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       // Replacing swaps the lesson's files; the coach and any tab stay.
       const kept = how === "replace" ? s.panes.filter((p) => p.content.type !== "file") : s.panes;
       const fresh = cs.filter((c) => !kept.some((p) => p.content.type === "file" && c.type === "file" && p.content.item.key === c.item.key));
-      return { ...s, panes: [...fresh.map(pane), ...kept].slice(0, MAX_PANES), ...(how === "replace" ? { guides: {} } : {}) };
+      return { ...s, addedActivities: [...(s.addedActivities ?? []).filter((a) => a.key !== item.key), { key: item.key, title: item.label }], panes: [...fresh.map(pane), ...kept].slice(0, MAX_PANES), ...(how === "replace" ? { guides: {} } : {}) };
     });
   };
 
@@ -162,18 +163,14 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
     // On a wide screen the coach opens beside the lesson.
     const panes = [...lead.map(pane), ...(window.innerWidth >= 1180 && lead.length < 3 ? [pane({ type: "coach" })] : [])];
     if (extra) store.set("struna.material-placed", extra.key);
-    // Start from the last clean working tempo stored for this material, when there is one.
-    if (first) {
-      const tempos = await api.get<{ fragment: string; bpm: number }[]>("/api/tempos").catch(() => []);
-      const t = tempos.find((x) => x.fragment === first.label);
-      if (t) metronome.set({ bpm: t.bpm });
-    }
     const s: SessionState = {
       kind,
+      stages: sessionKind(today!, kind).stages,
       cross: cross ?? null,
       startedAt: Date.now(),
       stage: 0,
       elapsedBefore: 0,
+      activeBefore: 0,
       // The timer waits: tune, read the stage, then tap it to start.
       resumedAt: null,
       startBpm: metronome.get().bpm,
@@ -314,10 +311,11 @@ export function Practice({ openTool, closeTools, openChat }: { openTool: (t: Too
       material={material?.label ?? ""}
       onFinish={() => {
         // Studio mode remembers that the review is open, so a reload (or a discarded tab) comes back to it.
-        setSession((s) => ({ ...s, elapsedBefore: s.elapsedBefore + (s.resumedAt ? Date.now() - s.resumedAt : 0), resumedAt: null, ...(generic ? { reviewing: true as const } : {}) }));
+        setSession((s) => ({ ...stopTimer(s, Date.now()), ...(generic ? { reviewing: true as const } : {}) }));
         setPhase({ name: "review" });
       }}
       closeTools={closeTools}
+      openTool={openTool}
     />
     </>
   );
