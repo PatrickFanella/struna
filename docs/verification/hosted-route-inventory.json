@@ -60,6 +60,12 @@
     "hosted": "account"
   },
   {
+    "source": "auth/export.ts",
+    "method": "POST",
+    "path": "/api/account/export",
+    "hosted": "account"
+  },
+  {
     "source": "auth/guest.ts",
     "method": "GET",
     "path": "/api/guest-import",
