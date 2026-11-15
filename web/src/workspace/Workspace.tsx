@@ -207,10 +207,13 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   const menuBox = useRef<HTMLDivElement>(null);
   const focusAfterPick = useRef(false);
   const [menuPosition, setMenuPosition] = useState({ top: 12, left: 12, maxHeight: 300 });
+  const restoreMenuFocus = () => {
+    const controls = [opener.current, ...box.current?.querySelectorAll<HTMLButtonElement>("[aria-haspopup='menu']") ?? []];
+    controls.find((el) => el?.isConnected && el.checkVisibility() && !el.disabled)?.focus();
+  };
   const dismissMenu = () => {
     setMenu(null);
-    if (opener.current?.isConnected) opener.current.focus();
-    else box.current?.querySelector<HTMLButtonElement>("[aria-haspopup='menu']")?.focus();
+    restoreMenuFocus();
   };
   const toggleMenu = (button: HTMLButtonElement, at: number | "add") => {
     opener.current = button;
@@ -288,8 +291,7 @@ export function Workspace({ panes, setPanes, materials, empty, addSlot }: {
   useLayoutEffect(() => {
     if (!focusAfterPick.current || menu) return;
     focusAfterPick.current = false;
-    if (opener.current?.isConnected) opener.current.focus();
-    else box.current?.querySelector<HTMLButtonElement>("[aria-haspopup='menu']")?.focus();
+    restoreMenuFocus();
   }, [panes, menu]);
   const close = (i: number) => {
     setMenu(null);

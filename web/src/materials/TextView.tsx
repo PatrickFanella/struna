@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { nestedHeadings } from "../markdown.ts";
+
 const LIMIT = 400_000;
 
 type Loaded = { text: string; markdown: boolean; cut: boolean };
@@ -40,7 +42,10 @@ export function TextView({ src, label }: { src: string; label: string }) {
           <Markdown
             remarkPlugins={[remarkGfm]}
             disallowedElements={["img"]}
-            components={{ a: ({ node: _node, ...p }) => <a {...p} target="_blank" rel="noreferrer noopener" /> }}
+            components={{
+              a: ({ node: _node, ...p }) => <a {...p} target="_blank" rel="noreferrer noopener" />,
+              ...nestedHeadings,
+            }}
           >
             {doc.text}
           </Markdown>

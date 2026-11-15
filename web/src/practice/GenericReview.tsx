@@ -155,7 +155,7 @@ export function GenericReview({ today, session, bpm, material, onWritten, onBack
       </div>
       <Text label="What to do first next time" value={f.next} onChange={set("next")} area />
       <Text label="Notes (optional)" value={f.notes} onChange={set("notes")} area />
-      {error && <p className="notice" role="alert"><b>The log was not written.</b> {error}</p>}
+      <p className={error ? "notice" : "srcnote"} role="status" aria-atomic="true">{busy ? "Saving session log" : error ? `The log was not written. ${error}` : "Session log not saved yet"}</p>
       <button className="btn primary full" disabled={busy}>{busy ? "Writing the log" : "Write the log"}</button>
       <div className="row2 reviewfoot">
         <button type="button" className="btn quiet" onClick={onBack}>Back to the session</button>
