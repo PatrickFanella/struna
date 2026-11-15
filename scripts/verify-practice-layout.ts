@@ -58,8 +58,8 @@ try {
   }
   const token = readFileSync(join(scratch, "state/access-token"), "utf8").trim();
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : chromium.executablePath()) });
-  for (const [width, height] of [[390, 844], [320, 700], [844, 390], [820, 1180], [1003, 814], [1153, 814], [1440, 900], [576, 407]]) for (const theme of ["light", "dark", "device"]) {
-    const options = { viewport: { width: width === 576 ? 1153 : width!, height: width === 576 ? 814 : height! }, colorScheme: theme === "dark" ? "dark" as const : "light" as const, extraHTTPHeaders: { "x-struna-token": token } };
+  for (const [width, height] of [[390, 844], [320, 700], [844, 390], [820, 1180], [1003, 814], [1153, 814], [1440, 900], [576, 407]]) for (const theme of ["light", "dark", "device-light", "device-dark"]) {
+    const options = { viewport: { width: width === 576 ? 1153 : width!, height: width === 576 ? 814 : height! }, reducedMotion: "reduce" as const, colorScheme: theme.endsWith("dark") ? "dark" as const : "light" as const, extraHTTPHeaders: { "x-struna-token": token } };
     const context: BrowserContext = width === 576
       ? await chromium.launchPersistentContext(join(scratch, `zoom-${theme}`), { ...options, executablePath: process.env.CHROMIUM ?? (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : chromium.executablePath()) })
       : await browser.newContext(options);
@@ -74,7 +74,7 @@ try {
     // A ready offline stand-in exposes the composer for pin/draft continuity. Nothing is sent.
     await context.route("**/api/providers", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ last: "scratch", list: [{ id: "scratch", label: "Offline fixture", ok: true, detail: "Scratch only" }] }) }));
     const page = await context.newPage();
-    await page.addInitScript((theme) => { if (theme !== "device") localStorage.setItem("struna.theme", theme); }, theme);
+    await page.addInitScript((theme) => { if (!theme.startsWith("device")) localStorage.setItem("struna.theme", theme); }, theme);
     await page.goto(base);
     await page.locator(".practice-choice > .btn").click();
     await page.locator(".pane-file pre").waitFor();
@@ -95,6 +95,24 @@ try {
       const boundary = geometry.nav.height ? geometry.nav.top : height!;
       assert(geometry.clean.bottom <= boundary && geometry.click.bottom <= boundary, "music and playing controls share the initial viewport");
       assert(geometry.nav.bottom <= height! + 1, "navigation fits in the viewport");
+    }
+    const scrollProof: object[] = [];
+    if (height! <= 500) {
+      await page.locator(".passes").scrollIntoViewIfNeeded();
+      const visible = await page.evaluate(() => {
+        const pre = document.querySelector(".pane-file pre")!.getBoundingClientRect();
+        const control = document.querySelector(".passes")!.getBoundingClientRect();
+        return { tabTop: pre.top, tabBottom: pre.bottom, cleanTop: control.top, cleanBottom: control.bottom, height: innerHeight };
+      });
+      assert(visible.tabTop >= 0 && visible.tabBottom <= visible.height && visible.cleanBottom <= visible.height, "short landscape/zoom allows music and playing controls together after scrolling");
+      scrollProof.push(visible);
+      await page.screenshot({ path: join(evidence, `${width}-${theme}-reading-controls.png`) });
+    }
+    for (const selector of [".tempocol", ".passes", ".miss", ".nextb"]) {
+      await page.locator(selector).focus();
+      const focused = await page.locator(selector).evaluate((el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, viewport: innerHeight, focused: document.activeElement === el }; });
+      assert(focused.focused && focused.top >= 0 && focused.bottom <= focused.viewport, "keyboard brings each playing control into view");
+      scrollProof.push({ selector, ...focused });
     }
     assert.equal(await page.locator(".pane-coach").count(), 0, "Coach never opens automatically");
     const reader = page.locator(".pane-file .panescroll");
@@ -124,7 +142,7 @@ try {
     await page.setViewportSize({ width: height!, height: width! });
     await page.setViewportSize({ width: width!, height: height! });
     assert.equal(await reader.getAttribute("data-continuity"), "kept");
-    results.push({ width, height, theme, geometry });
+    results.push({ width, height, theme, geometry, scrollProof });
     await context.close();
   }
   writeFileSync(join(evidence, "reading.json"), JSON.stringify(results, null, 2));

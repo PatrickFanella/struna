@@ -246,7 +246,7 @@ async function walk(page: Page, env: string) {
   // ---- Setup form, starter plan, the onboarding action.
   await page.goto(`${base}/#practice`);
   await page.getByRole("heading", { name: "Welcome to Struna" }).waitFor();
-  check((await page.locator(".tabs a").allTextContents()).join(",") === "Practice,Materials", "sections are Practice and Materials");
+  check((await page.locator(".tabs a").allTextContents()).join(",") === "Today,Materials", "sections are Today and Materials");
   await page.getByRole("radio", { name: /^Beginner/ }).click();
   await page.getByRole("radiogroup", { name: "Minutes in a usual session" }).getByRole("radio", { name: "15", exact: true }).click();
   await page.getByRole("button", { name: "Rock", exact: true }).click();
@@ -263,7 +263,7 @@ async function walk(page: Page, env: string) {
   await page.locator(".top").getByRole("button", { name: /^Coach/ }).click();
   await page.getByRole("button", { name: "Apply plan change", exact: true }).click();
   await page.getByRole("dialog", { name: "Coach" }).getByRole("button", { name: "Done", exact: true }).click();
-  await page.locator(".gstart .instr").getByText(COACH_NEXT, { exact: true }).waitFor({ timeout: 20_000 });
+  await page.locator(".gstart .today-task").getByText(COACH_NEXT, { exact: true }).waitFor({ timeout: 20_000 });
   check(true, "Today reloaded only after explicit Apply");
   check((await page.locator(".top .unread").count()) === 0, "opening Coach clears the unread dot");
   await shot("start", true);
