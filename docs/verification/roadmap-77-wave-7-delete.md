@@ -1,0 +1,19 @@
+# Wave 7: account deletion (#105)
+
+Prepared November 15, 2026. Hosted practice remains scratch-only; production startup still refuses its enablement switch. This change does not delete live data or enable public accounts.
+
+## Removal and retention policy prepared for owner review
+
+The signed-in player can export first, cancel without changes, or type DELETE and deliberately submit. The server accepts only that confirmation, validates origin, document session and CSRF, and derives the account from the verified cookie. It first journals the intent and disables the account and all sessions in one identity transaction. It cancels replies and provider tests, closes account HTTP work, waits for account database leases to close, then removes only `accounts/<verified-id>`: workspace/profile, current and archived plans, logs, material files, recordings, account database and WAL, conversations/prompts/tempos/proposals, encrypted connection and derived caches. No provider runs during deletion.
+
+After removal, identity mapping, sessions and guest handoff records are deleted. A new sign-in with the same identity creates a new opaque account with empty practice state. A minimal deletion receipt (opaque account id, initiating session hash and request/completion times) permits that initiating session to retry the same deletion for 24 hours. Completed receipts are pruned on subsequent requests after that window. Incomplete intents are retained until cleanup succeeds, with access denied throughout. Startup resumes pending removals before serving requests. The shared credential-encryption key remains for other accounts; account ciphertext is removed.
+
+Exports/downloads and browser-only drafts on players' devices remain outside server removal. The upstream OIDC account and OpenAI API key remain at their providers; the UI tells players to revoke upstream keys separately if desired. Other players and the separate personal/Studio installation are outside the deletion root. No infrastructure backup is changed. Backup retention and restore handling are not qualified for hosted launch: the eventual operator must publish an actual retention interval and ensure restoration honors deletion records before enabling public hosted practice. Restoring an old backup without external deletion records can restore deleted identities/data. The 24-hour retry journal alone is not a backup erasure ledger. File removal is logical deletion, not a claim of forensic media erasure or removal of SQLite free pages/old backups.
+
+## Scratch verification
+
+- `pnpm typecheck`, `pnpm test` (369 tests) and `pnpm build` pass.
+- Three focused lifecycle tests cover export then delete, malformed/foreign selector/stale-session/CSRF denial, two sessions revoked, stopped reply, neighbour and owner byte equality, duplicate retry, fresh-account recreation, interrupted cleanup retry, authentication restart recovery and 24-hour receipt expiry.
+- `node scripts/verify-delete-account.ts /tmp/struna-wave7-delete` passes 24 built-browser cases: six roadmap viewports in light/dark/Device-light/Device-dark. Each checks cancellation, disabled confirmation, export download, typed confirmation, failure/retry, successful sign-out, revoked readback, no page errors and no horizontal overflow. Screenshots and receipts are emitted to the output directory. These are automated Chromium checks, not Safari, real-device, physical-audio or assistive-speech qualification.
+
+Owner review of this policy and scratch evidence is required by #105 before enabling deletion for hosted players. The code can be reviewed and merged behind the existing production refusal; public enablement remains a separate checkpoint.

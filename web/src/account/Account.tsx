@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { DeleteAccount } from "./Delete.tsx";
 import { Export } from "./Export.tsx";
 import { api, invalidateAccount } from "../api.ts";
 
@@ -28,8 +29,9 @@ export function Account({ activeSession }: { activeSession?: string | undefined 
       invalidateAccount(); location.replace("/");
     } catch { setError("Could not sign out. Try again."); setBusy(false); }
   };
-  if (activeSession) return <div className="wrap"><Export /><span>Private account</span> <button className="btn quiet" disabled={busy || !state} onClick={() => void logout()}>Sign out</button>{error && <p role="alert">{error}</p>}</div>;
+  if (activeSession) return <div className="wrap"><Export /><DeleteAccount /><span>Private account</span> <button className="btn quiet" disabled={busy || !state} onClick={() => void logout()}>Sign out</button>{error && <p role="alert">{error}</p>}</div>;
   return <div className="app"><main className="wrap"><div className="start gstart">
+    {new URLSearchParams(location.search).get("account") === "deleted" && <p role="status">Your Struna account was deleted. Signing in again creates a fresh empty account.</p>}
     <span className="brandmark" aria-hidden="true" /><h1>Your private practice</h1>
     {state === null ? <p role="status">Checking your session…</p> : <>
       <p>{state.signedIn ? "You are signed in. Private practice is being prepared; your account cannot access the owner’s library or tools." : "Sign in with the configured identity provider to return to your private account."}</p>
