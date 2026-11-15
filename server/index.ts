@@ -11,6 +11,8 @@ import { config } from "./config.ts";
 import { conversations } from "./conversations.ts";
 import { openDb } from "./db.ts";
 import { fail, guard, HttpError, match, NOINDEX, route, send } from "./http.ts";
+import { candidateRoutes, planCandidates } from "./generic/planCandidates.ts";
+import { probePlanSandbox } from "./generic/planSandbox.ts";
 import { genericCoach } from "./generic/coach.ts";
 import { chatImageRoutes } from "./generic/chat-images.ts";
 import { credentialStore, placementProblem } from "./generic/credentials.ts";
@@ -45,6 +47,9 @@ if (config.mode === "studio") {
   const misplaced = placementProblem({ stateDir: config.stateDir, studio: config.home, libraryDirs: config.libraryDirs, home: homedir() });
   if (misplaced) throw new Error(misplaced);
   const studio: Studio = { home: config.home, db, timeZone: config.timeZone, libraryDirs: config.libraryDirs, web: config.coachWeb, appName: config.appName };
+  const candidates = planCandidates(studio);
+  await candidates.recover();
+  candidateRoutes(candidates);
   genericRoutes(studio, { tabs: Boolean(config.tabsDir) });
   appInfo = () => genericAppInfo(studio, { tabs: Boolean(config.tabsDir) });
   materialsRoutes(studio, { cacheDir: config.cacheDir });
@@ -64,8 +69,10 @@ if (config.mode === "studio") {
     privateEndpoints: config.coachPrivateEndpoints,
     budgetUsd: config.coachMaxBudgetUsd,
   });
+  const probes = await Promise.all([probePlanSandbox(config.claudeBin), probePlanSandbox(config.codexBin)]);
+  policy.planSandbox = { claude: probes[0]!, codex: probes[1]! };
   const convs = conversations(db);
-  chatRoutes(genericCoach(studio, {}, { codexInstall, store, policy }), db, convs);
+  chatRoutes(genericCoach(studio, {}, { codexInstall, store, policy, candidates }), db, convs);
   const coaches = providerRoutes({ store, policy, web: studio.web }, convs);
   // A running ChatGPT sign-in must not outlive the server.
   process.on("exit", coaches.stop);

@@ -55,6 +55,11 @@ try {
     assert.doesNotMatch(await page.locator("#scope-custom-quick").innerText(), /Tune practice/);
     assert.match(await page.locator("#scope-custom-full").innerText(), /Tune practice · 10 min/);
     assert.equal(await page.locator("#scope-custom-short").innerText(), "Technique · 6 min");
+    await page.getByRole("link", { name: "Open Baseline roll", exact: true }).first().click();
+    await page.getByRole("heading", { name: "Baseline roll", exact: true, level: 1 }).waitFor();
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("struna.session")), null);
+    await page.getByRole("button", { name: "Back to practice", exact: true }).click();
+    await page.getByRole("button", { name: /^Quick/ }).waitFor();
     await page.evaluate(() => sessionStorage.setItem("struna.material", JSON.stringify({ key: "extra:before", label: "Extra before start", kind: "link", src: null, url: "https://example.invalid/extra" })));
     await page.reload();
     await page.getByRole("button", { name: /^Quick/ }).click();
@@ -67,6 +72,15 @@ try {
     assert.match(await page.locator(".stage-tempo").innerText(), /Plan target/);
     await page.getByRole("button", { name: "Tuner", exact: true }).click();
     await page.getByRole("tab", { name: "Metronome", exact: true }).click();
+    await page.getByLabel("BPM", { exact: true }).fill("91");
+    await page.getByLabel("BPM", { exact: true }).press("Enter");
+    assert.equal(await page.getByRole("button", { name: "Start", exact: true }).count(), 1, "entry does not start click");
+    await page.getByLabel("BPM", { exact: true }).fill("301");
+    await page.getByLabel("BPM", { exact: true }).press("Enter");
+    await page.getByRole("status").filter({ hasText: "Enter a whole number" }).waitFor();
+    await page.getByLabel("BPM", { exact: true }).press("Escape");
+    assert.equal(await page.getByLabel("BPM", { exact: true }).inputValue(), "91");
+    await page.getByRole("button", { name: "Use stage tempo", exact: true }).click();
     await page.getByRole("button", { name: "2 BPM faster" }).click();
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
@@ -75,7 +89,7 @@ try {
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
     await page.reload();
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
-    await page.getByRole("button", { name: "Use suggestion", exact: true }).click();
+    await page.getByRole("button", { name: "Use stage tempo", exact: true }).click();
     await page.waitForFunction(() => !document.querySelector(".stage-tempo")?.textContent?.includes("Your tempo"));
     assert.equal(await page.locator(".nextb.primary").count(), 0);
     await page.getByRole("button", { name: "Start the stage timer", exact: true }).focus();
@@ -162,6 +176,31 @@ try {
       await page.getByRole("button", { name: /Finish/ }).press("Enter");
       await page.getByRole("status").filter({ hasText: "Minutes played includes only recovered timing" }).waitFor();
     }
+    await page.evaluate((raw) => {
+      const saved = JSON.parse(raw!); delete saved.reviewing;
+      saved.stage = 0; saved.resumedAt = null; saved.elapsedBefore = 0; saved.activeBefore = 65000;
+      sessionStorage.setItem("struna.session", JSON.stringify(saved));
+    }, beforeReview);
+    await page.reload();
+    const beforeExit = await page.evaluate(() => JSON.parse(sessionStorage.getItem("struna.session")!));
+    await page.getByRole("button", { name: "End session", exact: true }).click();
+    await page.getByRole("dialog", { name: "End session?", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Resume session", exact: true }).click();
+    const afterResume = await page.evaluate(() => JSON.parse(sessionStorage.getItem("struna.session")!));
+    assert.deepEqual(afterResume.checkpoints, beforeExit.checkpoints);
+    assert.deepEqual(afterResume.panes, beforeExit.panes);
+    assert.equal(afterResume.activeBefore, beforeExit.activeBefore);
+    await page.getByRole("button", { name: "End session", exact: true }).click();
+    await page.getByRole("button", { name: "Discard session", exact: true }).click();
+    await page.getByRole("dialog", { name: "Discard this unsaved session?", exact: true }).waitFor();
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Review partial session", exact: true }).click();
+    assert.equal(await page.getByLabel("Minutes played", { exact: true }).inputValue(), "1");
+    await page.reload();
+    await page.getByRole("heading", { name: "Partial session review", exact: true }).waitFor();
+    await page.screenshot({ path: join(dir, "shots", `${width}-${theme}-partial.png`), fullPage: true });
+    await page.getByRole("button", { name: "Write the log", exact: true }).click();
+    await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
     await context.close();
   }
   for (const name of await readdir(join(home, "logs"))) {

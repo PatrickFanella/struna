@@ -36,3 +36,9 @@ test("the raise step can be changed", () => {
   const r = tempoHelper({ cleans: 2, misses: 0 }, "clean", { raise: 5 });
   assert.deepEqual(r.suggestion, { kind: "raise", delta: 5 });
 });
+
+test("explicit BPM entry uses clamp limits without clamping rejected input", async () => {
+  const { parseBpmEntry } = await import("./tempo.ts");
+  for (const text of ["", "abc", "29", "301", "70.5", "1e2"]) assert.equal(parseBpmEntry(text), null);
+  assert.equal(parseBpmEntry("30"), 30); assert.equal(parseBpmEntry(" 300 "), 300);
+});

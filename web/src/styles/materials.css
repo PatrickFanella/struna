@@ -103,3 +103,9 @@
 .linkhost{font-size:var(--fs-meta);color:var(--muted);overflow-wrap:anywhere}
 .findernone{padding:4px 14px 14px;margin:0}
 .matbody .linkcard .matnote{display:none}
+
+.material-management { position:relative; display:inline-flex; }
+.material-menu { position:absolute; right:0; top:100%; display:flex; flex-direction:column; z-index:15; min-width:160px; max-width:calc(100vw - 32px); padding:6px; background:var(--panel); border:1px solid var(--rule); border-radius:8px; box-shadow:0 4px 16px #0003; }
+.material-menu button { min-height:44px; text-align:left; padding:8px 12px; background:transparent; border:0; color:var(--ink); font:inherit; }
+.material-menu button.danger, .confirm .linkbtn:first-of-type { color:var(--err); }
+.matacts .linkbtn, .vacts .linkbtn, .confirm .linkbtn { min-height:44px; }

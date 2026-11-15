@@ -1,14 +1,17 @@
+import { config } from "../config.ts";
+import { planCandidates, type PlanCandidates, type CandidateTurn } from "./planCandidates.ts";
+import { checkPlanSandboxPaths, probePlanSandbox } from "./planSandbox.ts";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 
+import { PROVIDERS } from "../chat.ts";
 import type { AfterTurn, Changed, CoachProfile, Screen } from "../chat.ts";
-import { localDate } from "../logs.ts";
 import type { CredentialStore } from "./credentials.ts";
 import { materialsFingerprint, pendingSaves, reconcileLinks } from "./materials.ts";
 import { type CoachPolicy, providerFor, providerRows } from "./providers.ts";
-import { genericToday, PLAN_REL, PLAN_SCHEMA, readPlan, type Studio } from "./studio.ts";
+import { genericToday, PLAN_REL, PLAN_SCHEMA, type Studio } from "./studio.ts";
 import { webFetchSettings } from "./webfetch-guard.ts";
 
 const WEB_TOOLS = ["WebSearch", "WebFetch"];
@@ -19,7 +22,7 @@ const LINK_WAIT_MS = 3000;
 /** One pass of link downloads stops starting new ones after this; the rest wait for a later pass. */
 const LINK_PASS_MS = 15 * 60_000;
 /** The only places the coach may write. Logs and recordings are the player's record and stay read-only. */
-export const WRITABLE = ["plan/**", "materials/**", "coach-notes.md", "profile.json"];
+export const WRITABLE = ["materials/**", "coach-notes.md", "profile.json"];
 
 /**
  * The instructions for a coach of any level. The plan schema comes from `PLAN_SCHEMA`,
@@ -50,21 +53,21 @@ The player
 The studio folder
 - profile.json: the player's profile. You may correct it when they tell you something has changed.
 - coach-notes.md: your notes. You may write it.
-- plan/plan.json: the active plan. You write it. plan/archive/<id>.json: earlier plans.
+- plan/plan.json: the active plan, read only. plan/archive/: earlier plans, read only. A turn-specific candidate path is given below; propose plan changes only in that file.
 - materials/: the player's uploads, saved web copies and the lesson sheets you write. materials/links.json: web links.
 - logs/YYYY-MM-DD.md: one file per practice session, written by the app. Read only.
 - Recordings/: the player's takes. Read only; you cannot hear audio, so ask what they heard.
-Write only plan/, materials/, coach-notes.md and profile.json. Never change logs or recordings, and never write outside the studio folder.${library}
+Write only your candidate file, materials/, coach-notes.md and profile.json. Never change logs or recordings, and never write outside the studio folder.${library}
 
 The plan: plan/plan.json
 The app shows the plan as today's session: the session kinds become start buttons, each stage becomes a timed step, and the current phase's "focus" text is added to the stage with the same key. This is the exact shape; the app checks the file after every reply and tells you what is wrong:
 ${PLAN_SCHEMA}
-- A phase lasts for a number of counted sessions, not a number of weeks. A session counts when its log is dated on or after "started" and was not stopped for pain.
+- A phase lasts for a number of counted sessions, not a number of weeks. A session counts when its log is dated on or after "started" and was not stopped for pain and is neither an extra nor a partial session.
 - Give two or three session kinds sized around the player's minutes per session: the usual length first, then a shorter one, then a 5 to 10 minute one for busy days. Every kind must be worth doing on its own.
 - "next" is exactly what to do first next time. The newest log's "Next instruction" replaces it until you change "next" again, so after you review a session, set "next".
-- When you only adjust the plan, edit the file and keep its "id" and "started". When you replace it with a new plan, first copy the old file to plan/archive/<old id>.json, then write the new one with a new "id" and the date on the context block's "Today:" line as "started".
+- When you only adjust the plan, edit the candidate and keep its "id" and "started". When you replace it with a new plan, write a candidate with a new "id" and the date on the context block's "Today:" line as "started".
 - A material in the plan must exist: "file" is a path under materials/, "url" is a link you opened.
-- After changing the plan, say what you changed in one or two lines.
+- A candidate does not change Today. The app presents its complete before/after preview; only the player can Apply it. Never claim a proposal was activated. The app owns archiving. Advice leaves the candidate unchanged.
 
 Evidence
 - Read the recent files in logs/ before you change the plan or judge progress. Each log has "- **Label:** value" lines (minutes, material, tempos, difficulty, what went well, what was hard, pain) and a "## Next instruction" section.
@@ -145,12 +148,10 @@ async function linksProblem(home: string): Promise<string | null> {
 }
 
 export type CoachDeps = {
-  readPlan: typeof readPlan;
   genericToday: (s: Studio) => Promise<TodayLike>;
   reconcileLinks: (s: Studio, save?: undefined, signal?: AbortSignal) => ReturnType<typeof reconcileLinks>;
   pendingSaves: typeof pendingSaves;
   prints: (s: Studio) => Promise<Prints>;
-  now: () => Date;
   /** How long a reply waits for link downloads; tests shorten it. */
   linkWaitMs: number;
 };
@@ -188,8 +189,9 @@ export function codexProfile(o: { libraryDirs: string[]; codexInstall: string })
  * carries the coach list (keys, endpoints, the app's own ChatGPT sign-in); without them the two host
  * logins are the only coaches, as before.
  */
-export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { codexInstall?: string | null; store?: CredentialStore; policy?: CoachPolicy } = {}): CoachProfile {
-  const d: CoachDeps = { readPlan, genericToday, reconcileLinks: (st, _save, signal) => reconcileLinks(st, undefined, signal), pendingSaves, prints, now: () => new Date(), linkWaitMs: LINK_WAIT_MS, ...deps };
+export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { codexInstall?: string | null; store?: CredentialStore; policy?: CoachPolicy; candidates?: PlanCandidates } = {}): CoachProfile {
+  const candidates = opts.candidates ?? planCandidates(s);
+  const d: CoachDeps = { genericToday, reconcileLinks: (st, _save, signal) => reconcileLinks(st, undefined, signal), pendingSaves, prints, linkWaitMs: LINK_WAIT_MS, ...deps };
   /** Failures from link downloads that finished after their reply; told on the next turn. */
   const late: string[] = [];
   /** The turn that last started downloads: its follow-up pass does not start them again. */
@@ -224,16 +226,8 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { c
       ? { plan: now.plan !== was.plan, materials: now.materials !== was.materials, profile: now.profile !== was.profile }
       : { plan: true, materials: true, profile: true };
 
+    changed.plan = false; // Only Apply may activate a plan.
     const problems: string[] = [];
-    if (changed.plan) {
-      const { plan, errors } = await d.readPlan(s);
-      if (!plan) problems.push(errors.length ? `${PLAN_REL} is not valid: ${errors.join("; ")}.` : `${PLAN_REL} is missing: write the active plan there (earlier plans belong in plan/archive/).`);
-      else {
-        // A "started" after today hides that day's sessions from the plan; the coach's clock may be in another zone.
-        const today = localDate(d.now(), s.timeZone);
-        if (plan.started > today) problems.push(`${PLAN_REL}: "started" is ${plan.started}, after today (${today}); use today's date.`);
-      }
-    }
     if (changed.materials) {
       const p = await linksProblem(s.home);
       if (p) problems.push(`materials/links.json is not valid: ${p}.`);
@@ -269,12 +263,71 @@ export function genericCoach(s: Studio, deps: Partial<CoachDeps> = {}, opts: { c
     }
   };
   /** The profile for a coach with or without the web; the studio rules are the same for every coach. */
-  const build = (web: boolean): CoachProfile => buildProfile({ ...s, web }, opts.codexInstall ?? null, context, afterTurnFor(web), () => d.prints(s));
+  const build = (web: boolean): CoachProfile => {
+    let turn: CandidateTurn | null = null;
+    const p = buildProfile({ ...s, web }, opts.codexInstall ?? null, context, async (before, pass) => {
+      try {
+        if (before === undefined) return {};
+        if (turn && pass?.successful === false) { await candidates.finish(turn, false); turn = null; return {}; }
+        if (turn) {
+          const problem = await candidates.problem(turn);
+          if (problem) {
+            if (!pass?.final) return { followUp: `${problem}.\nFix the file at ${turn.relative} now, then say what you corrected.` };
+            await candidates.finish(turn, false); turn = null;
+            return { notices: [`The coach left a candidate the app cannot use. ${problem}`] };
+          }
+        }
+        const result = await afterTurnFor(web)(before, pass);
+        if (result.followUp) return result;
+        if (turn) {
+          const proposed = await candidates.finish(turn, pass?.successful !== false);
+          turn = null;
+          if (proposed) result.notices = [...(result.notices ?? []), "A proposed plan is ready below. Review every change, then Apply or Dismiss. Today is unchanged."];
+        }
+        return result;
+      } catch (e) {
+        if (turn) { await candidates.finish(turn, false); turn = null; }
+        throw e;
+      }
+    }, async () => {
+      turn = await candidates.begin(p.providerId ?? "coach");
+      try {
+        for (const file of ["coach-notes.md", "profile.json"]) await writeFile(join(s.home, file), file === "profile.json" ? "{}" : "", { flag: "wx" }).catch((e) => { if (e.code !== "EEXIST") throw e; });
+        const wrapper = { home: s.home, candidateDir: `.coach-candidates/${turn.id}` };
+        await checkPlanSandboxPaths(wrapper);
+        p.claude.planSandbox = wrapper; p.codex.planSandbox = wrapper;
+        p.claude.allowed = [...WRITABLE.flatMap((path) => [`Edit(${path})`, `Write(${path})`]), `Edit(${turn.relative})`, `Write(${turn.relative})`, ...(web ? WEB_TOOLS : [])];
+        return await d.prints(s);
+      } catch (e) { await candidates.finish(turn, false); turn = null; throw e; }
+    });
+    p.system = async () => `${genericSystem({ ...s, web })}\n\nThis turn's plan candidate: ${turn?.relative}. Edit this file only for a proposed plan change. Do not write plan/ or archive files. The player must explicitly Apply it.`;
+    return p;
+  };
 
+  const qualify = (p: CoachProfile, id: string) => {
+    p.providerId = id;
+    const before = p.beforeTurn!;
+    p.beforeTurn = async () => {
+      const probe = await probePlanSandbox(["claude", "anthropic", "bedrock"].includes(id) ? config.claudeBin : config.codexBin);
+      if (!probe.ok) throw new Error(probe.detail);
+      return before();
+    };
+    return p;
+  };
   const profile = build(s.web);
+  profile.forProvider = (id) => {
+    if (id !== "claude" && id !== "codex") return null;
+    const p = qualify(build(s.web), id);
+    return { profile: p, run: PROVIDERS[id](p) };
+  };
   if (opts.store && opts.policy) {
     const ctx = { build, store: opts.store, policy: opts.policy, web: s.web };
-    profile.forProvider = (id) => providerFor(id, ctx);
+    profile.forProvider = (id) => {
+      const picked = providerFor(id, ctx);
+      if (!picked) return null;
+      qualify(picked.profile, id);
+      return picked;
+    };
     profile.providerList = () => providerRows(ctx);
     // The settings name the computer whose own logins the host rows use, as their notes do.
     profile.host = opts.policy.hostName;
@@ -290,8 +343,8 @@ function buildProfile(s: Studio, codexInstall: string | null, context: CoachProf
     claude: {
       cwd: s.home,
       tools,
-      // Relative rules are matched against the working directory (checked with the real CLI:
-      // plan/plan.json is written; logs/, Recordings/, the library folders and paths outside are refused).
+      // Relative grants exclude the live plan. beforeTurn adds only this turn's candidate.
+      // The probed outer OS boundary also protects plan/archive for every CLI family.
       allowed: [...WRITABLE.flatMap((p) => [`Edit(${p})`, `Write(${p})`]), ...(s.web ? WEB_TOOLS : [])],
       addDirs: s.libraryDirs,
       // WebFetch requests come from this machine: a hook refuses private and local addresses first.

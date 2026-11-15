@@ -2,6 +2,9 @@ export const MIN_BPM = 30;
 export const MAX_BPM = 300;
 export const clampBpm = (n: number) => Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(n)));
 
+/** Explicit entry rejects invalid input rather than silently clamping it. */
+export const parseBpmEntry = (text: string): number | null => /^\d+$/.test(text.trim()) && Number(text) >= MIN_BPM && Number(text) <= MAX_BPM ? Number(text) : null;
+
 /** Median of the last up to six intervals; a gap over two seconds starts over. Taps are in milliseconds. */
 export function tapTempo(taps: number[]): number | null {
   let run: number[] = [];

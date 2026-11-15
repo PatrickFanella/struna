@@ -1,3 +1,4 @@
+import { planSandboxCommand, type PlanSandbox } from "../generic/planSandbox.ts";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
@@ -50,11 +51,12 @@ export function appEnv(add: Record<string, string>): NodeJS.ProcessEnv {
 export async function* jsonLines(
   bin: string,
   args: string[],
-  opts: { cwd: string; input: string; signal: AbortSignal; timeoutMs: number; env?: NodeJS.ProcessEnv | undefined },
+  opts: { cwd: string; input: string; signal: AbortSignal; timeoutMs: number; env?: NodeJS.ProcessEnv | undefined; planSandbox?: PlanSandbox | undefined },
 ): AsyncGenerator<Record<string, any>, { code: number | null; stderr: string }> {
   // An abort that already happened never fires its event again: do not start a CLI nothing could stop.
   if (opts.signal.aborted) return { code: null, stderr: "aborted" };
-  const child = spawn(bin, args, { cwd: opts.cwd, env: opts.env ?? subscriptionEnv(), stdio: ["pipe", "pipe", "pipe"] });
+  const command = opts.planSandbox ? planSandboxCommand(bin, args, opts.planSandbox) : { bin, args };
+  const child = spawn(command.bin, command.args, { cwd: opts.cwd, env: opts.env ?? subscriptionEnv(), stdio: ["pipe", "pipe", "pipe"] });
   let stderr = "";
   child.stderr.on("data", (b: Buffer) => {
     stderr = (stderr + b.toString()).slice(-4000);

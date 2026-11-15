@@ -88,7 +88,7 @@ test("the list has studio files and library files with kinds, and marks what the
   const r = await list();
   assert.equal(r.truncated, undefined);
   const titles = r.items.map((i) => `${i.source}:${i.title}:${i.kind}`).sort();
-  assert.deepEqual(titles, ["folder:Minor Swing:pdf", "folder:Riff:tab", "folder:clip:video", "studio:Blues in A:pdf", "studio:First chords:text", "studio:page:other"]);
+  assert.deepEqual(titles, ["folder:Minor Swing:pdf", "folder:Riff:tab", "folder:clip:video", "link:Lesson:link", "studio:Blues in A:pdf", "studio:First chords:text", "studio:page:other"]);
   const blues = r.items.find((i) => i.title === "Blues in A")!;
   assert.equal(blues.path, "materials/Blues in A.pdf");
   assert.equal(blues.inPlan, true);
@@ -105,7 +105,7 @@ test("the list has studio files and library files with kinds, and marks what the
   assert.deepEqual((await list("?q=lessons")).items.map((i) => i.title), ["First chords"]);
   const cut = await list("?limit=2");
   assert.equal(cut.items.length, 2);
-  assert.equal(cut.total, 6);
+  assert.equal(cut.total, 7);
 });
 
 test("files are served with ranges and safe types; nothing outside the folders is reachable", async () => {
@@ -218,7 +218,12 @@ test("links: add, dedupe, save a copy, delete", async () => {
   assert.equal((await fetch(`${base}/api/materials/${idOf("f", "Blues in A.pdf")}/save`, { method: "POST" })).status, 400);
 
   // Deleting: a link leaves links.json; a saved copy goes to the trash with its link; library files stay.
-  assert.equal((await fetch(`${base}/api/materials/${link.id}`, { method: "DELETE" })).status, 200);
+  assert.equal((await fetch(`${base}/api/materials/${link.id}`, { method: "DELETE" })).status, 409);
+  const planText = await readFile(join(home, "plan/plan.json"), "utf8");
+  const withoutLink = JSON.parse(planText); withoutLink.materials = withoutLink.materials.filter((m: { url?: string }) => m.url !== yt);
+  await writeFile(join(home, "plan/plan.json"), JSON.stringify(withoutLink));
+  try { assert.equal((await fetch(`${base}/api/materials/${link.id}`, { method: "DELETE" })).status, 200); }
+  finally { await writeFile(join(home, "plan/plan.json"), planText); }
   assert.equal((await links()).some((l) => l.url === yt), false);
   assert.equal((await fetch(`${base}/api/materials/${saved.id}`, { method: "DELETE" })).status, 200);
   assert.equal((await links()).some((l) => l.url === saved.url), false);
@@ -421,4 +426,21 @@ test("item lookup is independent of search and rejects unknown IDs", async () =>
   assert.equal(response.status, 200);
   assert.equal((await response.json() as Listed).id, item.id);
   for (const id of ["l.0000000000000000", "../secret.txt", "", "f.ZGVsZXRlZC5tZA"]) assert.equal((await fetch(`${base}/api/materials/item?id=${encodeURIComponent(id)}`)).status, 404);
+});
+
+test("saving a plan-only link retains its identity and copy association, and plan links explain deletion", async () => {
+  const path = join(home, "plan/plan.json");
+  const original = await readFile(path, "utf8");
+  try {
+    const url = "https://files.test/Plan-only.pdf";
+    await writeFile(path, JSON.stringify({ materials: [{ label: "Plan exercise", url }] }));
+    const first = (await list()).items.find((i) => i.url === url)!;
+    assert.equal(first.planOnly, true);
+    assert.equal((await fetch(`${base}/api/materials/${first.id}`, { method: "DELETE" })).status, 409);
+    const saved = await (await post(`/api/materials/${first.id}/save`, {})).json() as Listed;
+    assert.equal(saved.url, url); assert.equal(saved.inPlan, true); assert.equal(saved.shortTitle, "Plan exercise");
+    const repeated = await (await post(`/api/materials/${first.id}/save`, {})).json() as Listed;
+    assert.equal(repeated.id, saved.id); assert.equal(repeated.path, saved.path);
+    assert.equal((await list()).items.filter((i) => i.url === url).length, 1);
+  } finally { await writeFile(path, original); }
 });

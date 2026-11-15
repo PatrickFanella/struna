@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -22,6 +22,7 @@ async function studio(over: Partial<Studio> = {}): Promise<Studio & { cleanup: (
 }
 
 const profile = normalizeProfile({ level: "new", minutesPerSession: 20 }, "2026-11-14T00:00:00.000Z");
+const candidatePath = (s: Studio, coach: ReturnType<typeof genericCoach>) => join(s.home, coach.claude.planSandbox!.candidateDir, "plan.json");
 const goodPlan = () => JSON.stringify(starterPlan(profile, "2026-11-14"));
 
 test("claude works in the studio folder and may write only the plan, materials, notes and profile", async () => {
@@ -32,7 +33,7 @@ test("claude works in the studio folder and may write only the plan, materials, 
     const a = claudeCommand({ system: "sys", options: coach.claude });
     assert.equal(after(a, "--tools"), "Read,Glob,Grep,Edit,Write,WebSearch,WebFetch");
     // Relative rules, as verified against the real CLI: they match inside the working directory only.
-    assert.equal(after(a, "--allowedTools"), "Edit(plan/**),Write(plan/**),Edit(materials/**),Write(materials/**),Edit(coach-notes.md),Write(coach-notes.md),Edit(profile.json),Write(profile.json),WebSearch,WebFetch");
+    assert.equal(after(a, "--allowedTools"), "Edit(materials/**),Write(materials/**),Edit(coach-notes.md),Write(coach-notes.md),Edit(profile.json),Write(profile.json),WebSearch,WebFetch");
     assert.equal(after(a, "--permission-mode"), "dontAsk");
     assert.equal(after(a, "--setting-sources"), "");
     assert.ok(a.includes("--strict-mcp-config"));
@@ -55,8 +56,8 @@ test("turning the web off removes claude's web tools and codex's search", async 
     assert.ok(!a.includes("--add-dir"));
     const c = codexArgs({ system: "sys", options: coach.codex });
     assert.ok(c.includes('web_search="disabled"'));
-    assert.ok(!/search the web|open the page/i.test(String(coach.system).split("Safety")[0]!.split("Materials")[1]!.replace(/You have no web access[^\n]*/, "")));
-    assert.match(String(coach.system), /You have no web access/);
+    assert.ok(!/search the web|open the page/i.test((typeof coach.system === "string" ? coach.system : await coach.system()).split("Safety")[0]!.split("Materials")[1]!.replace(/You have no web access[^\n]*/, "")));
+    assert.match((typeof coach.system === "string" ? coach.system : await coach.system()), /You have no web access/);
   } finally {
     await s.cleanup();
   }
@@ -144,7 +145,7 @@ test("after a turn: plan, profile and materials changes are told apart", async (
     const coach = genericCoach(s, noLinks);
     let before = await coach.beforeTurn!();
     await writeFile(join(s.home, "plan/plan.json"), goodPlan());
-    assert.deepEqual(await coach.afterTurn!(before), { changed: { plan: true, materials: false, profile: false }, notices: [] });
+    assert.deepEqual(await coach.afterTurn!(before), { changed: { plan: false, materials: false, profile: false }, notices: [] });
 
     before = await coach.beforeTurn!();
     await writeProfile(s, profile);
@@ -160,46 +161,32 @@ test("after a turn: plan, profile and materials changes are told apart", async (
   }
 });
 
-test("after a turn: an invalid plan asks for one fix, then becomes a notice", async () => {
+test("invalid candidates get one repair opportunity without changing Today", async () => {
   const s = await studio();
   try {
     const coach = genericCoach(s, noLinks);
     const before = await coach.beforeTurn!();
-    const bad = JSON.parse(goodPlan());
-    bad.sessions[0].stages[0].minutes = 500;
-    await writeFile(join(s.home, "plan/plan.json"), JSON.stringify(bad));
-
+    await writeFile(candidatePath(s, coach), '{"version":2}');
     const first = await coach.afterTurn!(before, { final: false });
-    assert.match(first.followUp!, /^plan\/plan\.json is not valid: sessions\[0\]\.stages\[0\]\.minutes must be a whole number, 1 to 120\.\nFix the file now/);
-    assert.deepEqual(first.notices, []);
-    assert.equal(first.changed!.plan, true);
-
-    const second = await coach.afterTurn!(before, { final: true });
-    assert.equal(second.followUp, undefined);
-    assert.equal(second.notices!.length, 1);
-    assert.match(second.notices![0]!, /cannot use\. plan\/plan\.json is not valid: sessions\[0\]\.stages\[0\]\.minutes/);
-
-    // Fixed on the follow-up turn: compared with the state before the first turn, so still "changed".
-    await writeFile(join(s.home, "plan/plan.json"), goodPlan());
-    assert.deepEqual(await coach.afterTurn!(before, { final: true }), { changed: { plan: true, materials: false, profile: false }, notices: [] });
-  } finally {
-    await s.cleanup();
-  }
+    assert.match(first.followUp!, /Plan candidate is not valid/);
+    await writeFile(candidatePath(s, coach), goodPlan());
+    const final = await coach.afterTurn!(before, { final: true });
+    assert.equal(final.changed!.plan, false);
+    assert.match(final.notices!.join(" "), /proposed plan/);
+    await assert.rejects(readFile(join(s.home, "plan/plan.json")));
+  } finally { await s.cleanup(); }
 });
 
-test("after a turn: a plan that was there and is now gone or unparsable is reported", async () => {
+test("a removed candidate is rejected and never activates a plan", async () => {
   const s = await studio();
   try {
-    await writeFile(join(s.home, "plan/plan.json"), goodPlan());
     const coach = genericCoach(s, noLinks);
     const before = await coach.beforeTurn!();
-    await rm(join(s.home, "plan/plan.json"));
-    assert.match((await coach.afterTurn!(before)).followUp!, /plan\/plan\.json is missing/);
-    await writeFile(join(s.home, "plan/plan.json"), "{ nope");
-    assert.match((await coach.afterTurn!(before)).followUp!, /plan\/plan\.json is not valid: it is not JSON/);
-  } finally {
-    await s.cleanup();
-  }
+    await rm(candidatePath(s, coach));
+    const result = await coach.afterTurn!(before, { final: true });
+    assert.match(result.notices!.join(" "), /candidate the app cannot use/);
+    await assert.rejects(readFile(join(s.home, "plan/plan.json")));
+  } finally { await s.cleanup(); }
 });
 
 test("after a turn: an untouched invalid plan is not the coach's to fix", async () => {
@@ -320,19 +307,16 @@ test("after a turn: slow downloads carry on after the reply, and their failures 
   }
 });
 
-test("after a turn: a plan started after today, in the app's zone, goes back for a fix", async () => {
+test("a future-dated candidate is refused", async () => {
   const s = await studio({ timeZone: "America/Chicago" });
   try {
-    // 01:30 UTC on the 15th is the evening of the 14th in Chicago; a coach on UTC writes the 15th.
-    const coach = genericCoach(s, { ...noLinks, now: () => new Date("2026-11-15T01:30:00Z") });
+    const coach = genericCoach(s, noLinks);
     const before = await coach.beforeTurn!();
-    await writeFile(join(s.home, "plan/plan.json"), JSON.stringify(starterPlan(profile, "2026-11-15")));
-    assert.match((await coach.afterTurn!(before)).followUp!, /^plan\/plan\.json: "started" is 2026-11-15, after today \(2026-11-14\); use today's date\.\nFix the file now/);
-    await writeFile(join(s.home, "plan/plan.json"), JSON.stringify(starterPlan(profile, "2026-11-14")));
-    assert.equal((await coach.afterTurn!(before)).followUp, undefined);
-  } finally {
-    await s.cleanup();
-  }
+    const plan = JSON.parse(goodPlan()); plan.started = "2099-01-01";
+    await writeFile(candidatePath(s, coach), JSON.stringify(plan));
+    const result = await coach.afterTurn!(before, { final: true });
+    assert.match(result.notices!.join(" "), /starts after today/);
+  } finally { await s.cleanup(); }
 });
 
 test("claude's WebFetch goes through the guard hook when the web is on", async () => {

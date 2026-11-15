@@ -69,6 +69,23 @@ try {
       assert.match(await row.textContent() ?? "", /Flatpicking Guitar Magazine.*Intermediate.*In your plan/s);
       assert.equal(await page.locator(".itemtitle").filter({ hasText: "Legacy lesson" }).count(), 1);
       const prefix = `${width}x${height}-${theme}`;
+      if (issue === 21) {
+        assert.equal(await row.getByRole("button", { name: "Black Mountain Rag", exact: true }).count(), 1);
+        assert.equal(await row.getByRole("button", { name: "Use in practice", exact: true }).count(), 1);
+        const managed = page.locator(".matitem").filter({ hasText: "First Waltz" });
+        const manage = managed.getByRole("button", { name: "Manage First Waltz", exact: true });
+        await manage.click();
+        await page.getByRole("menuitem", { name: "Save a copy", exact: true }).waitFor();
+        await page.keyboard.press("End");
+        assert.equal(await page.getByRole("menuitem", { name: "Delete", exact: true }).evaluate(el => el === document.activeElement), true);
+        await page.keyboard.press("Escape");
+        assert.equal(await manage.evaluate(el => el === document.activeElement), true);
+        await manage.click();
+        await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+        await managed.getByRole("button", { name: "Keep it", exact: true }).click();
+        assert.equal(await managed.getByRole("button", { name: "Yes, delete", exact: true }).count(), 0);
+        const rect = await manage.boundingBox(); assert.ok(rect && rect.height >= 44);
+      }
       await screenshot(page, `${prefix}-list`);
       await row.locator(".itemopen").click();
       await page.getByRole("heading", { name: "Black Mountain Rag", exact: true }).waitFor();

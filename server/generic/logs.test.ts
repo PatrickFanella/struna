@@ -28,7 +28,7 @@ test("a review renders to Markdown and reads back", () => {
   assert.deepEqual(log, {
     file: "2026-11-14.md", date: "2026-11-14", created: Date.parse("2026-11-14T15:00:00.000Z"), planId: "starter-solid-basics", phase: "2: Steady strumming",
     session: "short", sessionLabel: "Short session", extra: false, minutes: 15, material: "G to C change", cleanTempo: 72, difficulty: "about right",
-    wentWell: "The change is cleaner", struggled: "The C chord buzzes", pain: false, next: "Start at 72.\nThen try 76.",
+    wentWell: "The change is cleaner", struggled: "The C chord buzzes", pain: false, partial: false, next: "Start at 72.\nThen try 76.",
   });
   assert.equal(isCounted(log), true);
 });
@@ -103,4 +103,11 @@ test("optional checklist preserves attempted and unmeasured work in the saved lo
   for (const activities of [null, {}, [{ key: "x", title: "", attempted: true }], [{ key: "x", title: "Work", attempted: "yes" }]]) {
     assert.throws(() => parseGenericReview({ ...body, activities }));
   }
+});
+
+test("partial logs do not advance progress and absent metadata keeps old semantics", () => {
+  const partial = renderGenericLog(parseGenericReview({ ...body, partial: true }), "2026-11-15", "2026-11-15T10:00:00Z");
+  assert.equal(isCounted(parseGenericLog("2026-11-15.md", partial)), false);
+  const old = partial.replace(/- \*\*Partial session:\*\*.*\n/, "");
+  assert.equal(isCounted(parseGenericLog("2026-11-15.md", old)), true);
 });

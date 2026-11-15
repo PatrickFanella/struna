@@ -18,13 +18,18 @@ import { StageBar, stageShort } from "./StageBar.tsx";
 import { SessionStatus } from "./SessionStatus.tsx";
 import { resolveStageTempo, validBpm, type StageTempo, type TempoRecord } from "./stageTempo.ts";
 import { refPaneItem } from "../materials/item.ts";
-import { recordPass, emptyPasses, type Checkpoint, type PassState } from "./checkpoints.ts";
+import { recordPass, emptyPasses, measurementChoices, selectedMeasurement, type Checkpoint, type PassState } from "./checkpoints.ts";
+import { SessionDialog, ConfirmDiscard } from "./ConfirmDiscard.tsx";
+import { stopTimer } from "./sessionTimer.ts";
+import { StageMaterialLink } from "./StageMaterialLink.tsx";
+import { setStageSuggestion } from "../tools/stageSuggestion.ts";
 import { TempoRow } from "./TempoRow.tsx";
 
 export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpoint" | "final"; purpose: string };
 export type SessionState = {
   /** The session kind's id: `full` or `floor` in personal mode, the plan's own ids in studio mode. */
   kind: string;
+  today?: Today;
   stages?: Stage[];
   addedActivities?: Activity[];
   attemptedActivities?: string[];
@@ -57,6 +62,8 @@ export type SessionState = {
   panes: PaneState[];
   /** Studio mode: the review form is open, so a reload returns to it rather than to the session. */
   reviewing?: true;
+  partial?: true;
+  ending?: { running: boolean; pain: boolean };
   /** Totals for the review sheet. */
   cleanTotal?: number;
   missTotal?: number;
@@ -134,14 +141,15 @@ function Instruction({ text }: { text: string }) {
 
 export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function Session({ today, state, setState, items, material, onFinish, closeTools, openTool }: {
+export function Session({ today, state, setState, items, material, onFinish, onDiscard, closeTools, openTool }: {
   today: Today;
   state: SessionState;
   setState: (fn: (s: SessionState) => SessionState) => void;
   items: PaneItem[];
   /** The lesson material's name, for the coach. */
   material: string;
-  onFinish: () => void;
+  onFinish: (partial?: boolean) => void;
+  onDiscard: () => void;
   closeTools: () => void;
   openTool: (tool: Tool) => void;
 }) {
@@ -155,8 +163,8 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   const stage = stages[at]!;
   const tempoKey = `${kind.id}:${stage.key}:${stage.material?.key ?? "unassigned"}`;
   const stageTempo = state.stageTempos?.[tempoKey];
-  const measurementItems = [...new Map([...(stage.material ? [refPaneItem(stage.material)] : []), ...state.panes.flatMap((p) => p.content.type === "file" ? [p.content.item] : []), ...items].filter((i) => !i.missing).map((i) => [i.key, i])).values()];
-  const measured = state.measurementMaterials?.[tempoKey] ?? measurementItems[0];
+  const measurementItems = measurementChoices(stage.material ? refPaneItem(stage.material) : undefined, state.panes.map((p) => p.content), items);
+  const measured = selectedMeasurement(measurementItems, state.measurementMaterials?.[tempoKey]);
   const passKey = `${kind.id}:${stage.key}:${measured?.key ?? "unassigned"}`;
   const passState = state.materialPasses?.[passKey] ?? emptyPasses();
   useEffect(() => {
@@ -185,6 +193,15 @@ export function Session({ today, state, setState, items, material, onFinish, clo
     else void api.get<TempoRecord[]>("/api/tempos").catch(() => []).then(enter);
     return () => { active = false; unsubscribe?.(); };
   }, [tempoKey]); // Per-stage entry; changes to the click are captured as a player override.
+  const restoreTempo = () => {
+    if (!stageTempo) return;
+    metronome.set({ bpm: stageTempo.bpm });
+    setState((s) => ({ ...s, stageTempos: { ...s.stageTempos, [tempoKey]: { bpm: stageTempo.bpm, source: stageTempo.source } } }));
+  };
+  useEffect(() => {
+    setStageSuggestion(stageTempo ? { bpm: stageTempo.bpm, source: stageTempo.source, use: restoreTempo } : null);
+    return () => setStageSuggestion(null);
+  }, [tempoKey, stageTempo?.bpm, stageTempo?.source]);
   const total = stage.minutes * 60_000;
   const [now, setNow] = useState(Date.now());
   const elapsed = state.elapsedBefore + (state.resumedAt ? now - state.resumedAt : 0);
@@ -208,7 +225,9 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   const [takeLabel, setTakeLabel] = useState<RecordingRef["label"]>(today.position.number === 1 ? "baseline" : "weekly");
   const [purpose, setPurpose] = useState("");
   const [recError, setRecError] = useState("");
+  const [finalizing, setFinalizing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   useEffect(() => () => rec.current?.cancel(), []);
 
   const startTake = async () => {
@@ -228,7 +247,10 @@ export function Session({ today, state, setState, items, material, onFinish, clo
     const r = rec.current;
     rec.current = null;
     setRecording(null);
-    if (r) setTake(await r.stop());
+    if (r) {
+      setFinalizing(true);
+      try { setTake(await r.stop()); } finally { setFinalizing(false); }
+    }
   };
   const saveTake = async () => {
     if (!take || !today.block) return;
@@ -252,6 +274,12 @@ export function Session({ today, state, setState, items, material, onFinish, clo
     }
   };
 
+  const requestEnd = async (pain = false) => {
+    metronome.stop();
+    setState((s) => ({ ...stopTimer(s, Date.now()), ending: { running: s.resumedAt !== null, pain } }));
+    if (rec.current) await stopTake();
+  };
+  const resume = () => setState(({ ending, ...s }) => ({ ...s, resumedAt: ending?.running ? Date.now() : null }));
   const next = () => {
     if (state.stage + 1 >= stages.length) return onFinish();
     setState((s) => moveStage(s, s.stage + 1, Date.now()));
@@ -315,6 +343,26 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   const b = today.block!;
   return (
     <div className="session">
+      {state.ending && !discarding && <SessionDialog title={state.ending.pain ? "Stop: pain or tension" : "End session?"} onClose={resume}>
+        <p>{state.ending.pain ? "Stop playing and rest. A pain stop does not count toward plan progress." : "The timer is paused. Ending alone writes no log."}</p>
+        {(take || recording !== null || finalizing) && <div>
+          <p>{finalizing ? "Finishing the recording. Exit choices will be available when the take is ready." : "Choose what to do with your unsaved recording before leaving."}</p>
+          <button className="btn outline" disabled={saving || finalizing || recording !== null} onClick={() => void saveTake()}>Keep take in Recordings</button>
+          <button className="btn quiet danger" disabled={saving || finalizing} onClick={() => { rec.current?.cancel(); rec.current = null; setRecording(null); setTake(null); }}>Discard unsaved take</button>
+          {recError && <p role="alert">{recError}</p>}
+        </div>}
+        <p>Already saved recordings stay in Recordings, even if you discard this session.</p>
+        <div className="exit-actions">
+          <button className="btn outline" autoFocus onClick={resume}>Resume session</button>
+          <button className="btn primary" disabled={saving || finalizing || Boolean(take) || recording !== null} onClick={() => {
+            const pain = state.ending!.pain;
+            setState(({ ending: _, ...s }) => ({ ...s, pain }));
+            onFinish(!pain);
+          }}>{state.ending.pain ? "Review pain stop" : "Review partial session"}</button>
+          <button className="btn quiet danger" disabled={saving || finalizing || Boolean(take) || recording !== null} onClick={() => setDiscarding(true)}>Discard session</button>
+        </div>
+      </SessionDialog>}
+      {discarding && <ConfirmDiscard onCancel={() => setDiscarding(false)} onDiscard={onDiscard} />}
       <div className="sessiontop">
         <div className="sessionline">
           <span>{generic ? b.title : blockName(b)}</span>
@@ -331,6 +379,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
           )}
           <span className="addslot" ref={setAddSlot} />
         </div>
+        <button className="btn quiet" onClick={() => void requestEnd()}>End session</button>
         <StageBar stages={stages} current={at} progress={elapsed / total} />
         <p className="srcnote session-time">Stage {at + 1} of {stages.length} · Stage elapsed {fmt(elapsed)} · Active practice {fmt(activeElapsed(state, now))}</p>
         {hasIncompleteTiming(state) && <p className="srcnote">Earlier stage times were not recorded in this older session. Active time includes only recovered timing.</p>}
@@ -348,11 +397,8 @@ export function Session({ today, state, setState, items, material, onFinish, clo
                 }} /> {activity.title}
               </label>)}
             </fieldset>}
-            {stage.material && <p className="srcnote">Material: {stage.material.label}{stage.material.missing ? " — missing; choose another resource or check the plan reference." : ""}</p>}
-            {stageTempo && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={() => {
-              metronome.set({ bpm: stageTempo.bpm });
-              setState((s) => ({ ...s, stageTempos: { ...s.stageTempos, [tempoKey]: { bpm: stageTempo.bpm, source: stageTempo.source } } }));
-            }}>Use suggestion</button></p>}
+            {stage.material && <StageMaterialLink material={stage.material} />}
+            {stageTempo && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={restoreTempo}>Use stage tempo</button></p>}
             {!generic && (
             <p className="coachline" aria-live="polite">
               <span className="coachtag">Coach</span>
@@ -374,8 +420,8 @@ export function Session({ today, state, setState, items, material, onFinish, clo
             <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
             <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} min` : `over ${stage.minutes} min`) : elapsed ? "paused, tap to resume" : "tap to start the timer"}</span>
           </button>
-          {state.stage > 0 && <button className="btn quiet backb" onClick={back} title="Restart the previous stage timer; keep running or paused" disabled={Boolean(take) || recording !== null}>Back</button>}
-          <button className="btn outline nextb" onClick={next} disabled={Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
+          {state.stage > 0 && <button className="btn quiet backb" onClick={back} title="Restart the previous stage timer; keep running or paused" disabled={finalizing || Boolean(take) || recording !== null}>Back</button>}
+          <button className="btn outline nextb" onClick={next} disabled={finalizing || Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
             <span>{nextStage ? "Next stage" : "Finish"}</span>
             <small>{nextStage ? `Up next: ${stageShort(nextStage)}` : "Write the log"}</small>
           </button>
@@ -409,15 +455,10 @@ export function Session({ today, state, setState, items, material, onFinish, clo
             <span className="rec now" aria-hidden="true" />Stop take <span className="num">{fmt(now - recording)}</span>
           </button>
         ) : (
-          <button className="btn quiet" onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
+          <button className="btn quiet" disabled={finalizing || saving} onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
         )}
         </span>
-        <button className="linkbtn stoppain" onClick={() => {
-          if (take && !confirm("Discard the unsaved take and stop?")) return;
-          rec.current?.cancel();
-          setState((s) => ({ ...s, pain: true }));
-          onFinish();
-        }}>Stop: pain or tension</button>
+        <button className="linkbtn stoppain" onClick={() => void requestEnd(true)}>Stop: pain or tension</button>
       </div>
       <SessionStatus timerRunning={state.resumedAt !== null} recording={recording !== null} take={take !== null} saving={saving} saved={state.recording !== null} error={recError} />
       {state.recording && !take && <p className="srcnote takesaved">Saved take: {state.recording.path}</p>}

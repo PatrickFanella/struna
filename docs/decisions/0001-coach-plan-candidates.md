@@ -1,7 +1,7 @@
 # ADR 0001: Coach plan candidates require a server-owned Apply boundary
 
 Decision date: 2026-11-14. Scope: Studio mode, issue #8; implementation belongs to #9.
-Status: accepted implementation direction, not an implemented preview.
+Status: implemented for #9; human code and player-preview review remain required before release.
 
 ## Evidence at c2b27ca
 
@@ -128,3 +128,17 @@ This proves the candidate lifecycle is testable without a provider. The
 production candidate path and permission profiles above still require #9 tests
 and offline real-CLI sandbox qualification. No browser/UI or human/audio evidence
 is claimed by this architecture spike.
+
+## Implementation qualification, November 15, 2026 UTC
+
+The implementation adds an outer Linux Bubblewrap boundary around both CLI families. The studio root is mounted read only; materials, the existing notes/profile files and the turn-specific candidate directory are the only writable studio paths. File and directory aliases are checked before launch. Claude's tool grants also exclude the live plan. Codex retains its existing inner read/runtime/network profile, with the outer mount boundary narrowing its effective writes. This preserves the credential, web and endpoint-proxy policies.
+
+This updates the originally proposed Codex file-grant mechanism: an offline probe of Codex 0.167.2 with exact writable-file roots failed during synthetic mount construction. The outer boundary handles those file mounts directly and applies to the entire CLI process tree, including host, configured-key, resumed, automatic and repair turns. No workspace-write fallback was introduced.
+
+Before offering providers at startup, and again before a turn, the app probes the wrapper with hostile writes and the actual executable's `--version`. Relative, absolute, traversal, unlink, rename, symlink and hard-link attempts against active/archive paths are refused; candidate, materials, notes and profile writes succeed. Both installed Claude Code 2.1.322 and Codex 0.167.2 passed this offline wrapper probe. No model request or production account was used. Missing Bubblewrap, failed namespace setup or failed CLI launch disables that family with a reason.
+
+Validated exact bytes are stored privately in SQLite. Apply and starter mutations share a studio lock. Apply revalidates candidate/material paths, the base fingerprint, archive absence and a fresh practice revision. Prepared files and relevant directories are synced around archive linking and atomic activation; private intent/receipt records recover a process interruption before Today is served. Dismiss/expiry remove pending bytes. Advice, errors, cancellation and stale provider configuration never activate a proposal.
+
+Practice registration uses two-minute server leases with twenty-second heartbeats. Expiry advances the revision, so an old idle assertion cannot apply. Restored practice is gated on registration, failure is visible and retryable, and the timer pauses on connection loss/expiry. A session carries its original Today/stage snapshot. This is a single-player browser protocol; every active tab must register, and other open tabs must finish or discard practice before Apply.
+
+These are code, stand-in and offline-wrapper checks. A real authenticated model turn, human review of this boundary, player review of the preview, native-phone Safari, hardware audio and human assistive use remain unverified. The original human checkpoint on #9 still applies.
