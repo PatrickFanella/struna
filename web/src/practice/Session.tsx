@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { api, store } from "../api.ts";
 import { audio } from "../audio/context.ts";
-import { MicDenied, micUsers } from "../audio/mic.ts";
+import { MicDenied } from "../audio/mic.ts";
 import { metronome, type Subdivision } from "../audio/metronome.ts";
 import { type Take, TakeRecorder } from "../audio/record.ts";
 import { type HelperState, type Suggestion } from "../audio/tempo.ts";
@@ -239,28 +239,34 @@ export function Session({ today, state, setState, items, material, onFinish, onD
   const [takeLabel, setTakeLabel] = useState<RecordingRef["label"]>(today.position.number === 1 ? "baseline" : "weekly");
   const [purpose, setPurpose] = useState("");
   const [recError, setRecError] = useState("");
+  const [requesting, setRequesting] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [discarding, setDiscarding] = useState(false);
-  useEffect(() => () => rec.current?.cancel(), []);
+  useEffect(() => () => { const pending = rec.current; rec.current = null; pending?.cancel(); }, []);
 
   const startTake = async () => {
+    if (rec.current) return;
     setRecError("");
     closeTools(); // The tuner and the recorder never share the microphone.
-    micUsers.dispatchEvent(new Event("recording"));
     const r = new TakeRecorder();
+    rec.current = r;
+    setRequesting(true);
     try {
       await r.start();
-      rec.current = r;
+      if (rec.current !== r) { r.cancel(); return; }
       setRecording(Date.now());
     } catch (e) {
+      if (rec.current !== r) return;
+      rec.current = null; r.cancel();
       setRecError(e instanceof MicDenied ? "Microphone access is off. Allow it in the browser settings and try again." : String((e as Error).message ?? e));
-    }
+    } finally { if (!rec.current || rec.current === r) setRequesting(false); }
   };
   const stopTake = async () => {
     const r = rec.current;
     rec.current = null;
     setRecording(null);
+    if (r && recording === null) { r.cancel(); setRequesting(false); return; }
     if (r) {
       setFinalizing(true);
       try { setTake(await r.stop()); } finally { setFinalizing(false); }
@@ -436,8 +442,8 @@ export function Session({ today, state, setState, items, material, onFinish, onD
             <span className="t num">{left >= 0 ? fmt(left) : `+${fmt(-left)}`}</span>
             <span className="s">{state.resumedAt ? (left >= 0 ? `left of ${stage.minutes} min` : `over ${stage.minutes} min`) : elapsed ? "paused, tap to resume" : "tap to start the timer"}</span>
           </button>
-          {state.stage > 0 && <button className="btn quiet backb" onClick={back} title="Restart the previous stage timer; keep running or paused" disabled={finalizing || Boolean(take) || recording !== null}>Back</button>}
-          <button className="btn outline nextb" onClick={next} disabled={finalizing || Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
+          {state.stage > 0 && <button className="btn quiet backb" onClick={back} title="Restart the previous stage timer; keep running or paused" disabled={requesting || finalizing || Boolean(take) || recording !== null}>Back</button>}
+          <button className="btn outline nextb" onClick={next} disabled={requesting || finalizing || Boolean(take) || recording !== null} title={take || recording !== null ? "Save or discard the take first" : undefined}>
             <span>{nextStage ? "Next stage" : "Finish"}</span>
             <small>{nextStage ? `Up next: ${stageShort(nextStage)}` : "Write the log"}</small>
           </button>
@@ -477,11 +483,12 @@ export function Session({ today, state, setState, items, material, onFinish, onD
             <span className="rec now" aria-hidden="true" />Stop take <span className="num">{fmt(now - recording)}</span>
           </button>
         ) : (
-          <button className="btn quiet" disabled={finalizing || saving} onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
+          <button className="btn quiet" disabled={requesting || finalizing || saving} onClick={startTake}><span className="rec" aria-hidden="true" />Record take</button>
         )}
         </span>}
         <button className="linkbtn stoppain" onClick={() => void requestEnd(true)}>Stop: pain or tension</button>
       </div>
+      {requesting && <p role="status">Waiting for microphone permission. <button className="linkbtn" onClick={() => void stopTake()}>Cancel microphone request</button></p>}
       {finalizing && <p role="status">Finishing the recording…</p>}
       <SessionStatus timerRunning={state.resumedAt !== null} recording={recording !== null} take={take !== null} saving={saving} saved={state.recording !== null} error={recError} />
       {state.recording && !take && <p className="srcnote takesaved">Saved take: {state.recording.path}</p>}

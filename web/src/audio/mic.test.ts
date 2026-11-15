@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { MicDenied, openMic, stopMic } from "./mic.ts";
+import { claimRecordingMic, recordingMicInUse, MicDenied, openMic, stopMic } from "./mic.ts";
 
 test("microphone errors distinguish denied, missing and unavailable input", async () => {
   const previous = Object.getOwnPropertyDescriptor(navigator, "mediaDevices");
@@ -34,4 +34,15 @@ test("stopping one lease leaves an independent recorder lease live", () => {
   stopMic(recorder);
   assert.equal(recorderStops, 1);
   stopMic(null);
+});
+
+
+test("recording reserves capture before permission and tuner fails without a second request", async () => {
+  const release = claimRecordingMic();
+  try {
+    assert.equal(recordingMicInUse(), true);
+    assert.throws(() => claimRecordingMic(), MicDenied);
+    await assert.rejects(openMic("tuner"), /Stop the recording/);
+  } finally { release(); }
+  assert.equal(recordingMicInUse(), false);
 });
