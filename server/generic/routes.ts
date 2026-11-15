@@ -1,3 +1,4 @@
+import { planLock } from "./planCandidates.ts";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -13,7 +14,7 @@ import type { AppInfo, Level, Profile } from "./types.ts";
  * Write the starter plan unless a valid plan exists. An invalid file is moved to the archive
  * first; the new file is created exclusively, so a plan the coach writes meanwhile is kept.
  */
-export async function ensureStarterPlan(s: Studio, profile: Profile, now = new Date()): Promise<"created" | "kept"> {
+async function ensureStarterPlanUnlocked(s: Studio, profile: Profile, now = new Date()): Promise<"created" | "kept"> {
   const { plan, errors } = await readPlan(s);
   if (plan) return "kept";
   const path = join(s.home, PLAN_REL);
@@ -27,6 +28,10 @@ export async function ensureStarterPlan(s: Studio, profile: Profile, now = new D
     throw e;
   }
   return "created";
+}
+
+export async function ensureStarterPlan(s: Studio, profile: Profile, now = new Date()): Promise<"created" | "kept"> {
+  return planLock(s.home, () => ensureStarterPlanUnlocked(s, profile, now));
 }
 
 /** What `/api/app` says in the studio mode; the page also carries it, so the app draws without asking. */

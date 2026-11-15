@@ -30,6 +30,7 @@ export type AfterTurn = { changed?: Changed; notices?: string[]; followUp?: stri
 
 /** What a mode gives the chat: the instructions, the context block and what each CLI may touch. */
 export type CoachProfile = {
+  providerId?: string;
   system: string | (() => Promise<string>);
   /** The [Struna] block that prefixes each message. */
   context: (screen: Screen) => Promise<string>;
@@ -43,7 +44,7 @@ export type CoachProfile = {
    * `final` is set when no follow-up can run (one already did, or the turn failed), so
    * anything still wrong must come back as a notice.
    */
-  afterTurn?: (before: unknown, pass?: { final: boolean }) => Promise<AfterTurn>;
+  afterTurn?: (before: unknown, pass?: { final: boolean; successful?: boolean }) => Promise<AfterTurn>;
   /**
    * Studio mode with its coach list: the profile and run for one coach id, built for each request so a
    * new key applies at once. Null for an id it does not know; throws an HttpError for one turned off here.
@@ -182,7 +183,7 @@ export async function coachTurn(o: { coach: CoachProfile; run: Run; prompt: stri
     }
   };
   const after = async (before: unknown, final: boolean): Promise<string | undefined> => {
-    const r = await coach.afterTurn!(before, { final });
+    const r = await coach.afterTurn!(before, { final, successful: !signal.aborted && errors.length === 0 && !o.stale?.() });
     if (r.changed && (r.changed.plan || r.changed.materials || r.changed.profile)) emit("changed", r.changed);
     for (const n of r.notices ?? []) emit("notice", { message: n });
     return final ? undefined : r.followUp;
@@ -191,8 +192,8 @@ export async function coachTurn(o: { coach: CoachProfile; run: Run; prompt: stri
   let system = "";
   let before: unknown;
   try {
-    system = typeof coach.system === "string" ? coach.system : await coach.system();
     before = await coach.beforeTurn?.();
+    system = typeof coach.system === "string" ? coach.system : await coach.system();
     await turn(system, o.prompt);
   } catch (e) {
     fail(e);

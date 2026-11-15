@@ -109,7 +109,7 @@ export function GenericStart({ today, onStart, onTune, onCoach, onEditProfile, o
               onClick={() =>
                 askCoach(
                   today.error === NO_PLAN
-                    ? "Build my practice plan. Read my profile and any logs first, write plan/plan.json, then tell me in a few lines what is in it."
+                    ? "Build my practice plan. Read my profile and any logs first, stage a proposed plan for my review, then tell me in a few lines what is in it."
                     : `${today.error}. Fix the file, keeping what it was trying to say, and tell me what you changed.`,
                   { open: true },
                 )

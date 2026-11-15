@@ -120,16 +120,16 @@ try {
     writeFileSync(join(dir, "fake/fail"), "");
     await coach.getByRole("button", { name: "Coach settings", exact: true }).click();
     await coach.locator(".chatsettings .provrow").first().waitFor();
-    assert.match(await coach.locator(".chatsettings").innerText(), /edit your active plan.*no Apply preview yet/s);
+    assert.match(await coach.locator(".chatsettings").innerText(), /Only Apply changes the active plan.*materials, notes and profile edits still take effect directly/s);
     await shot("settings");
     await coach.getByRole("button", { name: "Done", exact: true }).click();
     // The start-screen settings own the automatic-action explanation.
     await page.locator(".gstart").getByRole("button", { name: "Coach settings", exact: true }).click();
     await page.locator(".actionlist").waitFor();
-    assert.match(await page.locator(".coachsettings").innerText(), /Auto sends the request immediately.*Ask first waits.*does not preview file changes/s);
+    assert.match(await page.locator(".coachsettings").innerText(), /Auto sends the request immediately.*Ask first waits.*only Apply changes Today/s);
     await shot("automatic-actions");
     assert.deepEqual(errors, []);
-    const result = `${label}: provider identity, plan/input Draft, advice/length labels, single Send, busy/error and direct-write disclosures passed`;
+    const result = `${label}: provider identity, plan/input Draft, advice/length labels, single Send, busy/error and plan-approval and direct non-plan write disclosures passed`;
     results.push(result);
     console.log(result);
     await context.close();

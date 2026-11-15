@@ -27,7 +27,7 @@ const execFileP = promisify(execFile);
  * folder (its install folder was found). Without it every Codex coach is off: the workspace-write
  * sandbox limits only writes, so a command could read the saved keys and the ChatGPT login.
  */
-export type CoachPolicy = { local: boolean; hostLogins: boolean; deviceSignIn: boolean; keys: boolean; privateEndpoints: boolean; codexSandboxed: boolean; budgetUsd: number; hostName: string; lookup?: Lookup | undefined };
+export type CoachPolicy = { planSandbox?: { claude: { ok: boolean; detail: string }; codex: { ok: boolean; detail: string } }; local: boolean; hostLogins: boolean; deviceSignIn: boolean; keys: boolean; privateEndpoints: boolean; codexSandboxed: boolean; budgetUsd: number; hostName: string; lookup?: Lookup | undefined };
 
 export function coachPolicy(o: { local: boolean; hostLogins?: boolean | undefined; deviceSignIn?: boolean; requireUser?: boolean; privateEndpoints?: boolean; codexSandboxed?: boolean; budgetUsd?: number; hostName?: string; lookup?: Lookup }): CoachPolicy {
   return {
@@ -81,7 +81,11 @@ export function offered(id: ProviderId, p: CoachPolicy): boolean {
 /** Why a Codex coach is off whatever the policy says: its sandbox could not keep it out of the saved keys. */
 export const CODEX_UNSANDBOXED = "Codex's install folder was not found, so its sandbox cannot keep it from reading the saved keys and logins. Set CODEX_BIN to the real Codex binary's full path.";
 /** Offered, but unusable here: the reason, or null. */
-const blocked = (id: ProviderId, p: CoachPolicy): string | null => (entryOf(id)?.via === "Codex" && !p.codexSandboxed ? CODEX_UNSANDBOXED : null);
+const blocked = (id: ProviderId, p: CoachPolicy): string | null => {
+  if (entryOf(id)?.via === "Codex" && !p.codexSandboxed) return CODEX_UNSANDBOXED;
+  const probe = p.planSandbox?.[entryOf(id)?.via === "Codex" ? "codex" : "claude"];
+  return probe && !probe.ok ? probe.detail : null;
+};
 
 function refusal(id: ProviderId, p: CoachPolicy): string {
   if (id === "claude" || id === "codex") return "Coaching on this computer's own Claude and ChatGPT logins is turned off here. Start a new conversation with another coach.";

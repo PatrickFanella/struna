@@ -21,6 +21,7 @@ await writeFile(
   `#!/usr/bin/env node
 const fs = require("node:fs");
 const argv = process.argv.slice(2);
+if (argv[0] === "--version") { console.log("offline-test"); process.exit(0); }
 if (argv[0] === "auth") { console.log(JSON.stringify({ loggedIn: true, authMethod: "claude.ai", subscriptionType: "max" })); process.exit(0); }
 if (argv[0] === "login") { console.log("Logged in using ChatGPT"); process.exit(0); }
 let input = "";
@@ -28,8 +29,9 @@ process.stdin.on("data", (d) => (input += d)).on("end", () => {
   fs.appendFileSync(${JSON.stringify(calls)}, JSON.stringify({ argv, cwd: process.cwd(), input }) + "\\n");
   const out = (o) => console.log(JSON.stringify(o));
   out({ type: "system", subtype: "init", session_id: "sess-1", apiKeySource: "none" });
-  if (input.includes("BREAK THE PLAN")) fs.writeFileSync("plan/plan.json", '{"version": 2}');
-  if (input.includes("Fix the file")) fs.copyFileSync(${JSON.stringify(goodPlan)}, "plan/plan.json");
+  const candidate = /This turn's plan candidate: ([^\\s]+)\\./.exec(argv.join(" "))?.[1] ?? "plan/plan.json";
+  if (input.includes("BREAK THE PLAN")) fs.writeFileSync(candidate, '{"version": 2}');
+  if (input.includes("Fix the file")) fs.copyFileSync(${JSON.stringify(goodPlan)}, candidate);
   out({ type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: argv.includes("--resume") ? "Fixed." : "Done." } } });
   out({ type: "result", is_error: false, result: "unused" });
 });
@@ -272,18 +274,19 @@ test("generic chat: an invalid plan gets one fix on the same thread, in the same
   const r = await post({ provider: "claude", message: "I just logged a session. BREAK THE PLAN", auto: "session-logged", screen: { view: "review", material: "Em to G" } });
   assert.equal(r.status, 200);
   const id = r.events[0]![1].id as string;
-  assert.deepEqual(r.events.map(([e]) => e), ["conversation", "thread", "delta", "changed", "delta", "thread", "delta", "changed", "done"]);
-  assert.deepEqual(r.events[3]![1], { plan: true, materials: false, profile: false });
+  assert.deepEqual(r.events.map(([e]) => e), ["conversation", "thread", "delta", "delta", "thread", "delta", "notice", "done"]);
+  assert.match(r.events.at(-2)![1].message, /proposed plan/);
   assert.deepEqual(r.events.at(-1)![1], { aborted: false });
 
   const [first, second] = await cliCalls();
   assert.equal(first!.cwd, home);
   assert.match(first!.input, /^\[Struna\]\nScreen: review\nToday: \d{4}-\d{2}-\d{2} \(UTC\)\nProfile: not set up yet\nPlan: No plan yet\nMaterial: Em to G\n\[\/Struna\]\n\nI just logged a session\. BREAK THE PLAN$/);
-  assert.ok(first!.argv.includes("Edit(plan/**),Write(plan/**),Edit(materials/**),Write(materials/**),Edit(coach-notes.md),Write(coach-notes.md),Edit(profile.json),Write(profile.json),WebSearch,WebFetch"));
+  assert.ok(first!.argv.some((a) => a.includes("Edit(.coach-candidates/")));
+  assert.ok(!first!.argv.some((a) => a.includes("Edit(plan/**)")));
   assert.ok(!first!.argv.includes("--resume"));
   assert.equal(second!.argv[second!.argv.indexOf("--resume") + 1], "sess-1");
-  assert.match(second!.input, /^plan\/plan\.json is not valid: version must be 1; .*\nFix the file now/s);
-  assert.deepEqual(JSON.parse(await readFile(join(home, "plan/plan.json"), "utf8")), JSON.parse(await readFile(goodPlan, "utf8")));
+  assert.match(second!.input, /Plan candidate is not valid: version must be 1; .*\nFix the file at/s);
+  await assert.rejects(readFile(join(home, "plan/plan.json")), { code: "ENOENT" });
 
   const conv = store.get(id)!;
   assert.equal(conv.thread_id, "sess-1");
@@ -301,7 +304,7 @@ test("generic chat: a plan still invalid after the fix becomes a notice, with no
   assert.equal((await cliCalls()).length - before, 2);
   const notices = again.events.filter(([e]) => e === "notice").map(([, d]) => d.message as string);
   assert.equal(notices.length, 1);
-  assert.match(notices[0]!, /^The coach left a file the app cannot use\. plan\/plan\.json is not valid: version must be 1/);
+  assert.match(notices[0]!, /^The coach left a candidate the app cannot use\. Plan candidate is not valid: version must be 1/);
   assert.deepEqual(again.events.map(([e]) => e).slice(-2), ["notice", "done"]);
 });
 

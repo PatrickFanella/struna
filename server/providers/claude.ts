@@ -1,9 +1,11 @@
+import type { PlanSandbox } from "../generic/planSandbox.ts";
 import { config } from "../config.ts";
 import { type ChatEvent, type ChatRequest, jsonLines } from "./process.ts";
 
 export const VALIDATOR = "python3 .agents/skills/guitar-practice-coach/scripts/validate-practice-system.py";
 
 export type ClaudeOptions = {
+  planSandbox?: PlanSandbox | undefined;
   /** The working directory: reads inside it need no permission. */
   cwd: string;
   /** The built-in tools the model may see. */
@@ -74,7 +76,7 @@ export async function* claudeChat(req: ChatRequest, options: ClaudeOptions): Asy
   const lines = jsonLines(
     config.claudeBin,
     claudeCommand({ system: req.system, threadId: req.threadId, model: options.env ? undefined : config.claudeModel, options }),
-    { cwd: options.cwd, input: req.prompt, signal: req.signal, timeoutMs: options.timeoutMs ?? config.chatTimeoutMs, env: options.env },
+    { cwd: options.cwd, input: req.prompt, signal: req.signal, timeoutMs: options.timeoutMs ?? config.chatTimeoutMs, env: options.env, planSandbox: options.planSandbox },
   );
 
   let streamed = false;
