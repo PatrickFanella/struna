@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 34" fill="none">
+  <title>Struna S and strings</title>
+  <metadata>Original owner-approved study geometry, roadmap #77 and issue #89, 2026-11-15. App adaptation v1; paths mirrored horizontally, never the wordmark. License: CC0-1.0.</metadata>
+  <g transform="translate(28 0) scale(-1 1)" stroke="currentColor" stroke-linecap="round">
+    <path d="M9 3v27M14 2v30M19 4v25" stroke-width="0.65"/>
+    <path d="M6 6C21-1 25 10 15 15S3 25 21 28" stroke-width="3"/>
+  </g>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <title>Struna</title>
+  <metadata>App icon v1, derived from app-mark.svg; CC0-1.0. Foreground fits the maskable central safe circle.</metadata>
+  <rect width="128" height="128" fill="#FFFAF0"/>
+  <svg x="39" y="30" width="50" height="68" viewBox="0 0 28 34" fill="none" color="#315E4D">
+  <g transform="translate(28 0) scale(-1 1)" stroke="currentColor" stroke-linecap="round">
+    <path d="M9 3v27M14 2v30M19 4v25" stroke-width="0.65"/>
+    <path d="M6 6C21-1 25 10 15 15S3 25 21 28" stroke-width="3"/>
+  </g>
+  </svg>
+</svg>
