@@ -84,8 +84,8 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
     deletionWork.set(account, work); return work;
   }
   // Recovery runs before any request can create a workspace or authenticate a deleted identity.
-  const recovery = Promise.all((db.prepare("SELECT account FROM account_deletions WHERE completed IS NULL").all() as { account: string }[]).map(row => removeAccount(row.account)));
-  void recovery.catch(() => {});
+  const recovery = Promise.allSettled((db.prepare("SELECT account FROM account_deletions WHERE completed IS NULL").all() as { account: string }[]).map(row => removeAccount(row.account)));
+
   function session(req: IncomingMessage) {
     const token = cookie(req, SESSION);
     const row = db.prepare(`SELECT s.*, a.disabled FROM sessions s JOIN accounts a ON a.id=s.account WHERE s.hash=?`).get(hash(token)) as
@@ -124,6 +124,9 @@ export function createHostedAuth({ stateDir, origin, adapter, practice, now = Da
       const method = req.method ?? "GET", path = url.pathname;
       if (method === "GET" && path === "/api/account") {
         const current = session(req);
+        const token = cookie(req, SESSION);
+        const deletion = db.prepare("SELECT 1 FROM account_deletions WHERE receipt=?").get(hash(token));
+        if (!current && token && deletion) { send(res, 200, { signedIn: false, deletionPending: true, session: hash(token), csrf: csrf(token) }); return true; }
         send(res, 200, current ? { signedIn: true, account: current.account, session: current.hash, csrf: csrf(current.token) } : { signedIn: false }); return true;
       }
       if (method === "POST" && path === "/auth/login") {

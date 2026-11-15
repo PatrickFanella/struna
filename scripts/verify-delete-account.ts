@@ -55,6 +55,16 @@ try {
  receipts.push({theme,...geometry,download:download.suggestedFilename(),failureRetry:true});
  await page.screenshot({path:resolve(out,`${width}-${height}-${theme}.png`)});
  blocked=false;
+ const originalRemove=h.practice.removeAccount;
+ h.practice.removeAccount=async account=>{h.practice.removeAccount=originalRemove;throw Object.assign(new Error("Cleanup interrupted; retry"),{status:503});};
+ await page.getByRole("button",{name:"Permanently delete my account",exact:true}).click();
+ await page.waitForURL("**/?account=deleting");
+ await page.getByRole("heading",{name:"Finish deleting your account",exact:true}).waitFor();
+ await page.evaluate(()=>dispatchEvent(new Event("focus")));
+ await page.reload();
+ await page.getByRole("heading",{name:"Finish deleting your account",exact:true}).waitFor();
+ assert.equal((await h.call("/api/today",a)).status,401);
+ await page.getByLabel("Type DELETE to confirm").fill("DELETE");
  await page.getByRole("button",{name:"Permanently delete my account",exact:true}).click();
  await page.waitForURL("**/?account=deleted");
  await page.getByRole("status").filter({hasText:"account was deleted"}).waitFor();

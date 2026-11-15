@@ -3,13 +3,14 @@ import { DeleteAccount } from "./Delete.tsx";
 import { Export } from "./Export.tsx";
 import { api, invalidateAccount } from "../api.ts";
 
-type AccountState = { signedIn: boolean; account?: string; csrf?: string; session?: string };
+type AccountState = { signedIn: boolean; account?: string; csrf?: string; session?: string; deletionPending?: boolean };
 /** Account controls discard the document when its cookie identity changes. */
 export function Account({ activeSession }: { activeSession?: string | undefined } = {}) {
   const [state, setState] = useState<AccountState | null>(null);
   const [error, setError] = useState(new URLSearchParams(location.search).has("signin") ? "Sign-in did not finish. Try again." : "");
   const [busy, setBusy] = useState(false);
   const refresh = () => api.get<AccountState>("/api/account").then((next) => {
+    if (activeSession && next.deletionPending) { location.replace("/?account=deleting"); return; }
     if (activeSession && next.session !== activeSession) { invalidateAccount(); location.replace("/"); return; }
     setState(next);
   }, () => { setState({ signedIn: false }); setError("Could not check your session. Try signing in again."); });
@@ -29,6 +30,7 @@ export function Account({ activeSession }: { activeSession?: string | undefined 
       invalidateAccount(); location.replace("/");
     } catch { setError("Could not sign out. Try again."); setBusy(false); }
   };
+  if (state?.deletionPending && state.session && state.csrf) return <div className="app"><main className="wrap"><DeleteAccount recovery={{ session: state.session, csrf: state.csrf }} /></main></div>;
   if (activeSession) return <div className="wrap"><Export /><DeleteAccount /><span>Private account</span> <button className="btn quiet" disabled={busy || !state} onClick={() => void logout()}>Sign out</button>{error && <p role="alert">{error}</p>}</div>;
   return <div className="app"><main className="wrap"><div className="start gstart">
     {new URLSearchParams(location.search).get("account") === "deleted" && <p role="status">Your Struna account was deleted. Signing in again creates a fresh empty account.</p>}

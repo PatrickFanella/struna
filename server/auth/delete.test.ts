@@ -75,3 +75,21 @@ test("startup resumes persisted deletion before sign-in and prunes completed ret
     assert.equal((await h.call("/auth/delete-account", a, "POST", { confirm: "DELETE" })).status, 401);
   } finally { await h.close(); }
 });
+
+test("transient startup recovery failure leaves neighbours/health usable and receipt retry succeeds", async () => {
+  const h = await testHosted();
+  try {
+    const a = await h.signIn("A"), b = await h.signIn("B"); await h.call("/api/today", a);
+    const original = h.practice.removeAccount;
+    h.practice.removeAccount = async () => { throw Object.assign(new Error("Transient cleanup failure"), { status: 503 }); };
+    assert.equal((await h.call("/auth/delete-account", a, "POST", { confirm: "DELETE" })).status, 503);
+    h.restartAuth();
+    assert.equal((await h.call("/api/health")).status, 200);
+    assert.equal((await h.call("/api/today", b)).status, 200);
+    const status = await (await h.call("/api/account", a)).json();
+    assert.equal(status.deletionPending, true); assert.equal(status.session, a.session); assert.equal(status.csrf, a.csrf);
+    assert.equal((await h.call("/api/today", a)).status, 401);
+    h.practice.removeAccount = original;
+    assert.equal((await h.call("/auth/delete-account", a, "POST", { confirm: "DELETE" })).status, 200);
+  } finally { await h.close(); }
+});
