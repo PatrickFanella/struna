@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { store } from "../api.ts";
 import { audio } from "../audio/context.ts";
-import { MicDenied, openMic, stopMic } from "../audio/mic.ts";
+import { MicDenied, micUsers, openMic, stopMic } from "../audio/mic.ts";
 import { freqOf, midiOf, noteFor, TUNING_LABEL, TUNINGS, type TuningId, yin } from "../audio/pitch.ts";
 import { Icon } from "../icons.tsx";
 
@@ -41,16 +41,17 @@ function Scale({ cents }: { cents: number | null }) {
   );
 }
 
-export function TunerPanel() {
+export function TunerPanel({ onMetronome }: { onMetronome?: () => void }) {
   const [tuning, setTuning] = useState<TuningId>(() => (store.get("struna.tuning") as TuningId) in TUNINGS ? (store.get("struna.tuning") as TuningId) : "standard");
   const [a4, setA4] = useState<number>(() => Number(store.get("struna.a4")) || 440);
   const [target, setTarget] = useState<string | null>(null);
   const [tuned, setTuned] = useState<Set<string>>(new Set());
   const [reading, setReading] = useState<Reading>(null);
   const [cents, setCents] = useState<number | null>(null);
-  const [mic, setMic] = useState<"starting" | "on" | "denied" | "error">("starting");
+  const [mic, setMic] = useState<"idle" | "starting" | "on" | "denied" | "missing" | "unavailable" | "error">("idle");
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [enabled, setEnabled] = useState(false);
   const strings = TUNINGS[tuning];
   const live = useRef({ a4, target, strings, smooth: null as number | null, holdFrom: 0, holdNote: "" });
   live.current.a4 = a4;
@@ -90,6 +91,20 @@ export function TunerPanel() {
   }, []);
 
   useEffect(() => {
+    const release = () => setEnabled(false);
+    micUsers.addEventListener("recording", release);
+    return () => micUsers.removeEventListener("recording", release);
+  }, []);
+
+  useEffect(() => {
+    setReading(null);
+    setCents(null);
+    live.current.smooth = null;
+    live.current.holdNote = "";
+    if (!enabled) {
+      setMic("idle");
+      return;
+    }
     let stream: MediaStream | undefined;
     let node: AudioWorkletNode | undefined;
     let source: MediaStreamAudioSourceNode | undefined;
@@ -122,7 +137,13 @@ export function TunerPanel() {
         raf = requestAnimationFrame(loop);
       } catch (e) {
         if (closed) return;
-        if (e instanceof MicDenied) setMic("denied");
+        stopMic(stream);
+        source?.disconnect();
+        node?.disconnect();
+        if (e instanceof MicDenied) {
+          setMic(e.reason);
+          setError(e.message);
+        }
         else {
           setMic("error");
           setError(String((e as Error).message ?? e));
@@ -138,7 +159,7 @@ export function TunerPanel() {
       if (node) node.port.onmessage = null;
       stopMic(stream);
     };
-  }, [attempt, onFreq]);
+  }, [enabled, attempt, onFreq]);
 
   const chooseTuning = (t: TuningId) => {
     setTuning(t);
@@ -157,11 +178,12 @@ export function TunerPanel() {
   return (
     <div className="mid">
       <div className="upper">
-        {mic === "denied" || mic === "error" ? (
-          <div className="micoff" role="alert">
-            <p className="read">Microphone access is off</p>
-            <p className="instr">{mic === "denied" ? "Allow the microphone for this site in the browser settings, then try again." : error}</p>
-            <button className="btn outline" onClick={() => setAttempt((a) => a + 1)}>Try again</button>
+        {mic === "idle" || mic === "denied" || mic === "missing" || mic === "unavailable" || mic === "error" ? (
+          <div className="micoff" role="status">
+            <p className="read">{mic === "idle" ? "Ready when you are" : mic === "denied" ? "Microphone permission denied" : mic === "missing" ? "No microphone found" : "Microphone unavailable"}</p>
+            <p className="instr">{mic === "idle" ? "Use your microphone to detect pitch on this device. Tuner does not record or upload your audio." : error}</p>
+            <button className="btn outline" onClick={() => { setEnabled(true); setAttempt((a) => a + 1); }}>{mic === "idle" ? "Start microphone" : "Try again"}</button>
+            {onMetronome && <p><button className="linkbtn" onClick={onMetronome}>Open Metronome without a microphone</button></p>}
           </div>
         ) : (
           <>
@@ -174,6 +196,7 @@ export function TunerPanel() {
             </div>
             <p className="read">{cents === null ? (mic === "on" ? "Play a string" : "Starting the microphone") : centsText(cents)}</p>
             <Scale cents={cents} />
+            <button className="btn outline" onClick={() => setEnabled(false)}>Stop microphone</button>
           </>
         )}
         <div className="strings" role="group" aria-label="Strings">

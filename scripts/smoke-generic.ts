@@ -681,12 +681,12 @@ async function coachWalk(browser: Browser) {
     const dlg = p1.page.getByRole("dialog", { name: "Coach" });
     const picker = dlg.locator("select.coachpick");
     const options = (await picker.locator("option").allTextContents()).join(",");
-    check(options === "Claude plan (this computer),ChatGPT plan (this computer),ChatGPT plan (signed in here),Anthropic API key,Other provider (Responses API)", `the coach picker lists the ready coaches (${options})`);
+    check(options === "Claude plan,ChatGPT host,ChatGPT sign-in,Anthropic API,Other provider", `the coach picker lists the ready coaches (${options})`);
     await shot(p1, "chat-picker");
     const say = async (provider: string, message: string) => {
       await picker.selectOption(provider);
       await dlg.locator(".composer textarea").fill(message);
-      await dlg.getByRole("button", { name: "Send" }).click();
+      await dlg.getByRole("button", { name: "Send", exact: true }).click();
       await p1.page.waitForFunction(() => !document.querySelector(".thinking") && document.querySelectorAll(".chat .msg.assistant").length > 0, null, { timeout: 20_000 });
       const calls = readFileSync(join(fakeDir, "calls.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as { argv: string[]; input?: string; CLAUDE_CONFIG_DIR: string | null });
       return { errors: await dlg.locator(".msg.error").count(), last: calls.filter((x) => x.input?.includes(message)).at(-1) };

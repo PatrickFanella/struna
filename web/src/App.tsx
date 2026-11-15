@@ -118,9 +118,12 @@ export function App() {
             ))}
           </nav>
           <span className="acts">
-            <button className="ib" aria-pressed={tool !== null} onClick={() => setTool("tuner")}>
+            <button className="ib" aria-pressed={tool === "tuner"} onClick={() => setTool("tuner")}>
               <Icon id="i-fork" />
               Tuner
+            </button>
+            <button className="ib" aria-pressed={tool === "metronome"} onClick={() => setTool("metronome")}>
+              Metronome
             </button>
             <button className="ib" aria-pressed={chat} onClick={() => setChat((c) => !c)}>
               <Icon id="i-chat" />
@@ -143,7 +146,7 @@ export function App() {
           )}
           {has("materials") && (
             <section className={`view${section === "materials" && !tool ? " on" : ""}`} aria-label="Materials">
-              <Materials active={section === "materials"} />
+              <Materials active={section === "materials"} hash={hash} />
             </section>
           )}
           {has("tabs") && (
