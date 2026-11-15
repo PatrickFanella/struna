@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { api } from "./api.ts";
+import { api, initializeAccountScope } from "./api.ts";
 import type { AppInfo } from "./generic.ts";
 
 /** What the app is until `/api/app` answers, and when it cannot be reached: the personal app as it always was. */
@@ -39,7 +39,7 @@ let pending: Promise<AppInfo> | null = loaded ? Promise.resolve(loaded) : null;
 
 /** The mode, name and sections of this server: from the page, or asked once per page load (the dev server). */
 export function loadApp(): Promise<AppInfo> {
-  pending ??= api.get<unknown>("/api/app").then(readAppInfo, () => PERSONAL).then((info) => (loaded = info));
+  pending ??= api.get<unknown>("/api/app").then(readAppInfo, () => PERSONAL).then((info) => { initializeAccountScope(info); return loaded = info; });
   return pending;
 }
 

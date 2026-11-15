@@ -15,12 +15,14 @@ const auth = createHostedAuth({ stateDir: scratch, origin, practice: hostedPract
   issuer: "https://identity.example", async begin(state) { return `https://identity.example/?state=${state}`; },
   async finish(url) { return { subject: url.searchParams.get("code")! }; },
 } });
+const embedded = !process.argv.includes("--without-bootstrap");
 const dist = resolve(import.meta.dirname, "../dist");
 const server = createServer(async (req, res) => { try {
   const url = new URL(req.url!, origin);
   if (await auth.handle(req, res, url)) return;
   if (url.pathname === "/") {
-    const html = readFileSync(join(dist, "index.html"), "utf8").replace("</head>", `<script id="app-info" type="application/json">${JSON.stringify(await auth.info(req))}</script></head>`);
+    const source = readFileSync(join(dist, "index.html"), "utf8");
+    const html = !embedded ? source : source.replace("</head>", `<script id="app-info" type="application/json">${JSON.stringify(await auth.info(req))}</script></head>`);
     res.setHeader("content-type", "text/html"); res.end(html); return;
   }
   const path = resolve(dist, "." + url.pathname);
@@ -66,11 +68,11 @@ try {
     assert.equal(await page.getByLabel("What went well", { exact: true }).inputValue(), name + " private note");
     await page.getByRole("button", { name: "Write the log", exact: true }).click();
     await page.getByRole("heading", { name: "Log written", exact: true }).waitFor();
-    const logs = await page.evaluate(async () => { const app = JSON.parse(document.getElementById("app-info")!.textContent!); return (await fetch("/api/logs", { headers: { "x-struna-session": app.session } })).json(); });
+    const logs = await page.evaluate(async () => { const app = await (await fetch("/api/app")).json(); return (await fetch("/api/logs", { headers: { "x-struna-session": app.session } })).json(); });
     assert.equal(logs.length, 1);
     assert.equal(logs[0].wentWell, name + " private note");
     players.push({ name, keys });
     await context.close();
   }
-  console.log(JSON.stringify({ scratch, players, result: "two private UI sessions restore without owner-state import" }));
+  console.log(JSON.stringify({ scratch, embedded, players, result: "two private UI sessions restore without owner-state import" }));
 } finally { await browser.close(); await new Promise<void>((r) => server.close(() => r())); auth.close(); }

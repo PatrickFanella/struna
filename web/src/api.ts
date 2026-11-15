@@ -2,7 +2,13 @@
 function bootstrap() {
   try { return JSON.parse(document.getElementById("app-info")?.textContent ?? "{}"); } catch { return {}; }
 }
-const scope = bootstrap();
+let scope = bootstrap();
+let scopeReady = typeof scope.mode === "string";
+export function initializeAccountScope(info: { mode: string; account?: string; session?: string; csrf?: string }) {
+  if (scopeReady) return;
+  scope = { ...info };
+  scopeReady = true;
+}
 let invalidated = false;
 export function invalidateAccount() { invalidated = true; }
 const scopedKey = (key: string) => scope.mode === "hosted" ? `struna.account.${scope.account ?? "anonymous"}.${key}` : key;
