@@ -369,7 +369,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
       <Workspace panes={state.panes} setPanes={(fn) => setState((s) => ({ ...s, panes: fn(s.panes) }))} materials={items} addSlot={addSlot} />
 
       <div className={`sessionbar${showTools || recording !== null || take ? " tools-visible" : ""}`}>
-        <button className="btn outline session-tools-toggle" aria-expanded={showTools} onClick={() => setShowTools(!showTools)}>Tools</button>
+        <button className="btn outline session-tools-toggle" aria-expanded={showTools || recording !== null || Boolean(take)} onClick={() => setShowTools(!showTools)}>Tools</button>
         {stage.key === "tune" && <button className="btn outline" onClick={() => openTool("tuner")}>Tuner</button>}
         <TempoRow passes={state.passes} suggestion={state.suggestion} onClean={() => log("clean")} onMiss={() => log("miss")} onApply={apply} />
         <span className="barsp" />
