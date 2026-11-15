@@ -25,6 +25,8 @@ const plan = {
     { key: "log", title: "Logging", minutes: 2, task: "Leave the next instruction." },
   ] }],
 };
+plan.sessions.push({ id: "custom-full", label: "Full", stages: [...plan.sessions[0]!.stages, { key: "song", title: "Tune practice", minutes: 10, task: "Play a tune." }] });
+plan.sessions.push({ id: "custom-short", label: "Short", stages: [plan.sessions[0]!.stages[1]!] });
 await writeFile(join(home, "plan/plan.json"), JSON.stringify(plan));
 const socket = createServer();
 await new Promise<void>((r) => socket.listen(0, "127.0.0.1", r));
@@ -49,6 +51,10 @@ try {
     const page = await context.newPage();
     await page.addInitScript((choice) => { if (choice !== "device") localStorage.setItem("struna.theme", choice); }, theme);
     await page.goto(`${base}/?token=${token}#practice`);
+    assert.match(await page.locator("#scope-custom-quick").innerText(), /Tuning · 2 min; Technique · 6 min; Logging · 2 min/);
+    assert.doesNotMatch(await page.locator("#scope-custom-quick").innerText(), /Tune practice/);
+    assert.match(await page.locator("#scope-custom-full").innerText(), /Tune practice · 10 min/);
+    assert.equal(await page.locator("#scope-custom-short").innerText(), "Technique · 6 min");
     await page.getByRole("button", { name: /^Quick/ }).click();
     await page.getByRole("button", { name: /Next stage/ }).click();
     await page.getByText("Suggested 80 BPM", { exact: false }).waitFor();
@@ -65,6 +71,16 @@ try {
     await page.getByText("Your tempo: 82 BPM", { exact: false }).waitFor();
     await page.getByRole("button", { name: "Use suggestion", exact: true }).click();
     await page.waitForFunction(() => !document.querySelector(".stage-tempo")?.textContent?.includes("Your tempo"));
+    await page.getByRole("button", { name: /Next stage/ }).click();
+    const checklist = page.getByRole("group", { name: "Session checklist (optional)" });
+    assert.equal(await checklist.getByRole("checkbox").count(), 3);
+    assert.doesNotMatch(await checklist.innerText(), /Tune practice/);
+    await checklist.getByRole("checkbox", { name: "Technique", exact: true }).check();
+    await page.reload();
+    assert.equal(await page.getByRole("checkbox", { name: "Technique", exact: true }).isChecked(), true);
+    await page.getByRole("button", { name: /Finish/ }).click();
+    assert.match(await page.locator(".greview").innerText(), /Technique — attempted/);
+    assert.doesNotMatch(await page.locator(".greview").innerText(), /Tune practice/);
     await page.screenshot({ path: join(dir, "shots", `${width}-${theme}.png`), fullPage: true });
     await context.close();
   }

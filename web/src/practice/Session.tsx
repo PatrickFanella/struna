@@ -1,3 +1,4 @@
+import { sessionChecklist, type Activity } from "./sessionScope.ts";
 import { useEffect, useRef, useState } from "react";
 
 import { api, store } from "../api.ts";
@@ -20,6 +21,9 @@ export type RecordingRef = { path: string; label: "baseline" | "weekly" | "midpo
 export type SessionState = {
   /** The session kind's id: `full` or `floor` in personal mode, the plan's own ids in studio mode. */
   kind: string;
+  stages?: Stage[];
+  addedActivities?: Activity[];
+  attemptedActivities?: string[];
   stageTempos?: Record<string, StageTempo>;
   tempoRecords?: TempoRecord[];
   cross: string | null;
@@ -133,7 +137,7 @@ export function Session({ today, state, setState, items, material, onFinish, clo
   const m = useMetronome();
   const generic = useApp().mode === "studio";
   const kind = sessionKind(today, state.kind);
-  const stages = kind.stages;
+  const stages = state.stages ?? kind.stages;
   // The coach may shorten the plan while a session runs; stay on its last stage then.
   const at = Math.min(state.stage, stages.length - 1);
   const stage = stages[at]!;
@@ -310,6 +314,16 @@ export function Session({ today, state, setState, items, material, onFinish, clo
           <div className="stagetext">
             <h1><span className="stagecount num">{at + 1}/{stages.length}</span> {stage.title}</h1>
             <Instruction key={state.stage} text={stageText} />
+            {at === stages.length - 1 && generic && <fieldset className="session-checklist">
+              <legend>Session checklist (optional)</legend>
+              <p className="srcnote">Check what you attempted. Unchecked work stays unmeasured.</p>
+              {sessionChecklist(stages, state.addedActivities).map((activity) => <label key={activity.key}>
+                <input type="checkbox" checked={state.attemptedActivities?.includes(activity.key) ?? false} onChange={(e) => {
+                  const checked = e.target.checked;
+                  setState((s) => ({ ...s, attemptedActivities: checked ? [...(s.attemptedActivities ?? []), activity.key] : (s.attemptedActivities ?? []).filter((k) => k !== activity.key) }));
+                }} /> {activity.title}
+              </label>)}
+            </fieldset>}
             {stage.material && <p className="srcnote">Material: {stage.material.label}{stage.material.missing ? " — missing; choose another resource or check the plan reference." : ""}</p>}
             {stageTempo && <p className="srcnote stage-tempo">Suggested {stageTempo.bpm} BPM · {stageTempo.source}{stageTempo.override !== undefined ? ` · Your tempo: ${m.bpm} BPM` : ""} <button className="linkbtn" onClick={() => {
               metronome.set({ bpm: stageTempo.bpm });
