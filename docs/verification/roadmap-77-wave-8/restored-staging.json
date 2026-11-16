@@ -1,0 +1,30 @@
+{
+  "/api/health": {
+    "status": 200
+  },
+  "/api/app": {
+    "status": 200,
+    "mode": "studio"
+  },
+  "/api/today": {
+    "status": 200,
+    "planReadable": true
+  },
+  "/api/materials": {
+    "status": 200
+  },
+  "/api/plan-candidates": {
+    "status": 200
+  },
+  "studioHashesUnchanged": true,
+  "databaseIntegrity": "ok",
+  "baseTablesUnchanged": {
+    "conversations": true,
+    "messages": true,
+    "plan_proposals": true,
+    "practice_clients": true,
+    "practice_revision": true,
+    "settings": true,
+    "tempos": true
+  }
+}

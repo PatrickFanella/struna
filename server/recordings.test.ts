@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile, symlink } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -52,4 +52,19 @@ test("rejects bad labels, block ids and extensions", async () => {
   assert.equal((await post("blockId=a%2Fb&label=baseline&ext=webm")).status, 400);
   assert.equal((await post("blockId=g-vocabulary-nine-pound-hammer-01&label=baseline&ext=sh")).status, 400);
   assert.equal((await post("blockId=g-vocabulary-nine-pound-hammer-01&label=baseline&ext=webm", "")).status, 400);
+});
+
+test("saved owner takes return playable range URLs without exposing arbitrary media paths", async () => {
+  const saved = await post("blockId=playback-check&label=final&ext=webm", "0123456789");
+  const { path, src } = await saved.json();
+  assert.equal(new URL(src,base).searchParams.get("path"),path);
+  const full = await fetch(base+src); assert.equal(full.status,200);assert.equal(full.headers.get("content-type"),"audio/webm");assert.equal(await full.text(),"0123456789");
+  const range = await fetch(base+src,{headers:{range:"bytes=2-5"}});assert.equal(range.status,206);assert.equal(await range.text(),"2345");
+  const head=await fetch(base+src,{method:"HEAD"});assert.equal(head.status,200);assert.equal(await head.text(),"");
+  for(const path of ["../private.webm","profile.json","Recordings/../private.webm","Recordings/playback-check/../../private.webm","Recordings/playback-check/2026-11-16-final.json"]){
+    assert.equal((await fetch(base+"/api/recordings/file?path="+encodeURIComponent(path))).status,404);
+  }
+  await writeFile(join(tmp,"outside.webm"),"OUTSIDE");
+  await symlink(join(tmp,"outside.webm"),join(tmp,"media/Recordings/playback-check/2026-11-16-baseline.webm"));
+  assert.ok((await fetch(base+"/api/recordings/file?path="+encodeURIComponent("Recordings/playback-check/2026-11-16-baseline.webm"))).status>=400);
 });
