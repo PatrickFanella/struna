@@ -1,0 +1,24 @@
+{
+  "input": "original generated 82.406889 Hz E2 WAV through Chromium fake capture",
+  "physicalMicrophone": false,
+  "humanAudibility": false,
+  "tuner": "E\n2",
+  "captureReleased": true,
+  "metronome": {
+    "duration": 2.5199773242630386,
+    "peak": 0.5807846784591675,
+    "rms": 0.02475442315314997,
+    "bytes": 22478,
+    "codec": "audio/webm;codecs=opus"
+  },
+  "take": {
+    "time": 0.319477,
+    "duration": 1.8,
+    "paused": false,
+    "error": null
+  },
+  "takeSavedInScratch": true,
+  "browserPermissionDenied": true,
+  "pageErrors": [],
+  "browser": "156.0.8078.79"
+}
