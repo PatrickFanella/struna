@@ -409,6 +409,12 @@
   },
   {
     "source": "recordings.ts",
+    "method": "GET",
+    "path": "/api/recordings/file",
+    "hosted": "account"
+  },
+  {
+    "source": "recordings.ts",
     "method": "POST",
     "path": "/api/recordings",
     "hosted": "account"

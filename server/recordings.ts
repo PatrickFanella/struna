@@ -7,7 +7,7 @@ import { sendFile } from "./library/media.ts";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, open, unlink } from "node:fs/promises";
 import type { IncomingMessage } from "node:http";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 
 import { HttpError, route, send } from "./http.ts";
 import { localDate } from "./logs.ts";
@@ -50,6 +50,13 @@ async function writeBody(req: IncomingMessage, path: string): Promise<number> {
 }
 
 export function recordingRoutes(opts: { mediaRoot: string; timeZone: string }): void {
+  route("GET", "/api/recordings/file", async (req, res, { url }) => {
+    const path = url.searchParams.get("path") ?? "";
+    // Only generated take names are eligible. Never turn this into a general media-root reader.
+    if (!/^Recordings\/[a-z0-9][a-z0-9-]{0,100}\/\d{4}-\d{2}-\d{2}-(?:baseline|weekly|midpoint|final)(?:-[1-9][0-9]*)?\.(?:webm|m4a|ogg)$/.test(path)) throw new HttpError(404, "Take not found");
+    const type = extname(path) === ".m4a" ? "audio/mp4" : `audio/${extname(path).slice(1)}`;
+    await sendFile(req, res, await resolveInside(opts.mediaRoot, path), type);
+  });
   route("POST", "/api/recordings", async (req, res, { url }) => {
     const blockId = url.searchParams.get("blockId") ?? "";
     const label = url.searchParams.get("label") ?? "";
@@ -69,7 +76,8 @@ export function recordingRoutes(opts: { mediaRoot: string; timeZone: string }): 
       await unlink(path).catch(() => {});
       throw e;
     }
-    send(res, 200, { path: `${rel}/${name}` });
+    const relative = `${rel}/${name}`;
+    send(res, 200, { path: relative, src: `/api/recordings/file?path=${encodeURIComponent(relative)}` });
   });
 }
 

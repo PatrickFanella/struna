@@ -1,4 +1,4 @@
-/** Offline manual qualification fixture for #29. Never opens an existing scratch directory.
+/** Offline Studio fixture for current #110 checks (originally built for historical #29). Never opens an existing scratch directory.
  * pnpm build; PORT=5410 node scripts/qualification-studio.ts [new-scratch-directory]
  * Uses a public, fixed test token and offline Coach stand-ins. Do not add personal data or credentials.
  */
@@ -18,7 +18,7 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("POR
 const profile = normalizeProfile({ name: "Qualification fixture", level: "intermediate" }, new Date().toISOString());
 await writeFile(join(home, "profile.json"), JSON.stringify(profile, null, 2));
 await writeFile(join(home, "materials/roll.md"), "# Baseline roll\n\n## Listen for even notes\n\n```text\ne|------0---|\nB|----0---0-|\nG|--0-------|\nD|----------|\nA|----------|\nE|----------|\n```\n" + "\nReading-position fixture.\n".repeat(60));
-await writeFile(join(home, "materials/tune.md"), "# Black Mountain Rag\n\nSkip this tune in the partial-session check; its BPM must remain blank.\n");
+await writeFile(join(home, "materials/tune.md"), "# Two-note phrase\n\nSkip this tune in the partial-session check; its BPM must remain blank.\n");
 const tune = { key: "tuning", title: "Tuning", minutes: 2, task: "Tune deliberately; microphone starts only when requested." };
 const roll = { key: "technique", title: "Technique", minutes: 6, task: "Play the baseline roll with even notes.", material: { file: "materials/roll.md" }, targetBpm: 80 };
 const song = { key: "song", title: "Tune practice", minutes: 10, task: "Play a short phrase.", material: { file: "materials/tune.md" }, targetBpm: 96 };
@@ -26,7 +26,7 @@ const log = { key: "logging", title: "Logging", minutes: 2, task: "Confirm only 
 const plan = {
   version: 1, id: "ux-qualification", title: "Offline qualification fixture", started: "2026-01-01", goal: "Keep roll and tune measurements separate", next: "Tune, then play the roll", extras: [],
   phases: [{ title: "Qualification", summary: "Scratch data only", sessions: 100, focus: {} }],
-  materials: [{ label: "Baseline roll", file: "materials/roll.md" }, { label: "Black Mountain Rag", file: "materials/tune.md" }],
+  materials: [{ label: "Baseline roll", file: "materials/roll.md" }, { label: "Two-note phrase", file: "materials/tune.md" }],
   sessions: [{ id: "full", label: "Full", stages: [tune, roll, song, log] }, { id: "short", label: "Short", stages: [roll, log] }, { id: "quick", label: "Quick", stages: [tune, roll, log] }],
 };
 await writeFile(join(home, "plan/plan.json"), JSON.stringify(plan, null, 2));

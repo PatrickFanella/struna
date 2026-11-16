@@ -8,7 +8,7 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,6 +27,8 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: node node_modules/playwright-core/cli.js install --with-deps chromium
+      - run: node scripts/verify-wave-8.ts /tmp/struna-wave8-journey-evidence
+      - run: node scripts/verify-audio-path.ts /tmp/struna-wave8-audio-evidence
       - run: node scripts/verify-visual-system.ts /tmp/struna-visual-evidence
       - run: node scripts/verify-practice-layout.ts /tmp/struna-reading-evidence
       - run: node scripts/verify-delete-account.ts /tmp/struna-delete-evidence
@@ -45,6 +47,8 @@ jobs:
         with:
           name: visual-system-evidence
           path: |
+            /tmp/struna-wave8-journey-evidence
+            /tmp/struna-wave8-audio-evidence
             /tmp/struna-visual-evidence
             /tmp/struna-reading-evidence
             /tmp/struna-help-evidence
