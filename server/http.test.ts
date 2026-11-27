@@ -33,6 +33,14 @@ test("guard checks Remote-User on the public host when requireUser is set", () =
   assert.equal(status(() => guard(req({ host: "localhost:5182" }), opts)), undefined);
 });
 
+test("guard accepts any user in a comma-separated requireUser", () => {
+  const opts = { allowedHosts: new Set([...hosts.allowedHosts, "guitar.subcult.tv"]), requireUser: "onnwee, patrick" };
+  assert.equal(status(() => guard(req({ host: "guitar.subcult.tv", "remote-user": "onnwee" }), opts)), undefined);
+  assert.equal(status(() => guard(req({ host: "guitar.subcult.tv", "remote-user": "patrick" }), opts)), undefined);
+  assert.equal(status(() => guard(req({ host: "guitar.subcult.tv", "remote-user": "mallory" }), opts)), 403);
+  assert.equal(status(() => guard(req({ host: "guitar.subcult.tv", "remote-user": "" }), opts)), 403);
+});
+
 test("send sets the noindex header", () => {
   const headers: Record<string, unknown> = {};
   const res = {

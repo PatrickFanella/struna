@@ -64,7 +64,7 @@ The API listens on `127.0.0.1:5182` and Vite on `127.0.0.1:5183`. Open the API's
 | `HOST`, `PORT` | `127.0.0.1`, `5182` | TCP listener. |
 | `SOCKET_PATH` | None | Use an owner-only Unix socket instead of TCP. |
 | `ALLOWED_HOSTS` | Loopback host names | Additional accepted host names, separated by commas. |
-| `REQUIRE_USER` | None | Require the matching `Remote-User` header from an authenticated reverse proxy. |
+| `REQUIRE_USER` | None | Require a matching `Remote-User` header from an authenticated reverse proxy. Separate several accounts of the same owner with commas. |
 | `EDGE_SECRET_FILE` | None | File containing the shared proxy secret. When set, every request must carry the matching `X-Edge-Secret`. |
 | `CLAUDE_BIN`, `CODEX_BIN` | `claude`, `codex` | Coach executables. Point `CODEX_BIN` at the real binary if install discovery fails. |
 | `CLAUDE_MODEL`, `CODEX_MODEL` | CLI defaults | Model overrides for local CLI coaches. |
