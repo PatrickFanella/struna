@@ -14,7 +14,7 @@ const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /**
  * Reject requests for unknown hosts and, when `requireUser` is set, requests Authelia did
- * not sign in as that user. With `edgeSecret` (production) every request must also carry the
+ * not sign in as one of its comma-separated users. With `edgeSecret` (production) every request must also carry the
  * secret Caddy adds; without it (development) loopback host names are trusted.
  */
 export function guard(req: IncomingMessage, opts: { allowedHosts: Set<string>; requireUser?: string | undefined; edgeSecret?: string | undefined }): void {
@@ -25,7 +25,11 @@ export function guard(req: IncomingMessage, opts: { allowedHosts: Set<string>; r
     // any Host. Caddy adds this secret after Authelia, so every request must carry it, whatever the Host.
     if (!same(req.headers["x-edge-secret"], opts.edgeSecret)) throw new HttpError(403, "not from the edge");
   } else if (LOOPBACK.has(host)) return; // Development on loopback TCP.
-  if (opts.requireUser && req.headers["remote-user"] !== opts.requireUser) throw new HttpError(403, "user not allowed");
+  if (opts.requireUser && !allowedUser(req.headers["remote-user"], opts.requireUser)) throw new HttpError(403, "user not allowed");
+}
+
+function allowedUser(got: string | string[] | undefined, list: string): boolean {
+  return typeof got === "string" && got !== "" && list.split(",").map((u) => u.trim()).includes(got);
 }
 
 function same(got: string | string[] | undefined, want: string): boolean {
